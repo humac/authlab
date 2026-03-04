@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { getAppUrl } from "@/lib/app-url";
 
 export default async function TestPage({
   params,
@@ -17,7 +18,7 @@ export default async function TestPage({
   }
 
   const callbackType = app.protocol === "OIDC" ? "oidc" : "saml";
-  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/callback/${callbackType}`;
+  const callbackUrl = `${getAppUrl()}/api/auth/callback/${callbackType}`;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">

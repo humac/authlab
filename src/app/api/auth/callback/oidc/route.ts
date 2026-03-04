@@ -3,8 +3,9 @@ import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { OIDCHandler } from "@/lib/oidc-handler";
 import { getState } from "@/lib/state-store";
 import { getAppSession } from "@/lib/session";
+import { getAppUrl } from "@/lib/app-url";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const APP_URL = getAppUrl();
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
