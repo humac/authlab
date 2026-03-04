@@ -13,8 +13,7 @@ async function createPrismaClient(): Promise<PrismaClient> {
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new PrismaClient({ adapter, datasourceUrl: process.env.TURSO_DATABASE_URL } as any);
+    return new PrismaClient({ adapter });
   } else {
     const { PrismaBetterSqlite3 } = await import(
       "@prisma/adapter-better-sqlite3"
