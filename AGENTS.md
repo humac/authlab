@@ -40,9 +40,9 @@
 
 **Testing Protocol**:
 1. Configure a test OIDC provider (Google, Auth0 dev tenant) via the stepper UI
-2. Register `http://localhost:3000/api/auth/callback/oidc` as redirect URI in the IdP
+2. Register `{NEXT_PUBLIC_APP_URL}/api/auth/callback/oidc` as redirect URI in the IdP
 3. Click "Login with OIDC" on the test page — should redirect to IdP and back to inspector
-4. For SAML, use an IdP like Okta with `http://localhost:3000/api/auth/callback/saml` as ACS URL
+4. For SAML, use an IdP like Okta with `{NEXT_PUBLIC_APP_URL}/api/auth/callback/saml` as ACS URL
 
 ### UI/Frontend Developer
 
@@ -67,18 +67,35 @@
 
 **Focus Areas**:
 - Prisma schema in `prisma/schema.prisma` — AppInstance model, Protocol enum
-- Prisma config in `prisma.config.ts` — datasource URL, migration settings
-- Repository layer in `src/repositories/app-instance.repo.ts` — CRUD with encryption
+- Prisma config in `prisma.config.ts` — datasource URL (always local SQLite for CLI)
+- Database client in `src/lib/db.ts` — async `getPrisma()` with dual adapter pattern
+- Repository layer in `src/repositories/app-instance.repo.ts` — CRUD with encryption, uses `await getPrisma()`
 - API routes in `src/app/api/apps/` — REST endpoints with Zod validation
 - Validation schemas in `src/lib/validators.ts` — discriminated unions for OIDC/SAML
 
 **Database Notes**:
-- Prisma 7 requires driver adapters — uses `@prisma/adapter-better-sqlite3`
-- Generated client at `src/generated/prisma/client/` — NOT committed to git
-- After schema changes: `npx prisma db push && npx prisma generate`
+- **Local**: Prisma 7 + `@prisma/adapter-better-sqlite3` driver adapter, SQLite file at `./dev.db`
+- **Production**: Prisma 7 + `@prisma/adapter-libsql` for Turso (SQLite-compatible edge database on Vercel)
+- `db.ts` exports `getPrisma()` (async) — dynamically imports the correct adapter based on `TURSO_DATABASE_URL` env var
+- Generated client at `src/generated/prisma/client/` — NOT committed to git, auto-generated on `npm install`
+- `prisma.config.ts` always uses local SQLite (`DATABASE_URL` or `file:./dev.db` fallback) for CLI commands
+- Prisma CLI does NOT support `libsql://` URLs — use `prisma migrate diff` + `turso db shell` for production schema changes
 - `clientSecret` and `idpCert` are AES-256-GCM encrypted; encryption/decryption happens only in the repository layer
+- `next.config.ts` externalizes `better-sqlite3` via `serverExternalPackages` (native module, incompatible with Vercel bundling)
 
 ## Development Workflow
+
+### Schema Changes
+
+1. Edit `prisma/schema.prisma`
+2. Run `npx prisma db push` to apply to local SQLite
+3. Run `npx prisma generate` to regenerate client
+4. For production (Turso):
+   ```bash
+   npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
+   turso db shell authlab < migration.sql
+   ```
+5. Deploy to Vercel (auto-runs `prisma generate` via postinstall)
 
 ### Adding a New Protocol
 
@@ -103,3 +120,5 @@
 - **Reset database**: Delete `dev.db` and run `npx prisma db push`
 - **Update schema**: Edit `prisma/schema.prisma`, then `npx prisma db push && npx prisma generate`
 - **Add a dependency**: `npm install <package>` — check Prisma 7 compatibility for database-related packages
+- **Deploy**: Push to `main` branch — Vercel auto-deploys via GitHub integration
+- **Set Vercel env vars**: Use `printf 'value' | vercel env add NAME production` (not `echo`, to avoid trailing newlines)

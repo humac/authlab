@@ -1,36 +1,204 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AuthLab — Multi-Tenant Auth Testing Workbench
 
-## Getting Started
+A developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. Configure an identity provider, authenticate, and inspect the resulting claims, raw tokens/assertions, and JWT breakdowns — all from a single workbench.
 
-First, run the development server:
+**Live**: [authlab-snowy.vercel.app](https://authlab-snowy.vercel.app)
+
+## Features
+
+- **Dynamic Provider Registry** — Create multiple OIDC or SAML app instances, each with its own slug-based URL
+- **Isolated Sessions** — Each tenant gets its own encrypted cookie (`authlab_{slug}`), so you can test multiple providers simultaneously
+- **Inspector Page** — Decoded claims table, raw JSON/XML view with copy, JWT header/payload/signature breakdown (OIDC)
+- **Global Callback Routing** — One callback URL per protocol; state/RelayState maps back to the correct tenant
+- **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
+- **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, TypeScript, Tailwind CSS v4) |
+| Database (local) | SQLite via Prisma 7 + `@prisma/adapter-better-sqlite3` |
+| Database (production) | Turso (libSQL) via Prisma 7 + `@prisma/adapter-libsql` |
+| OIDC | `openid-client` v6 (dynamic discovery, PKCE) |
+| SAML | `@node-saml/node-saml` v5 (standalone, no Passport) |
+| Sessions | `iron-session` (encrypted cookies, dynamic names) |
+| Encryption | AES-256-GCM (Node.js `crypto`) |
+| Validation | Zod v4 (discriminated unions) |
+| Hosting | Vercel + Turso |
+
+## Local Development Setup
+
+### Prerequisites
+
+- **Node.js** >= 20
+- **npm** >= 10
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/humac/authlab.git
+cd authlab
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+This also runs `prisma generate` automatically (via the `postinstall` script), which generates the Prisma client at `src/generated/prisma/client/`.
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and generate secret keys:
+
+```bash
+# Generate a 64-character hex string for ENCRYPTION_KEY
+openssl rand -hex 32
+
+# Generate a 64-character hex string for SESSION_PASSWORD
+openssl rand -hex 32
+```
+
+Your `.env` should look like:
+
+```env
+DATABASE_URL="file:./dev.db"
+ENCRYPTION_KEY="<your-64-char-hex-string>"
+SESSION_PASSWORD="<your-64-char-hex-string>"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+The `TURSO_*` variables are only needed for production — leave them commented out for local development.
+
+### 4. Create the database
+
+```bash
+npx prisma db push
+```
+
+This creates a `dev.db` SQLite file in the project root with the `AppInstance` table.
+
+### 5. Start the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab dashboard with a "Create Your First App" prompt.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 6. Create a test app instance
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Click **Create Your First App** (or **Create New** in the sidebar)
+2. Choose **OIDC** or **SAML**
+3. Fill in your identity provider's configuration:
+   - **OIDC**: Issuer URL, Client ID, Client Secret
+   - **SAML**: SSO Entry Point URL, Issuer/Entity ID, IdP Certificate
+4. Set a name and slug (auto-generated from name)
+5. Review and create
 
-## Learn More
+### 7. Register callback URLs with your IdP
 
-To learn more about Next.js, take a look at the following resources:
+Register these callback URLs in your identity provider's configuration:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **OIDC**: `http://localhost:3000/api/auth/callback/oidc`
+- **SAML**: `http://localhost:3000/api/auth/callback/saml`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 8. Test the auth flow
 
-## Deploy on Vercel
+1. Click **Test** on your app instance card
+2. Click the **Login with OIDC/SAML** button
+3. Authenticate at your IdP
+4. View the inspector page with decoded claims, raw data, and JWT breakdown
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Production Build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+npm start
+```
+
+## Production Deployment (Vercel + Turso)
+
+AuthLab is deployed on Vercel with Turso as the production database (SQLite-compatible, works in serverless environments).
+
+### Database Setup
+
+1. Install the Turso CLI and create a database:
+   ```bash
+   brew install tursodatabase/tap/turso
+   turso auth login
+   turso db create authlab
+   turso db tokens create authlab
+   ```
+
+2. Push the schema to Turso:
+   ```bash
+   npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > migration.sql
+   turso db shell authlab < migration.sql
+   ```
+
+### Vercel Configuration
+
+Set environment variables on Vercel using `printf` (not `echo`, which adds trailing newlines that break auth tokens):
+
+```bash
+printf 'libsql://your-db.turso.io' | vercel env add TURSO_DATABASE_URL production
+printf 'your-turso-auth-token' | vercel env add TURSO_AUTH_TOKEN production
+printf 'file:/tmp/dummy.db' | vercel env add DATABASE_URL production
+printf 'your-64-char-hex-key' | vercel env add ENCRYPTION_KEY production
+printf 'your-64-char-hex-password' | vercel env add SESSION_PASSWORD production
+printf 'https://your-app.vercel.app' | vercel env add NEXT_PUBLIC_APP_URL production
+```
+
+Deploy:
+```bash
+vercel --prod
+```
+
+### Schema Changes in Production
+
+Prisma CLI doesn't support `libsql://` URLs. After editing `prisma/schema.prisma`:
+
+```bash
+# Apply locally
+npx prisma db push
+
+# Generate migration SQL for Turso
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
+
+# Apply to Turso
+turso db shell authlab < migration.sql
+
+# Push to deploy
+git add . && git commit -m "update schema" && git push
+```
+
+## Project Structure
+
+```
+authlab/
+├── prisma/
+│   └── schema.prisma           # Data model (AppInstance + Protocol enum)
+├── prisma.config.ts            # Prisma 7 config (always uses local SQLite for CLI)
+├── next.config.ts              # Next.js config (serverExternalPackages for native modules)
+├── src/
+│   ├── app/                    # Next.js App Router pages and API routes
+│   ├── lib/                    # Core libraries (auth, encryption, session, DB)
+│   ├── repositories/           # Data access layer with transparent encryption
+│   ├── components/             # React components (ui, layout, apps, inspector)
+│   ├── types/                  # TypeScript interfaces
+│   └── generated/              # Prisma-generated client (not committed)
+├── CLAUDE.md                   # AI assistant context
+├── AGENTS.md                   # Agent role definitions
+└── .env.example                # Environment variable template
+```
+
+## License
+
+MIT
