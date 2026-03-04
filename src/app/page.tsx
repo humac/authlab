@@ -3,6 +3,8 @@ import { listAppInstances } from "@/repositories/app-instance.repo";
 import { Button } from "@/components/ui/Button";
 import { Dashboard } from "@/components/apps/Dashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const apps = await listAppInstances();
 
