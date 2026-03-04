@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model AppInstance {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  protocol     Protocol
+
+  // OIDC Specific Fields
+  issuerUrl    String?
+  clientId     String?
+  clientSecret String? // Encrypted at rest (AES-256-GCM)
+  scopes       String? @default("openid profile email")
+
+  // SAML Specific Fields
+  entryPoint   String? // Identity Provider Single Sign-On URL
+  issuer       String? // Service Provider Entity ID
+  idpCert      String? // The IDP Public Certificate — encrypted at rest
+
+  // UI Customization
+  buttonColor  String? @default("#3B71CA")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum Protocol {
+  OIDC
+  SAML
+}

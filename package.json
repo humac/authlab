@@ -1,5 +1,5 @@
 {
-  "name": "authlab-init",
+  "name": "authlab",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@node-saml/node-saml": "^5.1.0",
+    "@prisma/adapter-better-sqlite3": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.3.1",
+    "iron-session": "^8.0.4",
     "next": "16.1.6",
+    "openid-client": "^6.8.2",
+    "prisma": "^7.4.2",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "tw-elements-react": "^1.0.0-alpha-end",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
