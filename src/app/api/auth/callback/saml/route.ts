@@ -3,9 +3,8 @@ import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { SAMLHandler } from "@/lib/saml-handler";
 import { getState } from "@/lib/state-store";
 import { getAppSession } from "@/lib/session";
-import { getAppUrl } from "@/lib/app-url";
 
-const APP_URL = getAppUrl();
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function POST(request: Request) {
   const formData = await request.formData();

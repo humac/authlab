@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { createAuthHandler } from "@/lib/auth-factory";
 import { setState } from "@/lib/state-store";
-import { getAppUrl } from "@/lib/app-url";
 
-const APP_URL = getAppUrl();
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function GET(
   _request: Request,
