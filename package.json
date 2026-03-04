@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "@node-saml/node-saml": "^5.1.0",
     "@prisma/adapter-better-sqlite3": "^7.4.2",
+    "@prisma/adapter-libsql": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "better-sqlite3": "^12.6.2",
     "dotenv": "^17.3.1",
