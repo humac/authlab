@@ -2,6 +2,17 @@ import * as client from "openid-client";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import type { AuthHandler, AuthorizationResult, AuthResult } from "./auth-factory";
 
+type OIDCIssuerComparisonCause = {
+  body?: {
+    issuer?: string;
+  };
+};
+
+type OIDCIssuerComparisonError = {
+  code?: string;
+  cause?: OIDCIssuerComparisonCause;
+};
+
 export class OIDCHandler implements AuthHandler {
   private appInstance: DecryptedAppInstance;
 
@@ -9,12 +20,90 @@ export class OIDCHandler implements AuthHandler {
     this.appInstance = appInstance;
   }
 
-  async getAuthorizationUrl(callbackUrl: string): Promise<AuthorizationResult> {
+  private getNormalizedIssuerUrl(): URL {
+    const issuer = new URL(this.appInstance.issuerUrl!.trim());
+
+    // Preserve explicit discovery document URLs as-is.
+    if (issuer.pathname.includes("/.well-known/")) {
+      return issuer;
+    }
+
+    // Avoid mismatches caused only by trailing slash differences.
+    const normalizedPath = issuer.pathname.replace(/\/+$/, "");
+    issuer.pathname = normalizedPath === "" ? "/" : normalizedPath;
+
+    return issuer;
+  }
+
+  private isIssuerComparisonError(
+    error: unknown,
+  ): error is OIDCIssuerComparisonError {
+    if (!error || typeof error !== "object") {
+      return false;
+    }
+
+    return (
+      "code" in error &&
+      (error as OIDCIssuerComparisonError).code ===
+        "OAUTH_JSON_ATTRIBUTE_COMPARISON_FAILED"
+    );
+  }
+
+  private getDiscoveredIssuerUrl(error: OIDCIssuerComparisonError): URL | null {
+    const discoveredIssuer = error.cause?.body?.issuer;
+
+    if (!discoveredIssuer) {
+      return null;
+    }
+
+    try {
+      return new URL(discoveredIssuer);
+    } catch {
+      return null;
+    }
+  }
+
+  private async runDiscovery(issuerUrl: URL): Promise<client.Configuration> {
     const config = await client.discovery(
-      new URL(this.appInstance.issuerUrl!),
+      issuerUrl,
       this.appInstance.clientId!,
       this.appInstance.clientSecret!,
     );
+
+    if (issuerUrl.protocol === "http:") {
+      client.allowInsecureRequests(config);
+    }
+
+    return config;
+  }
+
+  private async getOIDCConfiguration(): Promise<client.Configuration> {
+    const issuerUrl = this.getNormalizedIssuerUrl();
+
+    try {
+      return await this.runDiscovery(issuerUrl);
+    } catch (error) {
+      if (!this.isIssuerComparisonError(error)) {
+        throw error;
+      }
+
+      const discoveredIssuerUrl = this.getDiscoveredIssuerUrl(error);
+      if (
+        discoveredIssuerUrl &&
+        discoveredIssuerUrl.origin === issuerUrl.origin &&
+        discoveredIssuerUrl.href !== issuerUrl.href
+      ) {
+        return this.runDiscovery(discoveredIssuerUrl);
+      }
+
+      throw new Error(
+        `OIDC issuer mismatch: configured issuer "${issuerUrl.href}" does not match provider metadata issuer "${discoveredIssuerUrl?.href ?? "unknown"}". Update the app's Issuer URL to the exact issuer value from the provider metadata.`,
+      );
+    }
+  }
+
+  async getAuthorizationUrl(callbackUrl: string): Promise<AuthorizationResult> {
+    const config = await this.getOIDCConfiguration();
 
     const codeVerifier = client.randomPKCECodeVerifier();
     const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
@@ -28,11 +117,6 @@ export class OIDCHandler implements AuthHandler {
       state,
     };
 
-    // Allow HTTP for localhost development
-    if (this.appInstance.issuerUrl!.startsWith("http://")) {
-      client.allowInsecureRequests(config);
-    }
-
     const url = client.buildAuthorizationUrl(config, parameters);
 
     return { url: url.toString(), state, codeVerifier };
@@ -43,15 +127,7 @@ export class OIDCHandler implements AuthHandler {
     codeVerifier: string,
     expectedState: string,
   ): Promise<AuthResult> {
-    const config = await client.discovery(
-      new URL(this.appInstance.issuerUrl!),
-      this.appInstance.clientId!,
-      this.appInstance.clientSecret!,
-    );
-
-    if (this.appInstance.issuerUrl!.startsWith("http://")) {
-      client.allowInsecureRequests(config);
-    }
+    const config = await this.getOIDCConfiguration();
 
     const tokens = await client.authorizationCodeGrant(config, currentUrl, {
       pkceCodeVerifier: codeVerifier,
