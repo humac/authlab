@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getPrisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -15,17 +14,26 @@ export async function GET() {
     nodeEnv: process.env.NODE_ENV,
   };
 
+  // Test 1: Raw libSQL client connection
   try {
-    const prisma = await getPrisma();
-    const count = await prisma.appInstance.count();
-    return NextResponse.json({ ...envInfo, dbConnected: true, appCount: count });
+    const { createClient } = await import("@libsql/client");
+    const client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN!,
+    });
+    const result = await client.execute("SELECT COUNT(*) as cnt FROM AppInstance");
+    return NextResponse.json({
+      ...envInfo,
+      rawLibsqlConnected: true,
+      count: result.rows[0]?.cnt,
+    });
   } catch (e: unknown) {
     const error = e as Error;
     return NextResponse.json({
       ...envInfo,
-      dbConnected: false,
-      error: error.message,
-      errorName: error.constructor.name,
+      rawLibsqlConnected: false,
+      rawError: error.message,
+      rawErrorStack: error.stack?.split("\n").slice(0, 5),
     }, { status: 500 });
   }
 }
