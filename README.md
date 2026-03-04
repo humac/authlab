@@ -72,6 +72,8 @@ DATABASE_URL="file:./dev.db"
 ENCRYPTION_KEY="<your-64-char-hex-string>"
 SESSION_PASSWORD="<your-64-char-hex-string>"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+SAML_SP_PRIVATE_KEY=""
+SAML_SP_PUBLIC_CERT=""
 ```
 
 The `TURSO_*` variables are only needed for production — leave them commented out for local development.
@@ -99,6 +101,7 @@ Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab
 3. Fill in your identity provider's configuration:
    - **OIDC**: Issuer URL, Client ID, Client Secret
    - **SAML**: SSO Entry Point URL, Issuer/Entity ID, IdP Certificate
+   - **SAML Shortcut**: Use **Import IdP Metadata** to parse XML or fetch metadata from URL and apply values
 4. Set a name and slug (auto-generated from name)
 5. Review and create
 
@@ -109,7 +112,21 @@ Register these callback URLs in your identity provider's configuration:
 - **OIDC**: `http://localhost:3000/api/auth/callback/oidc`
 - **SAML**: `http://localhost:3000/api/auth/callback/saml`
 
-### 8. Test the auth flow
+### 8. SAML metadata export (Service Provider metadata)
+
+For each SAML app, AuthLab exposes:
+
+- Unsigned metadata: `http://localhost:3000/api/saml/metadata/{slug}`
+- Signed metadata: `http://localhost:3000/api/saml/metadata/{slug}?signed=true`
+
+The signed endpoint requires:
+
+- `SAML_SP_PRIVATE_KEY` (PEM private key)
+- `SAML_SP_PUBLIC_CERT` (matching PEM public certificate)
+
+If these variables are not set, unsigned metadata still works and the signed metadata endpoint returns `400`.
+
+### 9. Test the auth flow
 
 1. Click **Test** on your app instance card
 2. Click the **Login with OIDC/SAML** button
@@ -154,6 +171,28 @@ printf 'file:/tmp/dummy.db' | vercel env add DATABASE_URL production
 printf 'your-64-char-hex-key' | vercel env add ENCRYPTION_KEY production
 printf 'your-64-char-hex-password' | vercel env add SESSION_PASSWORD production
 printf 'https://your-app.vercel.app' | vercel env add NEXT_PUBLIC_APP_URL production
+```
+
+### Optional: Signed SAML metadata setup
+
+Only needed if you want `?signed=true` metadata export.
+
+Generate an SP key pair:
+
+```bash
+openssl genrsa -out saml-sp-private-key.pem 2048
+openssl req -new -x509 \
+  -key saml-sp-private-key.pem \
+  -sha256 -days 3650 \
+  -subj "/CN=authlab.keydatalabs.ca/O=KeyDataLabs/C=CA" \
+  -out saml-sp-public-cert.pem
+```
+
+Add signing env vars to Vercel:
+
+```bash
+cat saml-sp-private-key.pem | vercel env add SAML_SP_PRIVATE_KEY production
+cat saml-sp-public-cert.pem | vercel env add SAML_SP_PUBLIC_CERT production
 ```
 
 Deploy:
