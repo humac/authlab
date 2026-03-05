@@ -20,10 +20,7 @@ export default async function TestPage({
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const callbackType = app.protocol === "OIDC" ? "oidc" : "saml";
-  const callbackUrl =
-    app.protocol === "OIDC"
-      ? `${appUrl}/api/auth/callback/${callbackType}/${app.slug}`
-      : `${appUrl}/api/auth/callback/${callbackType}`;
+  const callbackUrl = `${appUrl}/api/auth/callback/${callbackType}/${app.slug}`;
   const unsignedMetadataUrl =
     app.protocol === "SAML" ? `${appUrl}/api/saml/metadata/${slug}` : null;
   const signedMetadataUrl =

@@ -31,7 +31,7 @@
 - OIDC flow in `src/lib/oidc-handler.ts` — issuer discovery, PKCE, authorization code grant, token extraction
 - SAML flow in `src/lib/saml-handler.ts` — SP configuration, assertion validation, attribute extraction
 - Auth factory in `src/lib/auth-factory.ts` — handler interface, protocol routing
-- Callback routes in `src/app/api/auth/callback/` — state lookup, token exchange, session persistence
+- Callback routes in `src/app/api/auth/callback/` — per-app OIDC callback (`oidc/[slug]`) + per-app SAML callback (`saml/[slug]`)
 - Login initiation in `src/app/test/[slug]/login/route.ts` — dynamic redirect construction
 
 **Key Libraries**:
@@ -40,9 +40,9 @@
 
 **Testing Protocol**:
 1. Configure a test OIDC provider (Google, Auth0 dev tenant) via the stepper UI
-2. Register `{NEXT_PUBLIC_APP_URL}/api/auth/callback/oidc` as redirect URI in the IdP
+2. Register `{NEXT_PUBLIC_APP_URL}/api/auth/callback/oidc/{slug}` as redirect URI in the IdP for that app
 3. Click "Login with OIDC" on the test page — should redirect to IdP and back to inspector
-4. For SAML, use an IdP like Okta with `{NEXT_PUBLIC_APP_URL}/api/auth/callback/saml` as ACS URL
+4. For SAML, use an IdP like Okta with `{NEXT_PUBLIC_APP_URL}/api/auth/callback/saml/{slug}` as ACS URL
 
 ### UI/Frontend Developer
 
