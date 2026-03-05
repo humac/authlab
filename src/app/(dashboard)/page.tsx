@@ -36,6 +36,7 @@ export default async function HomePage() {
         </Link>
       </div>
       <Dashboard
+        key={user.activeTeamId}
         initialApps={apps}
         team={{
           id: user.activeTeamId,
