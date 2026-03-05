@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     ["POST", "PUT", "DELETE"].includes(request.method)
   ) {
     // Allow SAML callback (IdP POST) and form submissions
-    const isSamlCallback = pathname === "/api/auth/callback/saml";
+    const isSamlCallback = pathname.startsWith("/api/auth/callback/saml");
     if (!isSamlCallback) {
       const contentType = request.headers.get("content-type") || "";
       const origin = request.headers.get("origin");

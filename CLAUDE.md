@@ -50,7 +50,7 @@ src/
 ├── app/                      # Next.js App Router pages and routes
 │   ├── api/apps/             # CRUD REST API for app instances
 │   │   └── [id]/transfer/    # Cross-team app move/copy endpoint
-│   ├── api/auth/callback/    # Global OIDC + SAML callback handlers
+│   ├── api/auth/callback/    # OIDC + SAML per-app callbacks (`oidc/[slug]`, `saml/[slug]`)
 │   ├── api/auth/logout/      # Session destruction
 │   ├── api/teams/[id]/       # Team detail, delete, leave, members, invites
 │   ├── apps/new/             # Creation stepper UI
@@ -83,7 +83,7 @@ src/
 
 1. **Auth Factory Pattern**: `createAuthHandler(appInstance)` returns an `OIDCHandler` or `SAMLHandler` based on the protocol field. Both conform to the same `AuthHandler` interface.
 
-2. **Global Callback Routing**: One callback URL per protocol registered with IdPs. The `state` parameter (OIDC) or `RelayState` (SAML) maps back to the tenant slug via an in-memory store.
+2. **Callback Routing**: OIDC and SAML both use app-specific callback URLs (`/api/auth/callback/oidc/{slug}` and `/api/auth/callback/saml/{slug}`). The `state` parameter (OIDC) or `RelayState` (SAML) maps back to the tenant slug via an in-memory store.
 
 3. **Session Isolation**: Each tenant gets its own encrypted cookie (`authlab_{slug}`), preventing cross-contamination when testing multiple providers simultaneously.
 

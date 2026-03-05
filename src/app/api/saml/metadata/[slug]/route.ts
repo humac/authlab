@@ -26,7 +26,7 @@ export async function GET(
 
   const signed = new URL(request.url).searchParams.get("signed") === "true";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const callbackUrl = `${appUrl}/api/auth/callback/saml`;
+  const callbackUrl = `${appUrl}/api/auth/callback/saml/${slug}`;
 
   try {
     const metadata = signed
