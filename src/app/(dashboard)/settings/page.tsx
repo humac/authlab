@@ -103,6 +103,8 @@ export default function SettingsPage() {
     try {
       const res = await fetch(`/api/teams/${teamId}/leave`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -106,6 +106,13 @@ export async function countOwners(teamId: string): Promise<number> {
   });
 }
 
+export async function countTeamMembers(teamId: string): Promise<number> {
+  const prisma = await getPrisma();
+  return prisma.teamMember.count({
+    where: { teamId },
+  });
+}
+
 export async function countTeams(): Promise<number> {
   const prisma = await getPrisma();
   return prisma.team.count();
