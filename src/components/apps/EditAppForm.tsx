@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { SAMLConfigFields } from "./SAMLConfigFields";
 import type { RedactedAppInstance } from "@/types/app-instance";
 
 interface EditAppFormProps {
@@ -127,34 +128,19 @@ export function EditAppForm({ app }: EditAppFormProps) {
         )}
 
         {app.protocol === "SAML" && (
-          <>
-            <Input
-              label="SSO Entry Point URL"
-              value={formData.entryPoint}
-              onChange={(e) => updateField("entryPoint", e.target.value)}
-            />
-            <Input
-              label="Issuer (SP Entity ID)"
-              value={formData.issuer}
-              onChange={(e) => updateField("issuer", e.target.value)}
-            />
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">
-                IdP Certificate (PEM)
-              </label>
-              <textarea
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                rows={6}
-                value={formData.idpCert}
-                onChange={(e) => updateField("idpCert", e.target.value)}
-                placeholder={
-                  app.hasIdpCert
-                    ? "Leave blank to keep existing certificate"
-                    : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
-                }
-              />
-            </div>
-          </>
+          <SAMLConfigFields
+            values={{
+              entryPoint: formData.entryPoint,
+              issuer: formData.issuer,
+              idpCert: formData.idpCert,
+            }}
+            onChange={updateField}
+            idpCertPlaceholder={
+              app.hasIdpCert
+                ? "Leave blank to keep existing certificate"
+                : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+            }
+          />
         )}
 
         <div className="space-y-1">

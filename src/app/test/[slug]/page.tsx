@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { CopyButton } from "@/components/ui/CopyButton";
 
 export default async function TestPage({
   params,
@@ -16,8 +17,15 @@ export default async function TestPage({
     notFound();
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const callbackType = app.protocol === "OIDC" ? "oidc" : "saml";
-  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/callback/${callbackType}`;
+  const callbackUrl = `${appUrl}/api/auth/callback/${callbackType}`;
+  const unsignedMetadataUrl =
+    app.protocol === "SAML" ? `${appUrl}/api/saml/metadata/${slug}` : null;
+  const signedMetadataUrl =
+    app.protocol === "SAML"
+      ? `${appUrl}/api/saml/metadata/${slug}?signed=true`
+      : null;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -47,6 +55,45 @@ export default async function TestPage({
           <p className="text-xs text-gray-400 mt-3">
             Register this URL as the redirect URI in your IdP configuration.
           </p>
+
+          {app.protocol === "SAML" && unsignedMetadataUrl && signedMetadataUrl && (
+            <div className="mt-4 space-y-3 text-left">
+              <div>
+                <p className="text-xs text-gray-400 mb-1">SP Metadata URL (Unsigned)</p>
+                <code className="block text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
+                  {unsignedMetadataUrl}
+                </code>
+                <div className="flex items-center gap-3 mt-1">
+                  <CopyButton text={unsignedMetadataUrl} />
+                  <a
+                    href={unsignedMetadataUrl}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Download
+                  </a>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">SP Metadata URL (Signed)</p>
+                <code className="block text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
+                  {signedMetadataUrl}
+                </code>
+                <div className="flex items-center gap-3 mt-1">
+                  <CopyButton text={signedMetadataUrl} />
+                  <a
+                    href={signedMetadataUrl}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Download
+                  </a>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">
+                Signed metadata requires both <code>SAML_SP_PRIVATE_KEY</code> and{" "}
+                <code>SAML_SP_PUBLIC_CERT</code> environment variables.
+              </p>
+            </div>
+          )}
         </div>
       </Card>
     </div>
