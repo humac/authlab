@@ -51,8 +51,12 @@
 **Focus Areas**:
 - UI primitives in `src/components/ui/` — Button, Card, Input, Modal, Tabs, Stepper, Badge, CopyButton
 - Layout in `src/components/layout/AppShell.tsx` — sidebar navigation, responsive design
-- App management in `src/components/apps/` — Dashboard grid, CreationStepper (4-step flow), EditForm
+- App management in `src/components/apps/` — Dashboard grid, TeamMembersPanel, CreationStepper (4-step flow), EditForm
 - Inspector in `src/components/inspector/` — ClaimsTable, RawPayloadView, JWTDecoder, SessionInfo
+- Dashboard-first team UX:
+  - `src/app/(dashboard)/page.tsx` renders apps + active-team member panel
+  - `src/components/apps/TeamMembersPanel.tsx` handles member listing, add/invite, remove actions
+  - `src/components/apps/AppInstanceCard.tsx` provides move/copy transfer actions between teams
 
 **Design System**:
 - Primary color: `#3B71CA` (TW-Elements blue) — defined as `--color-primary` in `globals.css`
@@ -68,10 +72,12 @@
 **Focus Areas**:
 - Prisma schema in `prisma/schema.prisma` — AppInstance model, Protocol enum
 - Prisma config in `prisma.config.ts` — datasource URL (always local SQLite for CLI)
-- Database client in `src/lib/db.ts` — async `getPrisma()` with dual adapter pattern
-- Repository layer in `src/repositories/app-instance.repo.ts` — CRUD with encryption, uses `await getPrisma()`
+- Database client in `src/lib/db.ts` — async `getPrisma()` with strict production Turso checks
+- Repository layer in `src/repositories/app-instance.repo.ts` — CRUD + move/copy transfer helpers with encryption
+- Team repositories in `src/repositories/team.repo.ts` — memberships, role checks, owner-count checks for leave flow
 - API routes in `src/app/api/apps/` — REST endpoints with Zod validation
-- Validation schemas in `src/lib/validators.ts` — discriminated unions for OIDC/SAML
+- Team API routes in `src/app/api/teams/` — member management and leave flows
+- Validation schemas in `src/lib/validators.ts` — OIDC/SAML + transfer/member-management schemas
 
 **Database Notes**:
 - **Local**: Prisma 7 + `@prisma/adapter-better-sqlite3` driver adapter, SQLite file at `./dev.db`
@@ -82,6 +88,7 @@
 - Prisma CLI does NOT support `libsql://` URLs — use `prisma migrate diff` + `turso db shell` for production schema changes
 - `clientSecret` and `idpCert` are AES-256-GCM encrypted; encryption/decryption happens only in the repository layer
 - `next.config.ts` externalizes `better-sqlite3` via `serverExternalPackages` (native module, incompatible with Vercel bundling)
+- App copy flow re-encrypts secrets by going through repository create paths (fresh IV/auth tag)
 
 ## Development Workflow
 

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
+import { getUserSession } from "@/lib/user-session";
 import { UpdateTeamSchema } from "@/lib/validators";
 import {
   getTeamById,
   updateTeam,
   deleteTeam,
   listTeamMembers,
+  getTeamsByUserId,
 } from "@/repositories/team.repo";
 
 export async function GET(
@@ -78,8 +80,9 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
+  let accessor;
   try {
-    await requireTeamAccess(id, ["OWNER"]);
+    accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
@@ -99,5 +102,19 @@ export async function DELETE(
   }
 
   await deleteTeam(id);
-  return NextResponse.json({ ok: true });
+
+  let activeTeamId = accessor.user.activeTeamId;
+  if (accessor.user.activeTeamId === id) {
+    const remainingTeams = await getTeamsByUserId(accessor.user.userId);
+    const fallbackTeam =
+      remainingTeams.find((member) => member.isPersonal) || remainingTeams[0];
+    if (fallbackTeam) {
+      const session = await getUserSession();
+      session.activeTeamId = fallbackTeam.id;
+      await session.save();
+      activeTeamId = fallbackTeam.id;
+    }
+  }
+
+  return NextResponse.json({ ok: true, activeTeamId });
 }

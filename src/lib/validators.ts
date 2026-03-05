@@ -64,6 +64,11 @@ export const UpdateAppInstanceSchema = z.object({
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
 });
 
+export const TransferAppSchema = z.object({
+  mode: z.enum(["MOVE", "COPY"]),
+  targetTeamId: z.string().min(1, "targetTeamId is required"),
+});
+
 export type CreateAppInstanceInput = z.infer<typeof CreateAppInstanceSchema>;
 export type UpdateAppInstanceInput = z.infer<typeof UpdateAppInstanceSchema>;
 
@@ -118,6 +123,11 @@ export const CreateInviteSchema = z.object({
 
 export const AcceptInviteSchema = z.object({
   token: z.string().min(1, "Token is required"),
+});
+
+export const AddOrInviteMemberSchema = z.object({
+  email: z.email("Invalid email address"),
+  role: z.enum(["ADMIN", "MEMBER"]),
 });
 
 // Admin schemas

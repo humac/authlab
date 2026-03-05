@@ -12,6 +12,8 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 - **Global Callback Routing** — One callback URL per protocol; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
+- **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
+- **Cross-Team App Transfer** — Team admins/owners can move or copy app configurations across teams
 
 ## Tech Stack
 

@@ -47,6 +47,13 @@ export default async function TestPage({
           </button>
         </Link>
 
+        <Link
+          href="/"
+          className="mt-3 inline-block text-sm text-primary hover:underline"
+        >
+          Back to Dashboard
+        </Link>
+
         <div className="mt-6 pt-4 border-t border-gray-100">
           <p className="text-xs text-gray-400 mb-1">Callback URL</p>
           <code className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
