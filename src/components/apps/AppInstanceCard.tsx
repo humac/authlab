@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useUser } from "@/components/providers/UserProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -11,11 +12,27 @@ import type { RedactedAppInstance } from "@/types/app-instance";
 interface AppInstanceCardProps {
   app: RedactedAppInstance;
   onDelete: (id: string) => void;
+  onTransfer: (mode: "MOVE" | "COPY", app: RedactedAppInstance) => void;
 }
 
-export function AppInstanceCard({ app, onDelete }: AppInstanceCardProps) {
+export function AppInstanceCard({ app, onDelete, onTransfer }: AppInstanceCardProps) {
+  const { teams } = useUser();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [targetTeamId, setTargetTeamId] = useState("");
+  const [transferError, setTransferError] = useState("");
+  const [transferringMode, setTransferringMode] = useState<"MOVE" | "COPY" | null>(
+    null,
+  );
+
+  const sourceMembership = teams.find((team) => team.id === app.teamId);
+  const canManageSourceTeam =
+    sourceMembership?.role === "OWNER" || sourceMembership?.role === "ADMIN";
+  const eligibleTargetTeams = teams.filter(
+    (team) =>
+      team.id !== app.teamId && (team.role === "OWNER" || team.role === "ADMIN"),
+  );
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -27,6 +44,39 @@ export function AppInstanceCard({ app, onDelete }: AppInstanceCardProps) {
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
+    }
+  };
+
+  const openTransferModal = () => {
+    setTransferError("");
+    setTargetTeamId(eligibleTargetTeams[0]?.id || "");
+    setShowTransferModal(true);
+  };
+
+  const handleTransfer = async (mode: "MOVE" | "COPY") => {
+    if (!targetTeamId) {
+      setTransferError("Please select a target team");
+      return;
+    }
+
+    setTransferError("");
+    setTransferringMode(mode);
+    try {
+      const res = await fetch(`/api/apps/${app.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, targetTeamId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTransferError(data.error || "Failed to transfer app");
+        return;
+      }
+
+      onTransfer(mode, data.app);
+      setShowTransferModal(false);
+    } finally {
+      setTransferringMode(null);
     }
   };
 
@@ -63,6 +113,23 @@ export function AppInstanceCard({ app, onDelete }: AppInstanceCardProps) {
               Edit
             </Button>
           </Link>
+          {canManageSourceTeam && eligibleTargetTeams.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={openTransferModal}>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16V4m0 0L3 8m4-4l4 4m6-4v12m0 0l-4-4m4 4l4-4"
+                />
+              </svg>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -74,6 +141,55 @@ export function AppInstanceCard({ app, onDelete }: AppInstanceCardProps) {
           </Button>
         </div>
       </Card>
+
+      <Modal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        title="Move or Copy App"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Choose a destination team where you are an admin/owner.
+          </p>
+          <select
+            value={targetTeamId}
+            onChange={(e) => setTargetTeamId(e.target.value)}
+            className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm"
+          >
+            {eligibleTargetTeams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.isPersonal ? "Personal Workspace" : team.name}
+              </option>
+            ))}
+          </select>
+
+          {transferError && (
+            <p className="text-sm text-red-600">{transferError}</p>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowTransferModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              loading={transferringMode === "COPY"}
+              onClick={() => handleTransfer("COPY")}
+            >
+              Copy
+            </Button>
+            <Button
+              loading={transferringMode === "MOVE"}
+              onClick={() => handleTransfer("MOVE")}
+            >
+              Move
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showDeleteModal}

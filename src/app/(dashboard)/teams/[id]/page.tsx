@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useUser } from "@/components/providers/UserProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -31,6 +32,7 @@ interface TeamData {
 }
 
 export default function TeamDetailPage() {
+  const user = useUser();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [team, setTeam] = useState<TeamData | null>(null);
@@ -47,6 +49,11 @@ export default function TeamDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const currentTeam = user.teams.find((team) => team.id === id);
+  const canManage = currentTeam
+    ? currentTeam.role === "OWNER" || currentTeam.role === "ADMIN"
+    : false;
+
   async function fetchTeam() {
     const res = await fetch(`/api/teams/${id}`);
     if (res.ok) {
@@ -62,9 +69,13 @@ export default function TeamDetailPage() {
   }
 
   useEffect(() => {
-    Promise.all([fetchTeam(), fetchInvites()]).finally(() => setLoading(false));
+    const requests = [fetchTeam()];
+    if (canManage) {
+      requests.push(fetchInvites());
+    }
+    Promise.all(requests).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, canManage]);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +155,7 @@ export default function TeamDetailPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">{team.name}</h1>
-        {!team.isPersonal && (
+        {!team.isPersonal && canManage && (
           <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}>
             Delete Team
           </Button>
@@ -177,22 +188,30 @@ export default function TeamDetailPage() {
                   <Badge variant="blue">Owner</Badge>
                 ) : (
                   <>
-                    <select
-                      value={member.role}
-                      onChange={(e) =>
-                        handleRoleChange(member.user.id, e.target.value)
-                      }
-                      className="text-sm border border-gray-200 rounded px-2 py-1"
-                    >
-                      <option value="ADMIN">Admin</option>
-                      <option value="MEMBER">Member</option>
-                    </select>
-                    <button
-                      onClick={() => handleRemoveMember(member.user.id)}
-                      className="text-sm text-red-600 hover:text-red-800"
-                    >
-                      Remove
-                    </button>
+                    {canManage ? (
+                      <>
+                        <select
+                          value={member.role}
+                          onChange={(e) =>
+                            handleRoleChange(member.user.id, e.target.value)
+                          }
+                          className="text-sm border border-gray-200 rounded px-2 py-1"
+                        >
+                          <option value="ADMIN">Admin</option>
+                          <option value="MEMBER">Member</option>
+                        </select>
+                        <button
+                          onClick={() => handleRemoveMember(member.user.id)}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <Badge variant={member.role === "ADMIN" ? "green" : "gray"}>
+                        {member.role}
+                      </Badge>
+                    )}
                   </>
                 )}
               </div>
@@ -202,7 +221,7 @@ export default function TeamDetailPage() {
       </Card>
 
       {/* Invite */}
-      {!team.isPersonal && (
+      {!team.isPersonal && canManage && (
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Invite Members

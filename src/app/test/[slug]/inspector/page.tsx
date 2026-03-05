@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAppSession } from "@/lib/session";
 import { Tabs } from "@/components/ui/Tabs";
 import { ClaimsTable } from "@/components/inspector/ClaimsTable";
@@ -49,9 +50,12 @@ export default async function InspectorPage({
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">
-        Auth Inspector
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-gray-900">Auth Inspector</h1>
+        <Link href="/" className="text-sm text-primary hover:underline">
+          Back to Dashboard
+        </Link>
+      </div>
 
       <SessionInfo
         slug={slug}

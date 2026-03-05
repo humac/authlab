@@ -49,8 +49,10 @@ turso db shell authlab < migration.sql
 src/
 ├── app/                      # Next.js App Router pages and routes
 │   ├── api/apps/             # CRUD REST API for app instances
+│   │   └── [id]/transfer/    # Cross-team app move/copy endpoint
 │   ├── api/auth/callback/    # Global OIDC + SAML callback handlers
 │   ├── api/auth/logout/      # Session destruction
+│   ├── api/teams/[id]/       # Team detail, delete, leave, members, invites
 │   ├── apps/new/             # Creation stepper UI
 │   ├── apps/[id]/            # Edit app instance UI
 │   ├── test/[slug]/          # Test landing page + login route + inspector
@@ -66,11 +68,13 @@ src/
 │   ├── validators.ts         # Zod schemas for API input validation
 │   └── db.ts                 # Async getPrisma() — dual adapter (libSQL for Turso, better-sqlite3 for local)
 ├── repositories/             # Data access layer
-│   └── app-instance.repo.ts  # CRUD with transparent encrypt/decrypt on secrets
+│   ├── app-instance.repo.ts  # CRUD + move/copy transfer helpers (secrets re-encrypted on copy)
+│   ├── team.repo.ts          # Team membership/role/owner-count helpers
+│   └── invite.repo.ts        # Invite token lifecycle
 ├── components/               # React components
 │   ├── ui/                   # Primitives: Button, Card, Input, Modal, Tabs, Stepper, Badge
 │   ├── layout/               # AppShell (sidebar + content)
-│   ├── apps/                 # Dashboard, CreationStepper, EditForm, ConfigFields
+│   ├── apps/                 # Dashboard, TeamMembersPanel, App card transfer UI, CreationStepper, EditForm
 │   └── inspector/            # ClaimsTable, RawPayloadView, JWTDecoder, SessionInfo
 └── types/                    # TypeScript interfaces
 ```
@@ -87,7 +91,24 @@ src/
 
 5. **Secret Redaction**: GET endpoints return `hasClientSecret: boolean` instead of actual secrets. Secrets are never exposed via the API.
 
-6. **Dual Database Adapter**: `db.ts` exports an async `getPrisma()` that dynamically imports the correct adapter — `@prisma/adapter-libsql` when `TURSO_DATABASE_URL` is set (production/Vercel), `@prisma/adapter-better-sqlite3` otherwise (local dev).
+6. **Dual Database Adapter with Production Guardrails**: `db.ts` exports async `getPrisma()` and enforces strict production configuration:
+   - both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` must be set in production
+   - partial Turso env config throws startup/runtime errors instead of silently falling back
+
+7. **Dashboard-First Team Management**:
+   - Team switcher controls active team
+   - Dashboard shows active-team apps plus a right-side members panel
+   - Member add/invite/remove actions are performed from dashboard context
+
+8. **Cross-Team App Transfer**:
+   - `POST /api/apps/[id]/transfer` supports `MOVE` and `COPY`
+   - Caller must be `OWNER`/`ADMIN` on both source and target teams
+   - Copy flow duplicates config and re-encrypts secrets through repository create path
+
+9. **Membership Leave Flow**:
+   - `POST /api/teams/[id]/leave` removes current user from non-personal team
+   - Last-owner leave is blocked
+   - If leaving active team, session falls back to personal team or first available team
 
 ### Prisma 7 Notes
 

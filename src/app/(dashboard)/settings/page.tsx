@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/components/providers/UserProvider";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
-import Link from "next/link";
 
 export default function SettingsPage() {
   const user = useUser();
@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [leavingTeamId, setLeavingTeamId] = useState<string | null>(null);
 
   async function handleProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -91,6 +92,30 @@ export default function SettingsPage() {
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLeaveTeam(teamId: string) {
+    setError("");
+    setSuccess("");
+    setLeavingTeamId(teamId);
+
+    try {
+      const res = await fetch(`/api/teams/${teamId}/leave`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to leave team");
+        return;
+      }
+
+      setSuccess("You have left the team");
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLeavingTeamId(null);
     }
   }
 
@@ -173,7 +198,9 @@ export default function SettingsPage() {
 
       {/* Teams */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Teams</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Team Memberships
+        </h2>
         <div className="divide-y divide-gray-100">
           {user.teams.map((team) => (
             <div
@@ -185,21 +212,43 @@ export default function SettingsPage() {
                   {team.isPersonal ? "Personal Workspace" : team.name}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {team.memberCount} member{team.memberCount !== 1 ? "s" : ""} ·{" "}
+                  <span className="mr-2">{team.role}</span>· {team.memberCount} member
+                  {team.memberCount !== 1 ? "s" : ""} ·{" "}
                   {team.appCount} app{team.appCount !== 1 ? "s" : ""}
                 </div>
               </div>
-              {!team.isPersonal && (
-                <Link
-                  href={`/teams/${team.id}`}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Manage
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                {team.id === user.activeTeamId && (
+                  <Badge variant="blue">Active</Badge>
+                )}
+                {!team.isPersonal && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleLeaveTeam(team.id)}
+                    loading={leavingTeamId === team.id}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Leave
+                  </Button>
+                )}
+                {team.isPersonal && (
+                  <Badge variant="gray">Required</Badge>
+                )}
+              </div>
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Team Management
+        </h2>
+        <p className="text-sm text-gray-500">
+          Team member management and invites are available directly on the dashboard
+          for the currently active team.
+        </p>
       </Card>
     </div>
   );

@@ -112,6 +112,91 @@ export async function deleteAppInstance(id: string): Promise<void> {
   await prisma.appInstance.delete({ where: { id } });
 }
 
+async function generateCopySlug(
+  prisma: PrismaClient,
+  sourceSlug: string,
+): Promise<string> {
+  const base = `${sourceSlug}-copy`;
+  let suffix = 1;
+
+  while (true) {
+    const candidate = suffix === 1 ? base : `${base}-${suffix}`;
+    const existing = await prisma.appInstance.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+    if (!existing) {
+      return candidate;
+    }
+    suffix += 1;
+  }
+}
+
+function generateCopyName(sourceName: string, suffix: number): string {
+  return suffix === 1 ? `${sourceName} (Copy)` : `${sourceName} (Copy ${suffix})`;
+}
+
+async function generateCopyNameAndSlug(
+  prisma: PrismaClient,
+  sourceName: string,
+  sourceSlug: string,
+): Promise<{ name: string; slug: string }> {
+  const slug = await generateCopySlug(prisma, sourceSlug);
+  const base = `${sourceSlug}-copy`;
+  const suffixPart = slug.slice(base.length);
+  const suffix = suffixPart.startsWith("-")
+    ? Number.parseInt(suffixPart.slice(1), 10) || 1
+    : 1;
+  return {
+    name: generateCopyName(sourceName, suffix),
+    slug,
+  };
+}
+
+export async function moveAppInstanceToTeam(
+  id: string,
+  targetTeamId: string,
+): Promise<RedactedAppInstance> {
+  const prisma = await getPrisma();
+  const record = await prisma.appInstance.update({
+    where: { id },
+    data: { teamId: targetTeamId },
+  });
+  return redactRecord(record);
+}
+
+export async function copyAppInstanceToTeam(
+  id: string,
+  targetTeamId: string,
+): Promise<RedactedAppInstance> {
+  const prisma = await getPrisma();
+  const source = await getAppInstanceById(id);
+  if (!source) {
+    throw new Error("App instance not found");
+  }
+
+  const { name, slug } = await generateCopyNameAndSlug(
+    prisma,
+    source.name,
+    source.slug,
+  );
+
+  return createAppInstance({
+    name,
+    slug,
+    protocol: source.protocol,
+    teamId: targetTeamId,
+    issuerUrl: source.issuerUrl,
+    clientId: source.clientId,
+    clientSecret: source.clientSecret,
+    scopes: source.scopes,
+    entryPoint: source.entryPoint,
+    issuer: source.issuer,
+    idpCert: source.idpCert,
+    buttonColor: source.buttonColor,
+  });
+}
+
 export async function getRedactedAppInstanceById(
   id: string
 ): Promise<RedactedAppInstance | null> {

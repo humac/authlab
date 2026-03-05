@@ -99,6 +99,13 @@ export async function listTeamMembers(teamId: string) {
   });
 }
 
+export async function countOwners(teamId: string): Promise<number> {
+  const prisma = await getPrisma();
+  return prisma.teamMember.count({
+    where: { teamId, role: "OWNER" },
+  });
+}
+
 export async function countTeams(): Promise<number> {
   const prisma = await getPrisma();
   return prisma.team.count();
