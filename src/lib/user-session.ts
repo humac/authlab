@@ -28,6 +28,7 @@ export async function getCurrentUser(): Promise<UserSessionData | null> {
     email: session.email,
     name: session.name,
     isSystemAdmin: session.isSystemAdmin,
+    mustChangePassword: Boolean(session.mustChangePassword),
     activeTeamId: session.activeTeamId,
   };
 }

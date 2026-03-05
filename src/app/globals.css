@@ -22,7 +22,7 @@
   --surface-2: #eef3fa;
   --surface-inverse: #112237;
   --text: #102135;
-  --muted: #5d6d82;
+  --muted: #465b74;
   --border: #d5dfeb;
   --border-strong: #c0cddd;
 
@@ -107,6 +107,24 @@ a:hover {
 .surface-subtle {
   background: var(--surface-2);
   border: 1px solid var(--border);
+}
+
+.alert-danger {
+  border: 1px solid color-mix(in oklab, var(--danger) 46%, var(--border));
+  background: color-mix(in oklab, var(--danger) 18%, transparent);
+  color: color-mix(in oklab, var(--danger) 62%, var(--text));
+}
+
+.alert-success {
+  border: 1px solid color-mix(in oklab, var(--success) 46%, var(--border));
+  background: color-mix(in oklab, var(--success) 18%, transparent);
+  color: color-mix(in oklab, var(--success) 62%, var(--text));
+}
+
+.alert-warning {
+  border: 1px solid color-mix(in oklab, var(--warning) 46%, var(--border));
+  background: color-mix(in oklab, var(--warning) 18%, transparent);
+  color: color-mix(in oklab, var(--warning) 62%, var(--text));
 }
 
 .text-muted {

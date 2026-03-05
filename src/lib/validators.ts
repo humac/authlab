@@ -135,3 +135,38 @@ export const UpdateSystemSettingSchema = z.object({
   key: z.string().min(1),
   value: z.string(),
 });
+
+const TeamMembershipAssignmentSchema = z.object({
+  teamId: z.string().min(1, "teamId is required"),
+  role: z.enum(["ADMIN", "MEMBER"]),
+});
+
+export const AdminCreateUserSchema = z.object({
+  email: z.email("Invalid email address"),
+  name: z.string().min(1, "Name is required").max(100),
+  tempPassword: z.string().min(8, "Temporary password must be at least 8 characters").max(128),
+  isSystemAdmin: z.boolean().optional().default(false),
+  memberships: z.array(TeamMembershipAssignmentSchema).optional().default([]),
+});
+
+export const AdminUpdateUserSchema = z.object({
+  email: z.email("Invalid email address").optional(),
+  name: z.string().min(1).max(100).optional(),
+  isSystemAdmin: z.boolean().optional(),
+  mustChangePassword: z.boolean().optional(),
+  tempPassword: z.string().min(8).max(128).optional(),
+});
+
+export const AdminSetUserTeamsSchema = z.object({
+  memberships: z.array(TeamMembershipAssignmentSchema).default([]),
+});
+
+export const CreateTeamJoinRequestSchema = z.object({
+  note: z.string().max(500).optional(),
+  role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER"),
+});
+
+export const ReviewTeamJoinRequestSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+  role: z.enum(["ADMIN", "MEMBER"]).optional(),
+});

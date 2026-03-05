@@ -3,5 +3,6 @@ export interface UserSessionData {
   email: string;
   name: string;
   isSystemAdmin: boolean;
+  mustChangePassword: boolean;
   activeTeamId: string;
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
+import { getCurrentUser } from "@/lib/user-session";
 import { CreateInviteSchema } from "@/lib/validators";
 import { createInvite, listInvitesByTeam } from "@/repositories/invite.repo";
 import { getTeamById } from "@/repositories/team.repo";
@@ -11,13 +12,19 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  try {
-    await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!currentUser.isSystemAdmin) {
+    try {
+      await requireTeamAccess(id, ["OWNER", "ADMIN"]);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      throw e;
     }
-    throw e;
   }
 
   const invites = await listInvitesByTeam(id);
@@ -30,14 +37,19 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  let accessor;
-  try {
-    accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!currentUser.isSystemAdmin) {
+    try {
+      await requireTeamAccess(id, ["OWNER", "ADMIN"]);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      throw e;
     }
-    throw e;
   }
 
   const team = await getTeamById(id);
@@ -68,7 +80,7 @@ export async function POST(
     email: parsed.data.email,
     role: parsed.data.role,
     teamId: id,
-    invitedById: accessor.user.userId,
+    invitedById: currentUser.userId,
     expiresAt,
   });
 

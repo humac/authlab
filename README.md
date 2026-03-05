@@ -202,6 +202,24 @@ Deploy:
 vercel --prod
 ```
 
+### Automated Deploy (GitHub Actions)
+
+This repo now includes a production workflow at `.github/workflows/deploy-production.yml` that:
+
+1. Installs dependencies and runs `lint` + `build`
+2. Applies pending SQL files from `prisma/turso-migrations/` to Turso
+3. Deploys to Vercel production
+
+Required repository secrets:
+
+- `TURSO_API_TOKEN`
+- `TURSO_DATABASE_NAME` (example: `authlab`)
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Each Turso migration file is applied exactly once and tracked in `_authlab_schema_migrations`.
+
 ### Schema Changes in Production
 
 Prisma CLI doesn't support `libsql://` URLs. After editing `prisma/schema.prisma`:

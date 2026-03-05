@@ -17,6 +17,7 @@ export interface UserContextType {
   name: string;
   email: string;
   isSystemAdmin: boolean;
+  mustChangePassword: boolean;
   activeTeamId: string;
   teams: TeamInfo[];
 }

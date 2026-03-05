@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
+import { getCurrentUser } from "@/lib/user-session";
 import {
   updateTeamMemberRole,
   removeTeamMember,
@@ -13,13 +14,19 @@ export async function PUT(
 ) {
   const { id, memberId } = await params;
 
-  try {
-    await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!currentUser.isSystemAdmin) {
+    try {
+      await requireTeamAccess(id, ["OWNER", "ADMIN"]);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      throw e;
     }
-    throw e;
   }
 
   const { role } = await request.json();
@@ -51,14 +58,21 @@ export async function DELETE(
 ) {
   const { id, memberId } = await params;
 
-  let accessor;
-  try {
-    accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let accessor: Awaited<ReturnType<typeof requireTeamAccess>> | null = null;
+  if (!currentUser.isSystemAdmin) {
+    try {
+      accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      throw e;
     }
-    throw e;
   }
 
   const membership = await getTeamMembership(memberId, id);
@@ -77,7 +91,8 @@ export async function DELETE(
   // Admins cannot remove other admins (only owners can)
   if (
     membership.role === "ADMIN" &&
-    accessor.membership.role !== "OWNER"
+    !currentUser.isSystemAdmin &&
+    accessor?.membership.role !== "OWNER"
   ) {
     return NextResponse.json(
       { error: "Only team owners can remove admins" },

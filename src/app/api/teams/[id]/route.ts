@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
-import { getUserSession } from "@/lib/user-session";
+import { getCurrentUser, getUserSession } from "@/lib/user-session";
 import { UpdateTeamSchema } from "@/lib/validators";
 import {
-  getTeamById,
-  updateTeam,
   deleteTeam,
-  listTeamMembers,
+  getTeamById,
   getTeamsByUserId,
+  listTeamMembers,
+  updateTeam,
 } from "@/repositories/team.repo";
+
+async function hasManagementAccess(teamId: string) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return { ok: false, status: 401, error: "Unauthorized" } as const;
+  }
+
+  if (currentUser.isSystemAdmin) {
+    return { ok: true, user: currentUser } as const;
+  }
+
+  try {
+    await requireTeamAccess(teamId, ["OWNER", "ADMIN"]);
+    return { ok: true, user: currentUser } as const;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { ok: false, status: error.status, error: error.message } as const;
+    }
+    throw error;
+  }
+}
 
 export async function GET(
   _request: Request,
@@ -16,13 +37,20 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  try {
-    await requireTeamAccess(id);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!currentUser.isSystemAdmin) {
+    try {
+      await requireTeamAccess(id);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      throw e;
     }
-    throw e;
   }
 
   const team = await getTeamById(id);
@@ -31,7 +59,6 @@ export async function GET(
   }
 
   const members = await listTeamMembers(id);
-
   return NextResponse.json({ ...team, members });
 }
 
@@ -41,13 +68,9 @@ export async function PUT(
 ) {
   const { id } = await params;
 
-  try {
-    await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
-    }
-    throw e;
+  const access = await hasManagementAccess(id);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
   const team = await getTeamById(id);
@@ -80,14 +103,9 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
-  let accessor;
-  try {
-    accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
-    }
-    throw e;
+  const access = await hasManagementAccess(id);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
   const team = await getTeamById(id);
@@ -103,9 +121,9 @@ export async function DELETE(
 
   await deleteTeam(id);
 
-  let activeTeamId = accessor.user.activeTeamId;
-  if (accessor.user.activeTeamId === id) {
-    const remainingTeams = await getTeamsByUserId(accessor.user.userId);
+  let activeTeamId = access.user.activeTeamId;
+  if (access.user.activeTeamId === id) {
+    const remainingTeams = await getTeamsByUserId(access.user.userId);
     const fallbackTeam =
       remainingTeams.find((member) => member.isPersonal) || remainingTeams[0];
     if (fallbackTeam) {

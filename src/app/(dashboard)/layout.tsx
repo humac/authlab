@@ -16,6 +16,7 @@ export default async function DashboardLayout({
     name: sessionUser.name,
     email: sessionUser.email,
     isSystemAdmin: sessionUser.isSystemAdmin,
+    mustChangePassword: sessionUser.mustChangePassword,
     activeTeamId: sessionUser.activeTeamId,
     teams: teams.map((t: (typeof teams)[number]) => ({
       id: t.id,

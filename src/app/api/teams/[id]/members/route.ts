@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
+import { getCurrentUser } from "@/lib/user-session";
 import { AddOrInviteMemberSchema } from "@/lib/validators";
 import { getUserByEmail } from "@/repositories/user.repo";
 import { createInvite } from "@/repositories/invite.repo";
@@ -16,14 +17,19 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  let accessor;
-  try {
-    accessor = await requireTeamAccess(id, ["OWNER", "ADMIN"]);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!currentUser.isSystemAdmin) {
+    try {
+      await requireTeamAccess(id, ["OWNER", "ADMIN"]);
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      throw error;
     }
-    throw error;
   }
 
   const team = await getTeamById(id);
@@ -67,7 +73,7 @@ export async function POST(
     email: parsed.data.email,
     role: parsed.data.role,
     teamId: id,
-    invitedById: accessor.user.userId,
+    invitedById: currentUser.userId,
     expiresAt,
   });
   return NextResponse.json({ mode: "invited", invite });

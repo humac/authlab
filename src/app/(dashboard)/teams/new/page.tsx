@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useUser } from "@/components/providers/UserProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
 export default function NewTeamPage() {
+  const user = useUser();
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -61,6 +63,22 @@ export default function NewTeamPage() {
     }
   }
 
+  if (!user.isSystemAdmin) {
+    return (
+      <div className="mx-auto max-w-lg animate-enter">
+        <Card>
+          <h1 className="text-xl font-semibold text-[var(--text)]">Team Creation Restricted</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Only system admins can create teams. You can request access from the Teams page.
+          </p>
+          <div className="mt-4">
+            <Button onClick={() => router.push("/teams")}>Go to Teams</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-4 animate-enter">
       <div>
@@ -70,7 +88,7 @@ export default function NewTeamPage() {
 
       <Card>
         {error && (
-          <div className="mb-4 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
+          <div className="alert-danger mb-4 rounded-xl p-3 text-sm">
             {error}
           </div>
         )}
