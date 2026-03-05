@@ -1,21 +1,150 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #3B71CA;
-  --color-primary-dark: #2B5AA8;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-strong);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
 }
 
 :root {
-  --background: #f8fafc;
-  --foreground: #1e293b;
+  --primary: #3b71ca;
+  --primary-strong: #2f5ea8;
+  --success: #0f766e;
+  --warning: #b45309;
+  --danger: #b42318;
+  --ring: color-mix(in oklab, var(--primary) 45%, transparent);
+
+  --bg: #f3f7fc;
+  --surface: #ffffff;
+  --surface-2: #eef3fa;
+  --surface-inverse: #112237;
+  --text: #102135;
+  --muted: #5d6d82;
+  --border: #d5dfeb;
+  --border-strong: #c0cddd;
+
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 4px 16px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 10px 32px rgb(15 23 42 / 0.12);
+
+  --code-bg: #0f172a;
+  --code-text: #dbe8ff;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --primary: #76a8ff;
+  --primary-strong: #96beff;
+  --success: #2dd4bf;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --ring: color-mix(in oklab, var(--primary) 55%, transparent);
+
+  --bg: #090f1a;
+  --surface: #101a2b;
+  --surface-2: #162439;
+  --surface-inverse: #d8e5fb;
+  --text: #dce9fb;
+  --muted: #95a8c0;
+  --border: #21324b;
+  --border-strong: #2a4161;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-sm: 0 8px 24px rgb(0 0 0 / 0.32);
+  --shadow-md: 0 16px 44px rgb(0 0 0 / 0.45);
+
+  --code-bg: #050b15;
+  --code-text: #cfe0ff;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 44%),
+    radial-gradient(circle at 100% 0%, color-mix(in oklab, var(--success) 8%, transparent) 0%, transparent 40%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+a {
+  color: var(--primary);
+}
+
+a:hover {
+  color: var(--primary-strong);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 26%, transparent);
+  color: var(--text);
+}
+
+.surface-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-subtle {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-enter {
+    animation: enter-rise 320ms ease-out both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

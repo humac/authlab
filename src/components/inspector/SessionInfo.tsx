@@ -27,34 +27,25 @@ export function SessionInfo({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-lg">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Protocol:</span>
+        <span className="text-sm text-[var(--muted)]">Protocol:</span>
         <Badge variant={protocol.toLowerCase() as "oidc" | "saml"} />
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Slug:</span>
-        <code className="text-sm font-mono text-gray-700">{slug}</code>
+        <span className="text-sm text-[var(--muted)]">Slug:</span>
+        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-sm text-[var(--text)]">{slug}</code>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Authenticated:</span>
-        <span className="text-sm text-gray-700">
-          {new Date(authenticatedAt).toLocaleString()}
-        </span>
+        <span className="text-sm text-[var(--muted)]">Authenticated:</span>
+        <span className="text-sm text-[var(--text)]">{new Date(authenticatedAt).toLocaleString()}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Cookie:</span>
-        <code className="text-sm font-mono text-gray-700">
-          authlab_{slug}
-        </code>
+        <span className="text-sm text-[var(--muted)]">Cookie:</span>
+        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-sm text-[var(--text)]">authlab_{slug}</code>
       </div>
       <div className="ml-auto">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleLogout}
-          loading={loggingOut}
-        >
+        <Button variant="secondary" size="sm" onClick={handleLogout} loading={loggingOut}>
           Logout
         </Button>
       </div>

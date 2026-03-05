@@ -8,9 +8,24 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: "sm" | "md" | "lg";
+  tone?: "default" | "subtle";
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+const sizes = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+};
+
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = "md",
+  tone = "default",
+}: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,24 +42,29 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      <div
+        className={`w-full ${sizes[size]} overflow-hidden rounded-2xl border border-[var(--border)] ${
+          tone === "subtle" ? "bg-[var(--surface-2)]" : "bg-[var(--surface)]"
+        } shadow-[var(--shadow-md)] animate-enter`}
+      >
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+          <h3 className="text-lg font-semibold text-[var(--text)]">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="focus-ring rounded-lg p-1 text-[var(--muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+            aria-label="Close modal"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-5">{children}</div>
       </div>
     </div>,
     document.body,

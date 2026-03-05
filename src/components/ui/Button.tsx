@@ -4,19 +4,21 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 
 const variants = {
   primary:
-    "bg-primary text-white hover:bg-primary-dark focus:ring-primary/50",
+    "border-transparent bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
   secondary:
-    "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-300/50",
-  danger:
-    "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/50",
+    "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--surface-2)]",
   ghost:
-    "text-gray-600 hover:bg-gray-100 focus:ring-gray-300/50",
+    "border-transparent bg-transparent text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
+  subtle:
+    "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)]",
+  danger:
+    "border-transparent bg-[var(--danger)] text-white hover:brightness-95",
 };
 
 const sizes = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-sm",
-  lg: "px-6 py-3 text-base",
+  sm: "h-9 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-sm",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -41,28 +43,24 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+        className={`focus-ring inline-flex items-center justify-center gap-2 rounded-xl border font-medium tracking-[0.01em] transition-[background-color,color,border-color,box-shadow,transform] duration-200 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
         {...props}
       >
         {loading && (
-          <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
+          <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle
-              className="opacity-25"
+              className="opacity-30"
               cx="12"
               cy="12"
               r="10"
               stroke="currentColor"
-              strokeWidth="4"
+              strokeWidth="3"
             />
             <path
-              className="opacity-75"
+              className="opacity-90"
               fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              d="M4 12a8 8 0 0 1 8-8V1C5.925 1 1 5.925 1 12h3Z"
             />
           </svg>
         )}

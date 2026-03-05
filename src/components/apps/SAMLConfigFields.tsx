@@ -91,22 +91,20 @@ export function SAMLConfigFields({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/60">
-        <h3 className="text-sm font-semibold text-gray-800 mb-3">
-          Import IdP Metadata
-        </h3>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+        <h3 className="mb-3 text-sm font-semibold text-[var(--text)]">Import IdP Metadata</h3>
 
-        <div className="inline-flex rounded-lg border border-gray-200 mb-3 overflow-hidden">
+        <div className="mb-3 inline-flex overflow-hidden rounded-xl border border-[var(--border)]">
           <button
             type="button"
-            className={`px-3 py-1.5 text-sm ${source === "xml" ? "bg-white font-medium" : "bg-gray-100 text-gray-600"}`}
+            className={`px-3 py-1.5 text-sm ${source === "xml" ? "bg-[var(--surface)] font-medium text-[var(--text)]" : "bg-[var(--surface-2)] text-[var(--muted)]"}`}
             onClick={() => setSource("xml")}
           >
             XML
           </button>
           <button
             type="button"
-            className={`px-3 py-1.5 text-sm border-l border-gray-200 ${source === "url" ? "bg-white font-medium" : "bg-gray-100 text-gray-600"}`}
+            className={`border-l border-[var(--border)] px-3 py-1.5 text-sm ${source === "url" ? "bg-[var(--surface)] font-medium text-[var(--text)]" : "bg-[var(--surface-2)] text-[var(--muted)]"}`}
             onClick={() => setSource("url")}
           >
             URL
@@ -116,20 +114,18 @@ export function SAMLConfigFields({
         {source === "xml" && (
           <div className="space-y-2">
             <textarea
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="focus-ring block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)]"
               rows={6}
               value={xmlInput}
               onChange={(e) => setXmlInput(e.target.value)}
               placeholder="<EntityDescriptor ...>...</EntityDescriptor>"
             />
-            <div className="flex items-center gap-3">
-              <input
-                type="file"
-                accept=".xml,text/xml,application/xml"
-                onChange={(e) => handleFileUpload(e.target.files?.[0] || null)}
-                className="text-sm text-gray-600"
-              />
-            </div>
+            <input
+              type="file"
+              accept=".xml,text/xml,application/xml"
+              onChange={(e) => handleFileUpload(e.target.files?.[0] || null)}
+              className="text-sm text-[var(--muted)]"
+            />
           </div>
         )}
 
@@ -154,44 +150,40 @@ export function SAMLConfigFields({
           </Button>
         </div>
 
-        {parseError && (
-          <p className="text-sm text-red-600 mt-3">{parseError}</p>
-        )}
+        {parseError && <p className="mt-3 text-sm text-red-500">{parseError}</p>}
 
         {parsedMetadata && (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3 space-y-3">
-            <p className="text-sm font-semibold text-gray-900">
-              Parsed Metadata Preview
-            </p>
+          <div className="mt-4 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <p className="text-sm font-semibold text-[var(--text)]">Parsed Metadata Preview</p>
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-gray-500">IdP Entity ID</dt>
-                <dd className="font-mono break-all">
+                <dt className="text-[var(--muted)]">IdP Entity ID</dt>
+                <dd className="break-all font-mono text-[var(--text)]">
                   {parsedMetadata.idpEntityId || "Not present in metadata"}
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500">SSO Binding</dt>
-                <dd className="font-mono break-all">{parsedMetadata.binding}</dd>
+                <dt className="text-[var(--muted)]">SSO Binding</dt>
+                <dd className="break-all font-mono text-[var(--text)]">{parsedMetadata.binding}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">SSO Entry Point</dt>
-                <dd className="font-mono break-all">{parsedMetadata.entryPoint}</dd>
+                <dt className="text-[var(--muted)]">SSO Entry Point</dt>
+                <dd className="break-all font-mono text-[var(--text)]">{parsedMetadata.entryPoint}</dd>
               </div>
             </dl>
 
-            <div className="rounded-md border border-gray-100 bg-gray-50 p-2">
-              <p className="text-xs text-gray-500 mb-1">Certificate (PEM)</p>
-              <pre className="text-xs text-gray-700 whitespace-pre-wrap break-all max-h-40 overflow-auto">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-2">
+              <p className="mb-1 text-xs text-[var(--muted)]">Certificate (PEM)</p>
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all text-xs text-[var(--text)]">
                 {parsedMetadata.idpCert}
               </pre>
               <CopyButton text={parsedMetadata.idpCert} className="mt-2" />
             </div>
 
             {parsedMetadata.warnings.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-xs font-medium text-amber-800 mb-1">Warnings</p>
-                <ul className="text-xs text-amber-800 list-disc list-inside">
+              <div className="rounded-lg border border-amber-400/50 bg-amber-100/50 px-3 py-2 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <p className="mb-1 text-xs font-medium">Warnings</p>
+                <ul className="list-disc space-y-0.5 pl-4 text-xs">
                   {parsedMetadata.warnings.map((warning) => (
                     <li key={warning}>{warning}</li>
                   ))}
@@ -200,7 +192,7 @@ export function SAMLConfigFields({
             )}
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-[var(--text)]">
                 <input
                   type="checkbox"
                   checked={applyEntryPoint}
@@ -208,7 +200,7 @@ export function SAMLConfigFields({
                 />
                 Apply SSO Entry Point URL
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-[var(--text)]">
                 <input
                   type="checkbox"
                   checked={applyIdpCert}
@@ -218,11 +210,7 @@ export function SAMLConfigFields({
               </label>
             </div>
 
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleApplyParsedValues}
-            >
+            <Button type="button" variant="primary" onClick={handleApplyParsedValues}>
               Apply Selected Values
             </Button>
           </div>
@@ -245,24 +233,18 @@ export function SAMLConfigFields({
         error={errors.issuer}
         helperText="Your Service Provider Entity ID"
       />
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
-          IdP Certificate (PEM)
-        </label>
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-[var(--text)]">IdP Certificate (PEM)</label>
         <textarea
-          className={`block w-full rounded-lg border px-3 py-2 text-sm font-mono shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${
-            errors.idpCert ? "border-red-300" : "border-gray-300"
-          }`}
+          className={`focus-ring block w-full rounded-xl border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.idpCert ? "border-red-400" : "border-[var(--border)]"}`}
           rows={6}
           placeholder={idpCertPlaceholder}
           value={values.idpCert}
           onChange={(e) => onChange("idpCert", e.target.value)}
         />
-        {errors.idpCert && (
-          <p className="text-sm text-red-600">{errors.idpCert}</p>
-        )}
-        <p className="text-sm text-gray-500">
-          The IDP&apos;s public X.509 certificate in PEM format
+        {errors.idpCert && <p className="text-sm text-red-500">{errors.idpCert}</p>}
+        <p className="text-sm text-[var(--muted)]">
+          The IdP&apos;s public X.509 certificate in PEM format
         </p>
       </div>
     </div>

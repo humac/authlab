@@ -5,11 +5,16 @@ interface BadgeProps {
 }
 
 const variants = {
-  oidc: "bg-blue-100 text-blue-800",
-  saml: "bg-green-100 text-green-800",
-  blue: "bg-blue-100 text-blue-800",
-  green: "bg-green-100 text-green-800",
-  gray: "bg-gray-100 text-gray-800",
+  oidc:
+    "border border-blue-300/60 bg-blue-100/70 text-blue-900 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-100",
+  saml:
+    "border border-teal-300/60 bg-teal-100/70 text-teal-900 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-100",
+  blue:
+    "border border-blue-300/60 bg-blue-100/70 text-blue-900 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-100",
+  green:
+    "border border-emerald-300/60 bg-emerald-100/70 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-100",
+  gray:
+    "border border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]",
 };
 
 const defaultLabels: Record<string, string> = {
@@ -20,7 +25,7 @@ const defaultLabels: Record<string, string> = {
 export function Badge({ variant, children, className = "" }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[variant]} ${className}`}
+      className={`inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${variants[variant]} ${className}`}
     >
       {children || defaultLabels[variant] || variant.toUpperCase()}
     </span>

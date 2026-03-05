@@ -21,20 +21,23 @@ export default async function HomePage() {
   const members = team ? await listTeamMembers(team.id) : [];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          {team && (
-            <p className="text-sm text-gray-500 mt-1">
-              Active team: {team.isPersonal ? "Personal Workspace" : team.name}
-            </p>
-          )}
+    <div className="space-y-6 animate-enter">
+      <div className="surface-panel rounded-2xl p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Dashboard</h1>
+            {team && (
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Active team: {team.isPersonal ? "Personal Workspace" : team.name}
+              </p>
+            )}
+          </div>
+          <Link href="/apps/new">
+            <Button>Create New App</Button>
+          </Link>
         </div>
-        <Link href="/apps/new">
-          <Button>Create New App</Button>
-        </Link>
       </div>
+
       <Dashboard
         key={user.activeTeamId}
         initialApps={apps}

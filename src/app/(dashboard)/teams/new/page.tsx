@@ -46,7 +46,6 @@ export default function NewTeamPage() {
 
       const team = await res.json();
 
-      // Switch to the new team
       await fetch("/api/teams/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,11 +62,15 @@ export default function NewTeamPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Create a Team</h1>
+    <div className="mx-auto max-w-lg space-y-4 animate-enter">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Create Team</h1>
+        <p className="text-sm text-[var(--muted)]">Set up a shared workspace for apps and members.</p>
+      </div>
+
       <Card>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          <div className="mb-4 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         )}
@@ -91,7 +94,7 @@ export default function NewTeamPage() {
             placeholder="my-team"
             helperText="URL-friendly identifier (lowercase, hyphens only)"
           />
-          <div className="flex gap-3 justify-end">
+          <div className="flex justify-end gap-3">
             <Button
               type="button"
               variant="secondary"

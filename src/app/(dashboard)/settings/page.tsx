@@ -122,134 +122,80 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+    <div className="mx-auto max-w-3xl space-y-6 animate-enter">
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Settings</h1>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+        <div className="rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       )}
       {success && (
-        <div className="p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">
+        <div className="rounded-xl border border-emerald-300/50 bg-emerald-100/40 p-3 text-sm text-emerald-700 dark:border-emerald-600/40 dark:bg-emerald-500/10 dark:text-emerald-200">
           {success}
         </div>
       )}
 
-      {/* Profile */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Profile</h2>
         <form onSubmit={handleProfile} className="space-y-4">
-          <Input
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <div className="flex justify-end">
-            <Button type="submit" loading={loading}>
-              Save Changes
-            </Button>
+            <Button type="submit" loading={loading}>Save Changes</Button>
           </div>
         </form>
       </Card>
 
-      {/* Password */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Change Password
-        </h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Change Password</h2>
         <form onSubmit={handlePassword} className="space-y-4">
-          <Input
-            label="Current Password"
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-          />
-          <Input
-            label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={8}
-          />
-          <Input
-            label="Confirm New Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
-          />
+          <Input label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+          <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
+          <Input label="Confirm New Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} />
           <div className="flex justify-end">
-            <Button type="submit" loading={loading}>
-              Update Password
-            </Button>
+            <Button type="submit" loading={loading}>Update Password</Button>
           </div>
         </form>
       </Card>
 
-      {/* Teams */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Team Memberships
-        </h2>
-        <div className="divide-y divide-gray-100">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Team Memberships</h2>
+        <div className="space-y-2">
           {user.teams.map((team) => (
-            <div
-              key={team.id}
-              className="flex items-center justify-between py-3"
-            >
+            <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
               <div>
-                <div className="font-medium text-gray-900">
-                  {team.isPersonal ? "Personal Workspace" : team.name}
-                </div>
-                <div className="text-sm text-gray-500">
+                <div className="font-medium text-[var(--text)]">{team.isPersonal ? "Personal Workspace" : team.name}</div>
+                <div className="text-sm text-[var(--muted)]">
                   <span className="mr-2">{team.role}</span>· {team.memberCount} member
-                  {team.memberCount !== 1 ? "s" : ""} ·{" "}
-                  {team.appCount} app{team.appCount !== 1 ? "s" : ""}
+                  {team.memberCount !== 1 ? "s" : ""} · {team.appCount} app
+                  {team.appCount !== 1 ? "s" : ""}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {team.id === user.activeTeamId && (
-                  <Badge variant="blue">Active</Badge>
-                )}
+                {team.id === user.activeTeamId && <Badge variant="blue">Active</Badge>}
                 {!team.isPersonal && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleLeaveTeam(team.id)}
                     loading={leavingTeamId === team.id}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-[var(--danger)]"
                   >
                     Leave
                   </Button>
                 )}
-                {team.isPersonal && (
-                  <Badge variant="gray">Required</Badge>
-                )}
+                {team.isPersonal && <Badge variant="gray">Required</Badge>}
               </div>
             </div>
           ))}
         </div>
       </Card>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          Team Management
-        </h2>
-        <p className="text-sm text-gray-500">
-          Team member management and invites are available directly on the dashboard
-          for the currently active team.
+      <Card tone="subtle">
+        <h2 className="mb-2 text-lg font-semibold text-[var(--text)]">Team Management</h2>
+        <p className="text-sm text-[var(--muted)]">
+          Team member management and invites are available directly on the dashboard for the active team.
         </p>
       </Card>
     </div>

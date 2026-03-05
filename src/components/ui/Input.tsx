@@ -13,26 +13,26 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id || label.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-[var(--text)]"
         >
           {label}
         </label>
         <input
           ref={ref}
           id={inputId}
-          className={`block w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${
+          className={`focus-ring block h-11 w-full rounded-xl border bg-[var(--surface)] px-3.5 text-sm text-[var(--text)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] placeholder:text-[var(--muted)] ${
             error
-              ? "border-red-300 focus:border-red-500 focus:ring-red-500/50"
-              : "border-gray-300"
+              ? "border-red-400"
+              : "border-[var(--border)] hover:border-[var(--border-strong)]"
           } ${className}`}
           {...props}
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
         {helperText && !error && (
-          <p className="text-sm text-gray-500">{helperText}</p>
+          <p className="text-sm text-[var(--muted)]">{helperText}</p>
         )}
       </div>
     );

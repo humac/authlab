@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/components/providers/UserProvider";
 import { Button } from "@/components/ui/Button";
@@ -40,12 +40,10 @@ export default function TeamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [inviting, setInviting] = useState(false);
 
-  // Delete modal
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -54,19 +52,19 @@ export default function TeamDetailPage() {
     ? currentTeam.role === "OWNER" || currentTeam.role === "ADMIN"
     : false;
 
-  async function fetchTeam() {
+  const fetchTeam = useCallback(async () => {
     const res = await fetch(`/api/teams/${id}`);
     if (res.ok) {
       setTeam(await res.json());
     }
-  }
+  }, [id]);
 
-  async function fetchInvites() {
+  const fetchInvites = useCallback(async () => {
     const res = await fetch(`/api/teams/${id}/invites`);
     if (res.ok) {
       setInvites(await res.json());
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     const requests = [fetchTeam()];
@@ -74,8 +72,7 @@ export default function TeamDetailPage() {
       requests.push(fetchInvites());
     }
     Promise.all(requests).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, canManage]);
+  }, [canManage, fetchInvites, fetchTeam]);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -138,23 +135,20 @@ export default function TeamDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-12 text-gray-500">Loading...</div>
-    );
+    return <div className="py-12 text-center text-[var(--muted)]">Loading...</div>;
   }
 
   if (!team) {
-    return (
-      <div className="flex justify-center py-12 text-gray-500">
-        Team not found
-      </div>
-    );
+    return <div className="py-12 text-center text-[var(--muted)]">Team not found</div>;
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 animate-enter">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">{team.name}</h1>
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">{team.name}</h1>
+          <p className="text-sm text-[var(--muted)]">Manage members, invites, and team roles.</p>
+        </div>
         {!team.isPersonal && canManage && (
           <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}>
             Delete Team
@@ -163,71 +157,60 @@ export default function TeamDetailPage() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+        <div className="rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       )}
 
-      {/* Members */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Members</h2>
-        <div className="divide-y divide-gray-100">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Members</h2>
+        <div className="space-y-2">
           {team.members.map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center justify-between py-3"
-            >
-              <div>
-                <div className="font-medium text-gray-900">
-                  {member.user.name}
+            <div key={member.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium text-[var(--text)]">{member.user.name}</div>
+                  <div className="text-sm text-[var(--muted)]">{member.user.email}</div>
                 </div>
-                <div className="text-sm text-gray-500">{member.user.email}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {member.role === "OWNER" ? (
-                  <Badge variant="blue">Owner</Badge>
-                ) : (
-                  <>
-                    {canManage ? (
-                      <>
-                        <select
-                          value={member.role}
-                          onChange={(e) =>
-                            handleRoleChange(member.user.id, e.target.value)
-                          }
-                          className="text-sm border border-gray-200 rounded px-2 py-1"
-                        >
-                          <option value="ADMIN">Admin</option>
-                          <option value="MEMBER">Member</option>
-                        </select>
-                        <button
-                          onClick={() => handleRemoveMember(member.user.id)}
-                          className="text-sm text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      </>
-                    ) : (
-                      <Badge variant={member.role === "ADMIN" ? "green" : "gray"}>
-                        {member.role}
-                      </Badge>
-                    )}
-                  </>
-                )}
+                <div className="flex items-center gap-2">
+                  {member.role === "OWNER" ? (
+                    <Badge variant="blue">Owner</Badge>
+                  ) : canManage ? (
+                    <>
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleRoleChange(member.user.id, e.target.value)}
+                        className="focus-ring h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text)]"
+                      >
+                        <option value="ADMIN">Admin</option>
+                        <option value="MEMBER">Member</option>
+                      </select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[var(--danger)]"
+                        onClick={() => handleRemoveMember(member.user.id)}
+                      >
+                        Remove
+                      </Button>
+                    </>
+                  ) : (
+                    <Badge variant={member.role === "ADMIN" ? "green" : "gray"}>
+                      {member.role}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           ))}
         </div>
       </Card>
 
-      {/* Invite */}
       {!team.isPersonal && canManage && (
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Invite Members
-          </h2>
-          <form onSubmit={handleInvite} className="flex gap-3 items-end">
-            <div className="flex-1">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Invite Members</h2>
+          <form onSubmit={handleInvite} className="flex flex-col items-end gap-3 md:flex-row">
+            <div className="w-full flex-1">
               <Input
                 label="Email"
                 type="email"
@@ -240,41 +223,32 @@ export default function TeamDetailPage() {
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
-              className="h-10 border border-gray-200 rounded-lg px-3 text-sm"
+              className="focus-ring h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)] md:w-auto"
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
             </select>
-            <Button type="submit" loading={inviting}>
-              Invite
-            </Button>
+            <Button type="submit" loading={inviting}>Invite</Button>
           </form>
 
           {invites.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">
-                Pending Invites
-              </h3>
-              <div className="divide-y divide-gray-100">
+              <h3 className="mb-2 text-sm font-medium text-[var(--text)]">Pending Invites</h3>
+              <div className="space-y-2">
                 {invites.map((invite) => (
-                  <div
-                    key={invite.id}
-                    className="flex items-center justify-between py-2"
-                  >
+                  <div key={invite.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
                     <div>
-                      <span className="text-sm text-gray-900">
-                        {invite.email}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-2">
-                        ({invite.role})
-                      </span>
+                      <span className="text-sm text-[var(--text)]">{invite.email}</span>
+                      <span className="ml-2 text-xs text-[var(--muted)]">({invite.role})</span>
                     </div>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[var(--danger)]"
                       onClick={() => handleRevokeInvite(invite.id)}
-                      className="text-xs text-red-600 hover:text-red-800"
                     >
                       Revoke
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -283,17 +257,12 @@ export default function TeamDetailPage() {
         </Card>
       )}
 
-      {/* Delete Modal */}
-      <Modal
-        isOpen={showDelete}
-        onClose={() => setShowDelete(false)}
-        title="Delete Team"
-      >
-        <p className="text-sm text-gray-600 mb-4">
-          This will permanently delete the team &quot;{team.name}&quot; and all its app
-          instances. This action cannot be undone.
+      <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Delete Team">
+        <p className="mb-4 text-sm text-[var(--muted)]">
+          This will permanently delete the team &quot;{team.name}&quot; and all app instances.
+          This action cannot be undone.
         </p>
-        <div className="flex gap-3 justify-end">
+        <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={() => setShowDelete(false)}>
             Cancel
           </Button>

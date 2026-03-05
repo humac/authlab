@@ -37,77 +37,49 @@ export function TeamSwitcher() {
       return;
     }
 
-    // Full navigation ensures dashboard always re-renders with the new session team.
     window.location.assign("/");
   }
 
   return (
-    <div ref={ref} className="relative px-3 py-3">
+    <div ref={ref} className="relative border-b border-[var(--border)] px-3 py-3">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+        className="focus-ring flex w-full items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--border-strong)]"
       >
-        <svg
-          className="w-4 h-4 text-gray-500 shrink-0"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-          />
+        <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
-        <span className="truncate flex-1 text-left">{displayName}</span>
-        <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
+        <span className="flex-1 truncate text-left">{displayName}</span>
+        <svg className={`h-4 w-4 text-[var(--muted)] transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-          {teams.map((team) => (
-            <button
-              key={team.id}
-              onClick={() => switchTeam(team)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${
-                team.id === activeTeamId
-                  ? "text-primary font-medium"
-                  : "text-gray-700"
-              }`}
-            >
-              <span className="truncate">
-                {team.isPersonal ? "Personal" : team.name}
-              </span>
-              {team.id === activeTeamId && (
-                <svg
-                  className="w-4 h-4 text-primary shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              )}
-            </button>
-          ))}
+        <div className="absolute left-3 right-3 top-full z-50 mt-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-md)]">
+          {teams.map((team) => {
+            const active = team.id === activeTeamId;
+            return (
+              <button
+                key={team.id}
+                onClick={() => switchTeam(team)}
+                className={`focus-ring flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                  active
+                    ? "bg-[color-mix(in_oklab,var(--primary)_15%,transparent)] text-[var(--primary)]"
+                    : "text-[var(--text)] hover:bg-[var(--surface-2)]"
+                }`}
+              >
+                <span className="truncate">
+                  {team.isPersonal ? "Personal" : team.name}
+                </span>
+                {active && (
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

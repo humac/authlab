@@ -22,12 +22,10 @@ interface FormData {
   name: string;
   slug: string;
   buttonColor: string;
-  // OIDC
   issuerUrl: string;
   clientId: string;
   clientSecret: string;
   scopes: string;
-  // SAML
   entryPoint: string;
   issuer: string;
   idpCert: string;
@@ -147,49 +145,45 @@ export function CreationStepper() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="mx-auto max-w-3xl animate-enter">
       <Stepper steps={STEPS} currentStep={step} />
 
       <Card>
-        {/* Step 0: Protocol */}
         {step === 0 && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Choose Protocol</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <h2 className="mb-1 text-xl font-semibold tracking-tight text-[var(--text)]">Choose Protocol</h2>
+            <p className="mb-5 text-sm text-[var(--muted)]">Pick the identity protocol you want to test.</p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {(["OIDC", "SAML"] as const).map((proto) => (
                 <button
                   key={proto}
                   onClick={() => updateField("protocol", proto)}
-                  className={`p-6 rounded-lg border-2 text-left transition-all ${
+                  className={`focus-ring rounded-2xl border-2 p-5 text-left transition-colors ${
                     formData.protocol === proto
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-200 hover:border-gray-300"
+                      ? "border-[var(--primary)] bg-[color-mix(in_oklab,var(--primary)_9%,transparent)]"
+                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
                   }`}
                 >
                   <Badge variant={proto.toLowerCase() as "oidc" | "saml"} />
-                  <h3 className="font-semibold mt-3">
-                    {proto === "OIDC"
-                      ? "OpenID Connect"
-                      : "SAML 2.0"}
+                  <h3 className="mt-3 font-semibold text-[var(--text)]">
+                    {proto === "OIDC" ? "OpenID Connect" : "SAML 2.0"}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="mt-1 text-sm text-[var(--muted)]">
                     {proto === "OIDC"
-                      ? "OAuth 2.0-based identity protocol with JWT tokens"
-                      : "XML-based single sign-on protocol"}
+                      ? "OAuth-based identity protocol with JWT tokens"
+                      : "XML-based enterprise single sign-on protocol"}
                   </p>
                 </button>
               ))}
             </div>
-            {errors.protocol && (
-              <p className="text-sm text-red-600 mt-2">{errors.protocol}</p>
-            )}
+            {errors.protocol && <p className="mt-2 text-sm text-red-500">{errors.protocol}</p>}
           </div>
         )}
 
-        {/* Step 1: Configuration */}
         {step === 1 && formData.protocol === "OIDC" && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">OIDC Configuration</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">OIDC Configuration</h2>
             <OIDCConfigFields
               values={{
                 issuerUrl: formData.issuerUrl,
@@ -204,7 +198,7 @@ export function CreationStepper() {
         )}
         {step === 1 && formData.protocol === "SAML" && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">SAML Configuration</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">SAML Configuration</h2>
             <SAMLConfigFields
               values={{
                 entryPoint: formData.entryPoint,
@@ -217,10 +211,9 @@ export function CreationStepper() {
           </div>
         )}
 
-        {/* Step 2: Customize */}
         {step === 2 && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Customize</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Customize</h2>
             <div className="space-y-4">
               <Input
                 label="App Name"
@@ -242,113 +235,71 @@ export function CreationStepper() {
                 error={errors.slug}
                 helperText={`Test URL: /test/${formData.slug || "your-slug"}`}
               />
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">
-                  Button Color
-                </label>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[var(--text)]">Button Color</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
                     value={formData.buttonColor}
                     onChange={(e) => updateField("buttonColor", e.target.value)}
-                    className="w-10 h-10 rounded cursor-pointer border border-gray-300"
+                    className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent"
                   />
-                  <span className="text-sm text-gray-500 font-mono">
-                    {formData.buttonColor}
-                  </span>
+                  <span className="font-mono text-sm text-[var(--muted)]">{formData.buttonColor}</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 3: Review */}
         {step === 3 && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Review</h2>
-            <dl className="space-y-3">
-              <div className="flex justify-between py-2 border-b border-gray-100">
-                <dt className="text-sm text-gray-500">Protocol</dt>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Review</h2>
+            <dl className="space-y-2">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                <dt className="text-sm text-[var(--muted)]">Protocol</dt>
                 <dd>
                   <Badge variant={formData.protocol.toLowerCase() as "oidc" | "saml"} />
                 </dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-gray-100">
-                <dt className="text-sm text-gray-500">Name</dt>
-                <dd className="text-sm font-medium">{formData.name}</dd>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                <dt className="text-sm text-[var(--muted)]">Name</dt>
+                <dd className="text-sm font-medium text-[var(--text)]">{formData.name}</dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-gray-100">
-                <dt className="text-sm text-gray-500">Slug</dt>
-                <dd className="text-sm font-mono">{formData.slug}</dd>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                <dt className="text-sm text-[var(--muted)]">Slug</dt>
+                <dd className="font-mono text-sm text-[var(--text)]">/{formData.slug}</dd>
               </div>
-              {formData.protocol === "OIDC" ? (
-                <>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <dt className="text-sm text-gray-500">Issuer URL</dt>
-                    <dd className="text-sm font-mono truncate ml-4 max-w-xs">
-                      {formData.issuerUrl}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <dt className="text-sm text-gray-500">Client ID</dt>
-                    <dd className="text-sm font-mono truncate ml-4 max-w-xs">
-                      {formData.clientId}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <dt className="text-sm text-gray-500">Scopes</dt>
-                    <dd className="text-sm">{formData.scopes}</dd>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <dt className="text-sm text-gray-500">Entry Point</dt>
-                    <dd className="text-sm font-mono truncate ml-4 max-w-xs">
-                      {formData.entryPoint}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <dt className="text-sm text-gray-500">Issuer</dt>
-                    <dd className="text-sm font-mono truncate ml-4 max-w-xs">
-                      {formData.issuer}
-                    </dd>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between py-2">
-                <dt className="text-sm text-gray-500">Button Color</dt>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                <dt className="text-sm text-[var(--muted)]">Button color</dt>
                 <dd className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full border"
+                  <span
+                    className="h-4 w-4 rounded-full border border-[var(--border)]"
                     style={{ backgroundColor: formData.buttonColor }}
                   />
-                  <span className="text-sm font-mono">
-                    {formData.buttonColor}
-                  </span>
+                  <span className="font-mono text-sm text-[var(--text)]">{formData.buttonColor}</span>
                 </dd>
               </div>
             </dl>
             {errors.submit && (
-              <p className="text-sm text-red-600 mt-4">{errors.submit}</p>
+              <p className="mt-3 text-sm text-red-500">{errors.submit}</p>
             )}
           </div>
         )}
 
-        {/* Navigation buttons */}
-        <div className="flex justify-between mt-6 pt-4 border-t border-gray-100">
+        <div className="mt-8 flex justify-between border-t border-[var(--border)] pt-5">
           <Button
             variant="secondary"
             onClick={() => setStep((s) => s - 1)}
-            disabled={step === 0}
+            disabled={step === 0 || submitting}
           >
             Back
           </Button>
+
           {step < 3 ? (
-            <Button onClick={handleNext}>Next</Button>
+            <Button onClick={handleNext}>Continue</Button>
           ) : (
             <Button onClick={handleSubmit} loading={submitting}>
-              Create App
+              Create App Instance
             </Button>
           )}
         </div>
