@@ -23,7 +23,7 @@ export async function GET(
 
   const callbackUrl =
     appInstance.protocol === "OIDC"
-      ? `${APP_URL}/api/auth/callback/oidc`
+      ? `${APP_URL}/api/auth/callback/oidc/${slug}`
       : `${APP_URL}/api/auth/callback/saml`;
 
   const result = await handler.getAuthorizationUrl(callbackUrl);
