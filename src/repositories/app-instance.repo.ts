@@ -7,6 +7,8 @@ import type {
 } from "@/types/app-instance";
 import type { PrismaClient } from "@/generated/prisma/client/client";
 
+const LEGACY_MIGRATION_TEAM_ID = "legacy_migration_team";
+
 type AppInstanceRecord = NonNullable<
   Awaited<ReturnType<PrismaClient["appInstance"]["findUnique"]>>
 >;
@@ -117,4 +119,15 @@ export async function getRedactedAppInstanceById(
   const record = await prisma.appInstance.findUnique({ where: { id } });
   if (!record) return null;
   return redactRecord(record);
+}
+
+export async function claimLegacyMigrationAppsForTeam(
+  teamId: string,
+): Promise<number> {
+  const prisma = await getPrisma();
+  const result = await prisma.appInstance.updateMany({
+    where: { teamId: LEGACY_MIGRATION_TEAM_ID },
+    data: { teamId },
+  });
+  return result.count;
 }

@@ -7,22 +7,44 @@ const globalForPrisma = globalThis as unknown as {
 let prismaPromise: Promise<PrismaClient> | null = null;
 
 async function createPrismaClient(): Promise<PrismaClient> {
-  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+  const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+  const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
+  const hasTursoUrl = Boolean(tursoUrl);
+  const hasTursoAuthToken = Boolean(tursoAuthToken);
+
+  if (hasTursoUrl !== hasTursoAuthToken) {
+    throw new Error(
+      "Database misconfiguration: TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must either both be set or both be unset.",
+    );
+  }
+
+  if (hasTursoUrl && hasTursoAuthToken) {
     const { PrismaLibSql } = await import("@prisma/adapter-libsql");
     const adapter = new PrismaLibSql({
-      url: process.env.TURSO_DATABASE_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    });
-    return new PrismaClient({ adapter });
-  } else {
-    const { PrismaBetterSqlite3 } = await import(
-      "@prisma/adapter-better-sqlite3"
-    );
-    const adapter = new PrismaBetterSqlite3({
-      url: process.env.DATABASE_URL!,
+      url: tursoUrl!,
+      authToken: tursoAuthToken!,
     });
     return new PrismaClient({ adapter });
   }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Database misconfiguration: TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are required in production.",
+    );
+  }
+
+  const sqliteUrl = process.env.DATABASE_URL?.trim();
+  if (!sqliteUrl) {
+    throw new Error(
+      "Database misconfiguration: DATABASE_URL is required for non-production environments.",
+    );
+  }
+
+  const { PrismaBetterSqlite3 } = await import("@prisma/adapter-better-sqlite3");
+  const adapter = new PrismaBetterSqlite3({
+    url: sqliteUrl,
+  });
+  return new PrismaClient({ adapter });
 }
 
 export async function getPrisma(): Promise<PrismaClient> {
