@@ -32,12 +32,40 @@ export async function updateUser(
   }>,
 ) {
   const prisma = await getPrisma();
-  return prisma.user.update({ where: { id }, data });
+  return prisma.$transaction(async (tx) => {
+    const updatedUser = await tx.user.update({ where: { id }, data });
+
+    if (typeof data.name === "string") {
+      await tx.team.updateMany({
+        where: {
+          isPersonal: true,
+          slug: `personal-${id}`,
+        },
+        data: {
+          name: `${data.name}'s Workspace`,
+        },
+      });
+    }
+
+    return updatedUser;
+  });
 }
 
 export async function deleteUser(id: string) {
   const prisma = await getPrisma();
-  return prisma.user.delete({ where: { id } });
+  return prisma.$transaction(async (tx) => {
+    await tx.team.deleteMany({
+      where: {
+        isPersonal: true,
+        OR: [
+          { slug: `personal-${id}` },
+          { members: { some: { userId: id, role: "OWNER" } } },
+        ],
+      },
+    });
+
+    return tx.user.delete({ where: { id } });
+  });
 }
 
 export async function countUsers(): Promise<number> {

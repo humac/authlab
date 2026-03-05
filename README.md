@@ -98,7 +98,7 @@ Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab
 
 ### 6. Create a test app instance
 
-1. Click **Create Your First App** (or **Create New** in the sidebar)
+1. Click **Create Your First App** (or **Create New App** in the sidebar)
 2. Choose **OIDC** or **SAML**
 3. Fill in your identity provider's configuration:
    - **OIDC**: Issuer URL, Client ID, Client Secret
@@ -158,8 +158,8 @@ AuthLab is deployed on Vercel with Turso as the production database (SQLite-comp
 
 2. Push the schema to Turso:
    ```bash
-   npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > migration.sql
-   turso db shell authlab < migration.sql
+   export TURSO_DATABASE_NAME=authlab
+   ./scripts/ci/apply-turso-migrations.sh
    ```
 
 ### Vercel Configuration
@@ -206,9 +206,9 @@ vercel --prod
 
 This repo now includes a production workflow at `.github/workflows/deploy-production.yml` that:
 
-1. Installs dependencies and runs `lint` + `build`
+1. Installs dependencies and runs `lint`
 2. Applies pending SQL files from `prisma/turso-migrations/` to Turso
-3. Deploys to Vercel production
+3. Pulls project settings, builds Vercel artifacts, and deploys with `--prebuilt`
 
 Required repository secrets:
 
@@ -219,6 +219,9 @@ Required repository secrets:
 - `VERCEL_PROJECT_ID`
 
 Each Turso migration file is applied exactly once and tracked in `_authlab_schema_migrations`.
+`prisma/turso-migrations/0001_init.sql` is the baseline schema for greenfield deployments.
+Do not delete historical migration files after deployment; keep them committed for replay/recovery.
+The repo includes `.vercelignore` with `.next` to prevent uploading local Next.js build output.
 
 ### Schema Changes in Production
 
@@ -228,11 +231,8 @@ Prisma CLI doesn't support `libsql://` URLs. After editing `prisma/schema.prisma
 # Apply locally
 npx prisma db push
 
-# Generate migration SQL for Turso
-npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
-
-# Apply to Turso
-turso db shell authlab < migration.sql
+# Generate an incremental SQL migration file for Turso
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > prisma/turso-migrations/<timestamp>_<change>.sql
 
 # Push to deploy
 git add . && git commit -m "update schema" && git push
@@ -240,6 +240,7 @@ git add . && git commit -m "update schema" && git push
 
 Important notes:
 
+- Keep all files in `prisma/turso-migrations/` in git; each file is applied once and then tracked.
 - `--from-config-datasource` reads from the datasource in `prisma.config.ts` (local SQLite in this project). If local SQLite is ahead of Turso, the generated diff can be empty even when Turso is missing tables/columns.
 - Always verify production schema directly in Turso before closing a deployment.
 
