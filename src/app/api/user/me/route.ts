@@ -23,6 +23,7 @@ export async function GET() {
     email: user.email,
     name: user.name,
     isSystemAdmin: user.isSystemAdmin,
+    mustChangePassword: user.mustChangePassword,
     activeTeamId: sessionUser.activeTeamId,
     teams: teams.map((t) => ({
       id: t.id,
@@ -56,6 +57,7 @@ export async function PUT(request: Request) {
     name: string;
     email: string;
     passwordHash: string;
+    mustChangePassword: boolean;
   }> = {};
 
   if (name) updateData.name = name;
@@ -74,6 +76,7 @@ export async function PUT(request: Request) {
       );
     }
     updateData.passwordHash = await hashPassword(newPassword);
+    updateData.mustChangePassword = false;
   }
 
   const updated = await updateUser(sessionUser.userId, updateData);
@@ -82,6 +85,9 @@ export async function PUT(request: Request) {
   const session = await getUserSession();
   if (name) session.name = updated.name;
   if (email) session.email = updated.email;
+  if (updateData.mustChangePassword !== undefined) {
+    session.mustChangePassword = updateData.mustChangePassword;
+  }
   await session.save();
 
   return NextResponse.json({
@@ -89,5 +95,6 @@ export async function PUT(request: Request) {
     email: updated.email,
     name: updated.name,
     isSystemAdmin: updated.isSystemAdmin,
+    mustChangePassword: updated.mustChangePassword,
   });
 }

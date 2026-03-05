@@ -20,7 +20,7 @@ const navItems = [
   },
   {
     href: "/apps/new",
-    label: "Create New",
+    label: "Create Ne App",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -28,7 +28,7 @@ const navItems = [
     ),
   },
   {
-    href: "/teams/new",
+    href: "/teams",
     label: "Teams",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,10 +105,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {isSystemAdmin && (
             <Link
+              href="/admin/users"
+              onClick={() => setSidebarOpen(false)}
+              className={`focus-ring flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                pathname.startsWith("/admin/users")
+                  ? "bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]"
+                  : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+              }`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5V9a2 2 0 00-2-2h-3m-10 13H2V9a2 2 0 012-2h3m0 0V5a3 3 0 116 0v2m-6 0h6m-8 4h10m-10 4h10" />
+              </svg>
+              User Management
+            </Link>
+          )}
+
+          {isSystemAdmin && (
+            <Link
               href="/admin/settings"
               onClick={() => setSidebarOpen(false)}
               className={`focus-ring flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                pathname.startsWith("/admin")
+                pathname.startsWith("/admin/settings")
                   ? "bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--primary)]"
                   : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
               }`}

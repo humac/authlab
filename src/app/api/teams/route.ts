@@ -22,6 +22,12 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!user.isSystemAdmin) {
+    return NextResponse.json(
+      { error: "Only system admins can create teams" },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const parsed = CreateTeamSchema.safeParse(body);

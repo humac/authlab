@@ -5,6 +5,7 @@ export async function createUser(data: {
   name: string;
   passwordHash: string;
   isSystemAdmin?: boolean;
+  mustChangePassword?: boolean;
 }) {
   const prisma = await getPrisma();
   return prisma.user.create({ data });
@@ -27,10 +28,16 @@ export async function updateUser(
     name: string;
     passwordHash: string;
     isSystemAdmin: boolean;
+    mustChangePassword: boolean;
   }>,
 ) {
   const prisma = await getPrisma();
   return prisma.user.update({ where: { id }, data });
+}
+
+export async function deleteUser(id: string) {
+  const prisma = await getPrisma();
+  return prisma.user.delete({ where: { id } });
 }
 
 export async function countUsers(): Promise<number> {
@@ -50,6 +57,7 @@ export async function listUsers(page = 1, limit = 50) {
         email: true,
         name: true,
         isSystemAdmin: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { teamMemberships: true } },
@@ -58,4 +66,42 @@ export async function listUsers(page = 1, limit = 50) {
     prisma.user.count(),
   ]);
   return { users, total, page, limit };
+}
+
+export async function listUsersWithMemberships(page = 1, limit = 50) {
+  const prisma = await getPrisma();
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isSystemAdmin: true,
+        mustChangePassword: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { teamMemberships: true } },
+        teamMemberships: {
+          include: {
+            team: {
+              select: { id: true, name: true, slug: true, isPersonal: true },
+            },
+          },
+          orderBy: { joinedAt: "asc" },
+        },
+      },
+    }),
+    prisma.user.count(),
+  ]);
+  return { users, total, page, limit };
+}
+
+export async function countSystemAdmins(): Promise<number> {
+  const prisma = await getPrisma();
+  return prisma.user.count({
+    where: { isSystemAdmin: true },
+  });
 }

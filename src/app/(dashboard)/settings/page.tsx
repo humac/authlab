@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/components/providers/UserProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 export default function SettingsPage() {
   const user = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -21,6 +22,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [leavingTeamId, setLeavingTeamId] = useState<string | null>(null);
+  const forcePasswordChange =
+    user.mustChangePassword || searchParams.get("forcePasswordChange") === "1";
 
   async function handleProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +91,7 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      router.refresh();
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -136,16 +140,24 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Profile</h2>
-        <form onSubmit={handleProfile} className="space-y-4">
-          <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <div className="flex justify-end">
-            <Button type="submit" loading={loading}>Save Changes</Button>
-          </div>
-        </form>
-      </Card>
+      {forcePasswordChange && (
+        <div className="alert-warning rounded-xl p-3 text-sm">
+          You must change your temporary password before continuing to other pages.
+        </div>
+      )}
+
+      {!forcePasswordChange && (
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Profile</h2>
+          <form onSubmit={handleProfile} className="space-y-4">
+            <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <div className="flex justify-end">
+              <Button type="submit" loading={loading}>Save Changes</Button>
+            </div>
+          </form>
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Change Password</h2>
@@ -159,45 +171,49 @@ export default function SettingsPage() {
         </form>
       </Card>
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Team Memberships</h2>
-        <div className="space-y-2">
-          {user.teams.map((team) => (
-            <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
-              <div>
-                <div className="font-medium text-[var(--text)]">{team.isPersonal ? "Personal Workspace" : team.name}</div>
-                <div className="text-sm text-[var(--muted)]">
-                  <span className="mr-2">{team.role}</span>· {team.memberCount} member
-                  {team.memberCount !== 1 ? "s" : ""} · {team.appCount} app
-                  {team.appCount !== 1 ? "s" : ""}
+      {!forcePasswordChange && (
+        <>
+          <Card>
+            <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Team Memberships</h2>
+            <div className="space-y-2">
+              {user.teams.map((team) => (
+                <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+                  <div>
+                    <div className="font-medium text-[var(--text)]">{team.isPersonal ? "Personal Workspace" : team.name}</div>
+                    <div className="text-sm text-[var(--muted)]">
+                      <span className="mr-2">{team.role}</span>· {team.memberCount} member
+                      {team.memberCount !== 1 ? "s" : ""} · {team.appCount} app
+                      {team.appCount !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {team.id === user.activeTeamId && <Badge variant="blue">Active</Badge>}
+                    {!team.isPersonal && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleLeaveTeam(team.id)}
+                        loading={leavingTeamId === team.id}
+                        className="text-[var(--danger)]"
+                      >
+                        Leave
+                      </Button>
+                    )}
+                    {team.isPersonal && <Badge variant="gray">Required</Badge>}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {team.id === user.activeTeamId && <Badge variant="blue">Active</Badge>}
-                {!team.isPersonal && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleLeaveTeam(team.id)}
-                    loading={leavingTeamId === team.id}
-                    className="text-[var(--danger)]"
-                  >
-                    Leave
-                  </Button>
-                )}
-                {team.isPersonal && <Badge variant="gray">Required</Badge>}
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
 
-      <Card tone="subtle">
-        <h2 className="mb-2 text-lg font-semibold text-[var(--text)]">Team Management</h2>
-        <p className="text-sm text-[var(--muted)]">
-          Team member management and invites are available directly on the dashboard for the active team.
-        </p>
-      </Card>
+          <Card tone="subtle">
+            <h2 className="mb-2 text-lg font-semibold text-[var(--text)]">Team Management</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Team member management and invites are available directly on the dashboard for the active team.
+            </p>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

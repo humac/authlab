@@ -13,11 +13,14 @@ model User {
   name          String
   passwordHash  String
   isSystemAdmin Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   teamMemberships TeamMember[]
   invitesSent     InviteToken[]
+  joinRequests        TeamJoinRequest[] @relation("TeamJoinRequester")
+  reviewedJoinRequests TeamJoinRequest[] @relation("TeamJoinReviewer")
 }
 
 model Team {
@@ -31,6 +34,7 @@ model Team {
   members      TeamMember[]
   appInstances AppInstance[]
   inviteTokens InviteToken[]
+  joinRequests TeamJoinRequest[]
 }
 
 model TeamMember {
@@ -56,6 +60,25 @@ model InviteToken {
   invitedById String
   invitedBy   User     @relation(fields: [invitedById], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+}
+
+model TeamJoinRequest {
+  id           String                @id @default(cuid())
+  status       TeamJoinRequestStatus @default(PENDING)
+  role         TeamRole              @default(MEMBER)
+  note         String?
+  teamId       String
+  userId       String
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  team       Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User  @relation("TeamJoinRequester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("TeamJoinReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([teamId, userId, status])
 }
 
 model SystemSetting {
@@ -101,4 +124,10 @@ enum TeamRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum TeamJoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

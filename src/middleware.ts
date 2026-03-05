@@ -92,6 +92,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const isAuthenticated = !!session.userId;
+  const mustChangePassword = Boolean(session.mustChangePassword);
 
   // Redirect authenticated users away from login/register
   if (isAuthPage(pathname) && isAuthenticated) {
@@ -111,6 +112,24 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (mustChangePassword) {
+    const isSettingsPage = pathname === "/settings";
+    const isAllowedUserApi =
+      pathname === "/api/user/me" || pathname === "/api/user/logout";
+    const isAllowedAuthApi = pathname === "/api/auth/logout";
+
+    if (pathname.startsWith("/api/")) {
+      if (!isAllowedUserApi && !isAllowedAuthApi) {
+        return NextResponse.json(
+          { error: "Password change required before continuing" },
+          { status: 403 },
+        );
+      }
+    } else if (!isSettingsPage) {
+      return NextResponse.redirect(new URL("/settings?forcePasswordChange=1", request.url));
+    }
   }
 
   // Admin routes require system admin

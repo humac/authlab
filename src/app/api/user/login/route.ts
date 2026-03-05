@@ -52,6 +52,7 @@ export async function POST(request: Request) {
   session.email = user.email;
   session.name = user.name;
   session.isSystemAdmin = user.isSystemAdmin;
+  session.mustChangePassword = user.mustChangePassword;
   session.activeTeamId = activeTeamId;
   await session.save();
 
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     email: user.email,
     name: user.name,
     isSystemAdmin: user.isSystemAdmin,
+    mustChangePassword: user.mustChangePassword,
     activeTeamId,
   });
 }

@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     name,
     passwordHash,
     isSystemAdmin,
+    mustChangePassword: false,
   });
 
   // Create personal team
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
   session.email = user.email;
   session.name = user.name;
   session.isSystemAdmin = user.isSystemAdmin;
+  session.mustChangePassword = user.mustChangePassword;
   session.activeTeamId = personalTeam.id;
   await session.save();
 
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
       email: user.email,
       name: user.name,
       isSystemAdmin: user.isSystemAdmin,
+      mustChangePassword: user.mustChangePassword,
       activeTeamId: personalTeam.id,
     },
     { status: 201 },
