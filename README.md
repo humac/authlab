@@ -9,7 +9,7 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 - **Dynamic Provider Registry** — Create multiple OIDC or SAML app instances, each with its own slug-based URL
 - **Isolated Sessions** — Each tenant gets its own encrypted cookie (`authlab_{slug}`), so you can test multiple providers simultaneously
 - **Inspector Page** — Decoded claims table, raw JSON/XML view with copy, JWT header/payload/signature breakdown (OIDC)
-- **Global Callback Routing** — One callback URL per protocol; state/RelayState maps back to the correct tenant
+- **Callback Routing** — App-specific OIDC callback URL and global SAML callback URL; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
 - **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
@@ -111,8 +111,11 @@ Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab
 
 Register these callback URLs in your identity provider's configuration:
 
-- **OIDC**: `http://localhost:3000/api/auth/callback/oidc`
-- **SAML**: `http://localhost:3000/api/auth/callback/saml`
+- **OIDC (per app)**: `http://localhost:3000/api/auth/callback/oidc/{slug}`
+- **SAML (global)**: `http://localhost:3000/api/auth/callback/saml`
+
+For OIDC, use the exact slug for the app instance you are testing (shown on each app test page).  
+Legacy OIDC callback `http://localhost:3000/api/auth/callback/oidc` remains supported for compatibility.
 
 ### 8. SAML metadata export (Service Provider metadata)
 
