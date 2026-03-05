@@ -4,6 +4,7 @@ import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { CopyButton } from "@/components/ui/CopyButton";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 export default async function TestPage({
   params,
@@ -28,76 +29,66 @@ export default async function TestPage({
       : null;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <Card className="max-w-md w-full text-center">
-        <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} />
-        <h1 className="text-2xl font-bold text-gray-900 mt-3 mb-2">
-          {app.name}
-        </h1>
-        <p className="text-sm text-gray-500 mb-6">
-          Test {app.protocol} authentication flow
-        </p>
+    <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center px-4 py-8">
+      <div className="mb-4 flex justify-end">
+        <ThemeToggle compact />
+      </div>
+
+      <Card className="animate-enter text-center">
+        <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} className="mx-auto" />
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--text)]">{app.name}</h1>
+        <p className="mb-6 text-sm text-[var(--muted)]">Test {app.protocol} authentication flow</p>
 
         <Link href={`/test/${slug}/login`}>
           <button
-            className="w-full py-3 px-6 rounded-lg text-white font-medium text-lg transition-opacity hover:opacity-90"
+            className="focus-ring w-full rounded-xl px-6 py-3 text-lg font-semibold text-white shadow-[var(--shadow-sm)] transition-opacity hover:opacity-90"
             style={{ backgroundColor: app.buttonColor || "#3B71CA" }}
           >
             Login with {app.protocol}
           </button>
         </Link>
 
-        <Link
-          href="/"
-          className="mt-3 inline-block text-sm text-primary hover:underline"
-        >
+        <Link href="/" className="mt-3 inline-block text-sm font-medium text-[var(--primary)] hover:underline">
           Back to Dashboard
         </Link>
 
-        <div className="mt-6 pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400 mb-1">Callback URL</p>
-          <code className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
+        <div className="mt-6 border-t border-[var(--border)] pt-4 text-left">
+          <p className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Callback URL</p>
+          <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
             {callbackUrl}
           </code>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="mt-3 text-xs text-[var(--muted)]">
             Register this URL as the redirect URI in your IdP configuration.
           </p>
 
           {app.protocol === "SAML" && unsignedMetadataUrl && signedMetadataUrl && (
-            <div className="mt-4 space-y-3 text-left">
+            <div className="mt-4 space-y-3">
               <div>
-                <p className="text-xs text-gray-400 mb-1">SP Metadata URL (Unsigned)</p>
-                <code className="block text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
+                <p className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">SP Metadata URL (Unsigned)</p>
+                <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
                   {unsignedMetadataUrl}
                 </code>
-                <div className="flex items-center gap-3 mt-1">
+                <div className="mt-1 flex items-center gap-3">
                   <CopyButton text={unsignedMetadataUrl} />
-                  <a
-                    href={unsignedMetadataUrl}
-                    className="text-xs text-primary hover:underline"
-                  >
+                  <a href={unsignedMetadataUrl} className="text-xs text-[var(--primary)] hover:underline">
                     Download
                   </a>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">SP Metadata URL (Signed)</p>
-                <code className="block text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded break-all">
+                <p className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">SP Metadata URL (Signed)</p>
+                <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
                   {signedMetadataUrl}
                 </code>
-                <div className="flex items-center gap-3 mt-1">
+                <div className="mt-1 flex items-center gap-3">
                   <CopyButton text={signedMetadataUrl} />
-                  <a
-                    href={signedMetadataUrl}
-                    className="text-xs text-primary hover:underline"
-                  >
+                  <a href={signedMetadataUrl} className="text-xs text-[var(--primary)] hover:underline">
                     Download
                   </a>
                 </div>
               </div>
-              <p className="text-xs text-gray-400">
-                Signed metadata requires both <code>SAML_SP_PRIVATE_KEY</code> and{" "}
-                <code>SAML_SP_PUBLIC_CERT</code> environment variables.
+              <p className="text-xs text-[var(--muted)]">
+                Signed metadata requires both <code>SAML_SP_PRIVATE_KEY</code> and <code>SAML_SP_PUBLIC_CERT</code> environment variables.
               </p>
             </div>
           )}

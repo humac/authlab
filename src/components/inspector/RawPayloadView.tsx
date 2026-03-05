@@ -14,16 +14,16 @@ export function RawPayloadView({ data, format }: RawPayloadViewProps) {
     try {
       formatted = JSON.stringify(JSON.parse(data), null, 2);
     } catch {
-      // Already formatted or not valid JSON
+      // Already formatted or not valid JSON.
     }
   }
 
   return (
     <div>
-      <div className="flex justify-end mb-2">
+      <div className="mb-2 flex justify-end">
         <CopyButton text={formatted} />
       </div>
-      <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm font-mono leading-relaxed max-h-[500px] overflow-y-auto">
+      <pre className="max-h-[540px] overflow-x-auto overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-sm leading-relaxed text-[var(--code-text)]">
         {formatted}
       </pre>
     </div>

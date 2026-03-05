@@ -1,15 +1,21 @@
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle compact />
+      </div>
+
+      <div className="w-full max-w-md animate-enter">
+        <div className="mb-8 flex items-center justify-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--primary)] text-white shadow-[var(--shadow-sm)]">
             <svg
-              className="w-6 h-6 text-white"
+              className="h-6 w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -22,7 +28,10 @@ export default function AuthLayout({
               />
             </svg>
           </div>
-          <span className="text-2xl font-bold text-gray-900">AuthLab</span>
+          <div>
+            <p className="text-2xl font-bold tracking-tight text-[var(--text)]">AuthLab</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Secure Sandbox</p>
+          </div>
         </div>
         {children}
       </div>

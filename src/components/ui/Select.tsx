@@ -11,24 +11,29 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
   options: SelectOption[];
   error?: string;
+  helperText?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, options, error, className = "", id, ...props }, ref) => {
+  ({ label, options, error, helperText, className = "", id, ...props }, ref) => {
     const selectId = id || label.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label
           htmlFor={selectId}
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-[var(--text)]"
         >
           {label}
         </label>
         <select
           ref={ref}
           id={selectId}
-          className={`block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary ${className}`}
+          className={`focus-ring block h-11 w-full rounded-xl border bg-[var(--surface)] px-3.5 text-sm text-[var(--text)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] ${
+            error
+              ? "border-red-400"
+              : "border-[var(--border)] hover:border-[var(--border-strong)]"
+          } ${className}`}
           {...props}
         >
           {options.map((opt) => (
@@ -37,7 +42,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           ))}
         </select>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
+        {helperText && !error && (
+          <p className="text-sm text-[var(--muted)]">{helperText}</p>
+        )}
       </div>
     );
   },

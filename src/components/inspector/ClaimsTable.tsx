@@ -19,31 +19,27 @@ export function ClaimsTable({ claims }: ClaimsTableProps) {
   };
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200">
+          <tr className="bg-[var(--surface-2)]">
             <th
-              className="text-left py-3 px-4 font-medium text-gray-500 cursor-pointer hover:text-gray-700"
+              className="cursor-pointer px-4 py-3 text-left font-semibold text-[var(--muted)] transition-colors hover:text-[var(--text)]"
               onClick={() => setSortAsc(!sortAsc)}
             >
               Claim Name {sortAsc ? "\u2191" : "\u2193"}
             </th>
-            <th className="text-left py-3 px-4 font-medium text-gray-500">
-              Value
-            </th>
+            <th className="px-4 py-3 text-left font-semibold text-[var(--muted)]">Value</th>
           </tr>
         </thead>
         <tbody>
           {entries.map(([key, value]) => (
             <tr
               key={key}
-              className="border-b border-gray-100 hover:bg-gray-50"
+              className="border-t border-[var(--border)] hover:bg-[var(--surface-2)]"
             >
-              <td className="py-3 px-4 font-mono text-primary font-medium">
-                {key}
-              </td>
-              <td className="py-3 px-4 font-mono text-gray-700 break-all whitespace-pre-wrap">
+              <td className="px-4 py-3 font-mono font-medium text-[var(--primary)]">{key}</td>
+              <td className="break-all whitespace-pre-wrap px-4 py-3 font-mono text-[var(--text)]">
                 {formatValue(value)}
               </td>
             </tr>
@@ -51,7 +47,7 @@ export function ClaimsTable({ claims }: ClaimsTableProps) {
         </tbody>
       </table>
       {entries.length === 0 && (
-        <p className="text-center text-gray-400 py-8">No claims available</p>
+        <p className="py-8 text-center text-[var(--muted)]">No claims available</p>
       )}
     </div>
   );

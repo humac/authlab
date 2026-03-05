@@ -131,61 +131,63 @@ export function TeamMembersPanel({
   return (
     <Card className="h-full">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Team Members</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
           {isPersonal ? "Personal Workspace" : teamName} · {members.length} member
           {members.length !== 1 ? "s" : ""}
         </p>
       </div>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="mb-3 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div className="mb-3 rounded-xl border border-emerald-300/50 bg-emerald-100/40 p-3 text-sm text-emerald-700 dark:border-emerald-600/40 dark:bg-emerald-500/10 dark:text-emerald-200">
           {success}
         </div>
       )}
 
-      <div className="space-y-2 mb-6 max-h-96 overflow-auto pr-1">
+      <div className="mb-6 max-h-96 space-y-2 overflow-auto pr-1">
         {members.map((member) => (
           <div
             key={member.id}
-            className="rounded-lg border border-gray-100 px-3 py-2 flex items-center justify-between gap-3"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
           >
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {member.user.name}
-                {member.user.id === currentUserId ? " (You)" : ""}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-[var(--text)]">
+                  {member.user.name}
+                  {member.user.id === currentUserId ? " (You)" : ""}
+                </div>
+                <div className="truncate text-xs text-[var(--muted)]">{member.user.email}</div>
               </div>
-              <div className="text-xs text-gray-500 truncate">{member.user.email}</div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge variant={roleBadgeVariant(member.role)}>{member.role}</Badge>
-              {canManageMembers && canRemoveMember(currentUserRole, member.role) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  loading={removingId === member.user.id}
-                  onClick={() => handleRemoveMember(member)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Remove
-                </Button>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge variant={roleBadgeVariant(member.role)}>{member.role}</Badge>
+                {canManageMembers && canRemoveMember(currentUserRole, member.role) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={removingId === member.user.id}
+                    onClick={() => handleRemoveMember(member)}
+                    className="text-[var(--danger)]"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         ))}
         {members.length === 0 && (
-          <p className="text-sm text-gray-500">No members found.</p>
+          <p className="text-sm text-[var(--muted)]">No members found.</p>
         )}
       </div>
 
       {canManageMembers && !isPersonal && (
-        <form onSubmit={handleAddOrInvite} className="space-y-3 border-t border-gray-100 pt-4">
-          <h3 className="text-sm font-semibold text-gray-900">
+        <form onSubmit={handleAddOrInvite} className="space-y-3 border-t border-[var(--border)] pt-4">
+          <h3 className="text-sm font-semibold text-[var(--text)]">
             Add Existing User or Invite by Email
           </h3>
           <Input
@@ -200,7 +202,7 @@ export function TeamMembersPanel({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as TeamRole)}
-              className="h-10 rounded-lg border border-gray-200 px-3 text-sm"
+              className="focus-ring h-10 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)]"
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>

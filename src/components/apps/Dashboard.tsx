@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AppInstanceCard } from "./AppInstanceCard";
 import { TeamMembersPanel } from "./TeamMembersPanel";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import type { RedactedAppInstance } from "@/types/app-instance";
 
 interface DashboardProps {
@@ -49,9 +50,9 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+    <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       {apps.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {apps.map((app) => (
             <AppInstanceCard
               key={app.id}
@@ -62,15 +63,15 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">No Apps Yet</h2>
-          <p className="text-sm text-gray-500 mb-5">
-            This team does not have any app instances yet.
+        <Card className="border-dashed text-center" tone="subtle">
+          <h2 className="text-xl font-semibold text-[var(--text)]">No apps yet</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            This team does not have any app instances.
           </p>
-          <Link href="/apps/new">
+          <Link href="/apps/new" className="mt-5 inline-block">
             <Button>Create New App</Button>
           </Link>
-        </div>
+        </Card>
       )}
       <TeamMembersPanel
         key={team.id}

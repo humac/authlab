@@ -35,50 +35,35 @@ export function UserMenu() {
   }
 
   return (
-    <div ref={ref} className="relative px-3 py-3 border-t border-gray-200">
+    <div ref={ref} className="relative border-t border-[var(--border)] px-3 py-3">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+        className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-2)]"
       >
-        <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--primary)_16%,transparent)] text-xs font-bold text-[var(--primary)]">
           {initials}
         </div>
-        <div className="flex-1 text-left min-w-0">
-          <div className="font-medium text-gray-900 truncate">{name}</div>
-          <div className="text-xs text-gray-500 truncate">{email}</div>
+        <div className="min-w-0 flex-1 text-left">
+          <div className="truncate font-medium text-[var(--text)]">{name}</div>
+          <div className="truncate text-xs text-[var(--muted)]">{email}</div>
         </div>
       </button>
 
       {open && (
-        <div className="absolute left-3 right-3 bottom-full mb-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-          <Link
-            href="/settings"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+        <div className="absolute bottom-full left-3 right-3 z-50 mb-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-md)]">
+          <Link href="/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)]">
             Settings
           </Link>
-          <Link
-            href="/teams/new"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+          <Link href="/teams/new" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)]">
             Create Team
           </Link>
           {isSystemAdmin && (
-            <Link
-              href="/admin/settings"
-              onClick={() => setOpen(false)}
-              className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
+            <Link href="/admin/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)]">
               Admin Settings
             </Link>
           )}
-          <div className="border-t border-gray-100 my-1" />
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-          >
+          <div className="my-1 border-t border-[var(--border)]" />
+          <button onClick={handleLogout} className="focus-ring w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--danger)] hover:bg-[color-mix(in_oklab,var(--danger)_10%,transparent)]">
             Sign Out
           </button>
         </div>

@@ -77,11 +77,9 @@ export function EditAppForm({ app }: EditAppFormProps) {
   return (
     <Card>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="mb-4 flex items-center gap-2">
           <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} />
-          <span className="text-sm text-gray-500">
-            Protocol cannot be changed
-          </span>
+          <span className="text-sm text-[var(--muted)]">Protocol cannot be changed</span>
         </div>
 
         <Input
@@ -143,24 +141,20 @@ export function EditAppForm({ app }: EditAppFormProps) {
           />
         )}
 
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Button Color
-          </label>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-[var(--text)]">Button Color</label>
           <div className="flex items-center gap-3">
             <input
               type="color"
               value={formData.buttonColor}
               onChange={(e) => updateField("buttonColor", e.target.value)}
-              className="w-10 h-10 rounded cursor-pointer border border-gray-300"
+              className="h-10 w-10 cursor-pointer rounded-lg border border-[var(--border)] bg-transparent"
             />
-            <span className="text-sm text-gray-500 font-mono">
-              {formData.buttonColor}
-            </span>
+            <span className="font-mono text-sm text-[var(--muted)]">{formData.buttonColor}</span>
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
 
         <div className="flex gap-3 pt-4">
           <Button type="submit" loading={saving}>

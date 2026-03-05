@@ -8,7 +8,6 @@ interface JWTDecoderProps {
 }
 
 function base64UrlDecode(str: string): string {
-  // Replace URL-safe chars and add padding
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
   try {
@@ -23,7 +22,7 @@ export function JWTDecoder({ token }: JWTDecoderProps) {
 
   if (parts.length !== 3) {
     return (
-      <p className="text-gray-500 text-sm">
+      <p className="text-sm text-[var(--muted)]">
         Invalid JWT format (expected 3 parts, got {parts.length})
       </p>
     );
@@ -46,26 +45,20 @@ export function JWTDecoder({ token }: JWTDecoderProps) {
   }
 
   const sections = [
-    { title: "Header", content: header, color: "text-red-400" },
-    { title: "Payload", content: payload, color: "text-purple-400" },
-    {
-      title: "Signature",
-      content: signatureB64,
-      color: "text-blue-400",
-    },
+    { title: "Header", content: header, color: "text-rose-400" },
+    { title: "Payload", content: payload, color: "text-cyan-400" },
+    { title: "Signature", content: signatureB64, color: "text-blue-400" },
   ];
 
   return (
     <div className="space-y-4">
       {sections.map((section) => (
-        <Card key={section.title} className="bg-gray-50">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className={`text-sm font-semibold ${section.color}`}>
-              {section.title}
-            </h4>
+        <Card key={section.title} tone="subtle">
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className={`text-sm font-semibold ${section.color}`}>{section.title}</h4>
             <CopyButton text={section.content} />
           </div>
-          <pre className="bg-gray-900 text-gray-100 rounded p-3 overflow-x-auto text-sm font-mono leading-relaxed">
+          <pre className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--code-bg)] p-3 font-mono text-sm leading-relaxed text-[var(--code-text)]">
             {section.content}
           </pre>
         </Card>

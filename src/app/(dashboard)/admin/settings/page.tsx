@@ -69,103 +69,69 @@ export default function AdminSettingsPage() {
       body: JSON.stringify({ isSystemAdmin: !current }),
     });
     setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, isSystemAdmin: !current } : u,
-      ),
+      prev.map((u) => (u.id === userId ? { ...u, isSystemAdmin: !current } : u)),
     );
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-12 text-gray-500">Loading...</div>
-    );
+    return <div className="py-12 text-center text-[var(--muted)]">Loading...</div>;
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Admin Settings</h1>
+    <div className="mx-auto max-w-5xl space-y-6 animate-enter">
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Admin Settings</h1>
 
-      {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card>
-            <div className="text-3xl font-bold text-gray-900">
-              {stats.totalUsers}
-            </div>
-            <div className="text-sm text-gray-500">Total Users</div>
+            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalUsers}</div>
+            <div className="text-sm text-[var(--muted)]">Total Users</div>
           </Card>
           <Card>
-            <div className="text-3xl font-bold text-gray-900">
-              {stats.totalTeams}
-            </div>
-            <div className="text-sm text-gray-500">Total Teams</div>
+            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalTeams}</div>
+            <div className="text-sm text-[var(--muted)]">Total Teams</div>
           </Card>
           <Card>
-            <div className="text-3xl font-bold text-gray-900">
-              {stats.totalApps}
-            </div>
-            <div className="text-sm text-gray-500">Total Apps</div>
+            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalApps}</div>
+            <div className="text-sm text-[var(--muted)]">Total Apps</div>
           </Card>
         </div>
       )}
 
-      {/* System Settings */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          System Settings
-        </h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <div className="font-medium text-gray-900">
-                Open Registration
-              </div>
-              <div className="text-sm text-gray-500">
-                Allow new users to register accounts
-              </div>
-            </div>
-            <button
-              onClick={() =>
-                toggleSetting(
-                  "registrationEnabled",
-                  settings.registrationEnabled || "true",
-                )
-              }
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                (settings.registrationEnabled || "true") === "true"
-                  ? "bg-primary"
-                  : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  (settings.registrationEnabled || "true") === "true"
-                    ? "translate-x-6"
-                    : "translate-x-1"
-                }`}
-              />
-            </button>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">System Settings</h2>
+        <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+          <div>
+            <div className="font-medium text-[var(--text)]">Open Registration</div>
+            <div className="text-sm text-[var(--muted)]">Allow new users to register accounts</div>
           </div>
+          <button
+            onClick={() =>
+              toggleSetting(
+                "registrationEnabled",
+                settings.registrationEnabled || "true",
+              )
+            }
+            className={`focus-ring relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(settings.registrationEnabled || "true") === "true" ? "bg-[var(--primary)]" : "bg-[var(--border-strong)]"}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${(settings.registrationEnabled || "true") === "true" ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
         </div>
       </Card>
 
-      {/* Users */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Users ({users.length})
-        </h2>
-        <div className="divide-y divide-gray-100">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Users ({users.length})</h2>
+        <div className="space-y-2">
           {users.map((user) => (
-            <div
-              key={user.id}
-              className="flex items-center justify-between py-3"
-            >
+            <div key={user.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">{user.name}</span>
+                  <span className="font-medium text-[var(--text)]">{user.name}</span>
                   {user.isSystemAdmin && <Badge variant="blue">Admin</Badge>}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-[var(--muted)]">
                   {user.email} · {user._count.teamMemberships} team
                   {user._count.teamMemberships !== 1 ? "s" : ""}
                 </div>
@@ -182,28 +148,18 @@ export default function AdminSettingsPage() {
         </div>
       </Card>
 
-      {/* Teams */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Teams ({teams.length})
-        </h2>
-        <div className="divide-y divide-gray-100">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Teams ({teams.length})</h2>
+        <div className="space-y-2">
           {teams.map((team) => (
-            <div
-              key={team.id}
-              className="flex items-center justify-between py-3"
-            >
+            <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">{team.name}</span>
-                  {team.isPersonal && (
-                    <span className="text-xs text-gray-400">(Personal)</span>
-                  )}
+                  <span className="font-medium text-[var(--text)]">{team.name}</span>
+                  {team.isPersonal && <span className="text-xs text-[var(--muted)]">(Personal)</span>}
                 </div>
-                <div className="text-sm text-gray-500">
-                  {team._count.members} member
-                  {team._count.members !== 1 ? "s" : ""} ·{" "}
-                  {team._count.appInstances} app
+                <div className="text-sm text-[var(--muted)]">
+                  {team._count.members} member{team._count.members !== 1 ? "s" : ""} · {team._count.appInstances} app
                   {team._count.appInstances !== 1 ? "s" : ""}
                 </div>
               </div>

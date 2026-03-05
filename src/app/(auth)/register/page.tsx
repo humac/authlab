@@ -51,13 +51,16 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card>
-      <h1 className="text-xl font-bold text-gray-900 mb-6 text-center">
-        Create an Account
+    <Card className="animate-enter">
+      <h1 className="mb-2 text-center text-2xl font-semibold tracking-tight text-[var(--text)]">
+        Create account
       </h1>
+      <p className="mb-6 text-center text-sm text-[var(--muted)]">
+        Set up your AuthLab workspace
+      </p>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+        <div className="mb-4 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </div>
       )}
@@ -102,9 +105,9 @@ export default function RegisterPage() {
         </Button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-gray-500">
+      <p className="mt-5 text-center text-sm text-[var(--muted)]">
         Already have an account?{" "}
-        <Link href="/login" className="text-primary hover:underline">
+        <Link href="/login" className="font-medium text-[var(--primary)] hover:underline">
           Sign in
         </Link>
       </p>

@@ -17,17 +17,17 @@ export default async function EditAppPage({
     notFound();
   }
 
-  // Verify user has access to this app's team
   const membership = await getTeamMembership(user.userId, app.teamId);
   if (!membership) {
     notFound();
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Edit: {app.name}
-      </h1>
+    <div className="mx-auto max-w-3xl space-y-4 animate-enter">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Edit {app.name}</h1>
+        <p className="text-sm text-[var(--muted)]">Adjust provider settings and test UI behavior.</p>
+      </div>
       <EditAppForm app={app} />
     </div>
   );
