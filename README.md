@@ -218,6 +218,65 @@ turso db shell authlab < migration.sql
 git add . && git commit -m "update schema" && git push
 ```
 
+Important notes:
+
+- `--from-config-datasource` reads from the datasource in `prisma.config.ts` (local SQLite in this project). If local SQLite is ahead of Turso, the generated diff can be empty even when Turso is missing tables/columns.
+- Always verify production schema directly in Turso before closing a deployment.
+
+Production verification checklist:
+
+1. Confirm key tables exist:
+   ```bash
+   turso db shell authlab ".tables"
+   ```
+2. Confirm expected columns for changed tables:
+   ```bash
+   turso db shell authlab ".schema SystemSetting"
+   ```
+3. Re-test affected flows against production (for example: user registration, admin settings).
+
+### Production Schema Drift Recovery
+
+If production is missing `SystemSetting`, apply this emergency SQL:
+
+```sql
+CREATE TABLE IF NOT EXISTS "SystemSetting" (
+  "key" TEXT NOT NULL PRIMARY KEY,
+  "value" TEXT NOT NULL,
+  "updatedAt" DATETIME NOT NULL
+);
+```
+
+Then verify:
+
+```bash
+turso db shell authlab ".schema SystemSetting"
+```
+
+### Legacy AppInstance Schema Reconciliation
+
+If production still has legacy `AppInstance` without `teamId`, run:
+
+```bash
+turso db shell authlab < prisma/production-reconcile-2026-03-05.sql
+```
+
+What this does:
+
+- Creates `SystemSetting` if missing.
+- Creates a legacy team (`legacy_migration_team`) if missing.
+- Rebuilds `AppInstance` with required `teamId` + foreign key to `Team`.
+- Preserves existing `AppInstance` rows by assigning them to the legacy team.
+- On first user registration, AuthLab automatically reassigns legacy-team apps to that first user's personal team.
+
+Post-checks:
+
+```bash
+turso db shell authlab ".schema AppInstance"
+turso db shell authlab "PRAGMA table_info(\"AppInstance\");"
+turso db shell authlab "PRAGMA foreign_key_list(\"AppInstance\");"
+```
+
 ## Project Structure
 
 ```

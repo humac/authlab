@@ -5,6 +5,7 @@ import { getUserSession } from "@/lib/user-session";
 import { createUser, getUserByEmail, countUsers } from "@/repositories/user.repo";
 import { createTeam } from "@/repositories/team.repo";
 import { addTeamMember } from "@/repositories/team.repo";
+import { claimLegacyMigrationAppsForTeam } from "@/repositories/app-instance.repo";
 import { getSetting } from "@/repositories/system-setting.repo";
 
 export async function POST(request: Request) {
@@ -58,6 +59,10 @@ export async function POST(request: Request) {
   });
 
   await addTeamMember(personalTeam.id, user.id, "OWNER");
+
+  if (isSystemAdmin) {
+    await claimLegacyMigrationAppsForTeam(personalTeam.id);
+  }
 
   // Set user session
   const session = await getUserSession();
