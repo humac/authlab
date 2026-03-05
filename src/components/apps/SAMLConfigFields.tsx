@@ -181,7 +181,7 @@ export function SAMLConfigFields({
             </div>
 
             {parsedMetadata.warnings.length > 0 && (
-              <div className="rounded-lg border border-amber-400/50 bg-amber-100/50 px-3 py-2 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <div className="alert-warning rounded-lg px-3 py-2">
                 <p className="mb-1 text-xs font-medium">Warnings</p>
                 <ul className="list-disc space-y-0.5 pl-4 text-xs">
                   {parsedMetadata.warnings.map((warning) => (

@@ -6,15 +6,15 @@ interface BadgeProps {
 
 const variants = {
   oidc:
-    "border border-blue-300/60 bg-blue-100/70 text-blue-900 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-100",
+    "border border-[color-mix(in_oklab,#3b82f6_44%,var(--border))] bg-[color-mix(in_oklab,#3b82f6_24%,transparent)] text-[color-mix(in_oklab,#1d4ed8_52%,var(--text))]",
   saml:
-    "border border-teal-300/60 bg-teal-100/70 text-teal-900 dark:border-teal-500/40 dark:bg-teal-500/15 dark:text-teal-100",
+    "border border-[color-mix(in_oklab,#14b8a6_44%,var(--border))] bg-[color-mix(in_oklab,#14b8a6_24%,transparent)] text-[color-mix(in_oklab,#0f766e_52%,var(--text))]",
   blue:
-    "border border-blue-300/60 bg-blue-100/70 text-blue-900 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-100",
+    "border border-[color-mix(in_oklab,#3b82f6_44%,var(--border))] bg-[color-mix(in_oklab,#3b82f6_24%,transparent)] text-[color-mix(in_oklab,#1d4ed8_52%,var(--text))]",
   green:
-    "border border-emerald-300/60 bg-emerald-100/70 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-100",
+    "border border-[color-mix(in_oklab,#10b981_44%,var(--border))] bg-[color-mix(in_oklab,#10b981_24%,transparent)] text-[color-mix(in_oklab,#047857_52%,var(--text))]",
   gray:
-    "border border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]",
+    "border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)]",
 };
 
 const defaultLabels: Record<string, string> = {
@@ -25,7 +25,7 @@ const defaultLabels: Record<string, string> = {
 export function Badge({ variant, children, className = "" }: BadgeProps) {
   return (
     <span
-      className={`inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${variants[variant]} ${className}`}
+      className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold tracking-[0.04em] ${variants[variant]} ${className}`}
     >
       {children || defaultLabels[variant] || variant.toUpperCase()}
     </span>

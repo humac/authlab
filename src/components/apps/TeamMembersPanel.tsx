@@ -139,12 +139,12 @@ export function TeamMembersPanel({
       </div>
 
       {error && (
-        <div className="mb-3 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
+        <div className="alert-danger mb-3 rounded-xl p-3 text-sm">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-3 rounded-xl border border-emerald-300/50 bg-emerald-100/40 p-3 text-sm text-emerald-700 dark:border-emerald-600/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+        <div className="alert-success mb-3 rounded-xl p-3 text-sm">
           {success}
         </div>
       )}

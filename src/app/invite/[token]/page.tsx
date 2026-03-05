@@ -111,7 +111,7 @@ export default function AcceptInvitePage() {
               <h1 className="mb-4 text-center text-xl font-semibold text-[var(--text)]">Team Invitation</h1>
 
               {error && (
-                <div className="mb-4 rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
+                <div className="alert-danger mb-4 rounded-xl p-3 text-sm">
                   {error}
                 </div>
               )}

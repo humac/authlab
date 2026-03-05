@@ -126,12 +126,12 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Settings</h1>
 
       {error && (
-        <div className="rounded-xl border border-red-300/50 bg-red-100/40 p-3 text-sm text-red-600 dark:border-red-600/40 dark:bg-red-500/10 dark:text-red-300">
+        <div className="alert-danger rounded-xl p-3 text-sm">
           {error}
         </div>
       )}
       {success && (
-        <div className="rounded-xl border border-emerald-300/50 bg-emerald-100/40 p-3 text-sm text-emerald-700 dark:border-emerald-600/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+        <div className="alert-success rounded-xl p-3 text-sm">
           {success}
         </div>
       )}
