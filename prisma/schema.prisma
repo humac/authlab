@@ -7,11 +7,72 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  isSystemAdmin Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  teamMemberships TeamMember[]
+  invitesSent     InviteToken[]
+}
+
+model Team {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  isPersonal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  members      TeamMember[]
+  appInstances AppInstance[]
+  inviteTokens InviteToken[]
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  role     TeamRole @default(MEMBER)
+  userId   String
+  teamId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, teamId])
+}
+
+model InviteToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  email       String
+  role        TeamRole @default(MEMBER)
+  expiresAt   DateTime
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User     @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model AppInstance {
   id           String   @id @default(cuid())
   name         String
   slug         String   @unique
   protocol     Protocol
+
+  // Ownership
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   // OIDC Specific Fields
   issuerUrl    String?
@@ -34,4 +95,10 @@ model AppInstance {
 enum Protocol {
   OIDC
   SAML
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
 }

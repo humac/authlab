@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { getRedactedAppInstanceById } from "@/repositories/app-instance.repo";
+import { requireUser } from "@/lib/user-session";
+import { getTeamMembership } from "@/repositories/team.repo";
 import { EditAppForm } from "@/components/apps/EditAppForm";
 
 export default async function EditAppPage({
@@ -8,9 +10,16 @@ export default async function EditAppPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const app = await getRedactedAppInstanceById(id);
 
   if (!app) {
+    notFound();
+  }
+
+  // Verify user has access to this app's team
+  const membership = await getTeamMembership(user.userId, app.teamId);
+  if (!membership) {
     notFound();
   }
 
