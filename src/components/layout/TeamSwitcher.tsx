@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useUser, type TeamInfo } from "@/components/providers/UserProvider";
 
 export function TeamSwitcher() {
   const { activeTeamId, teams } = useUser();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -29,12 +27,18 @@ export function TeamSwitcher() {
     setOpen(false);
     if (team.id === activeTeamId) return;
 
-    await fetch("/api/teams/switch", {
+    const res = await fetch("/api/teams/switch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamId: team.id }),
     });
-    router.refresh();
+
+    if (!res.ok) {
+      return;
+    }
+
+    // Full navigation ensures dashboard always re-renders with the new session team.
+    window.location.assign("/");
   }
 
   return (

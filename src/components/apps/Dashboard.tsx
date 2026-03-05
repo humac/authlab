@@ -73,6 +73,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
         </div>
       )}
       <TeamMembersPanel
+        key={team.id}
         teamId={team.id}
         teamName={team.name}
         isPersonal={team.isPersonal}

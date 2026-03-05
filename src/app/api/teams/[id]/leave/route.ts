@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthError, requireTeamAccess } from "@/lib/authorize";
 import { getUserSession } from "@/lib/user-session";
 import {
+  countTeamMembers,
   countOwners,
   getTeamById,
   getTeamsByUserId,
@@ -35,6 +36,14 @@ export async function POST(
     );
   }
 
+  const memberCount = await countTeamMembers(id);
+  if (memberCount <= 1) {
+    return NextResponse.json(
+      { error: "You are the only member. Invite someone before leaving." },
+      { status: 409 },
+    );
+  }
+
   if (accessor.membership.role === "OWNER") {
     const ownerCount = await countOwners(id);
     if (ownerCount <= 1) {
@@ -45,14 +54,14 @@ export async function POST(
     }
   }
 
-  await removeTeamMember(id, accessor.user.userId);
-
   let activeTeamId = accessor.user.activeTeamId;
+  let fallbackTeamId: string | null = null;
   if (accessor.user.activeTeamId === id) {
     const remainingTeams = await getTeamsByUserId(accessor.user.userId);
+    const candidateTeams = remainingTeams.filter((teamMember) => teamMember.id !== id);
     const fallbackTeam =
-      remainingTeams.find((teamMember) => teamMember.isPersonal) ||
-      remainingTeams[0];
+      candidateTeams.find((teamMember) => teamMember.isPersonal) ||
+      candidateTeams[0];
 
     if (!fallbackTeam) {
       return NextResponse.json(
@@ -61,10 +70,16 @@ export async function POST(
       );
     }
 
+    fallbackTeamId = fallbackTeam.id;
+  }
+
+  await removeTeamMember(id, accessor.user.userId);
+
+  if (fallbackTeamId) {
     const session = await getUserSession();
-    session.activeTeamId = fallbackTeam.id;
+    session.activeTeamId = fallbackTeamId;
     await session.save();
-    activeTeamId = fallbackTeam.id;
+    activeTeamId = fallbackTeamId;
   }
 
   return NextResponse.json({ ok: true, activeTeamId });
