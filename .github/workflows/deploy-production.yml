@@ -46,7 +46,6 @@ jobs:
       - name: Apply Turso migrations
         run: |
           export PATH="$HOME/.turso:$PATH"
-          turso auth login --token "$TURSO_API_TOKEN"
           chmod +x ./scripts/ci/apply-turso-migrations.sh
           ./scripts/ci/apply-turso-migrations.sh
 
