@@ -4,6 +4,7 @@ export interface AppInstanceInput {
   name: string;
   slug: string;
   protocol: Protocol;
+  teamId: string;
   // OIDC
   issuerUrl?: string | null;
   clientId?: string | null;
@@ -22,6 +23,7 @@ export interface AppInstanceRecord {
   name: string;
   slug: string;
   protocol: Protocol;
+  teamId: string;
   issuerUrl: string | null;
   clientId: string | null;
   clientSecret: string | null;

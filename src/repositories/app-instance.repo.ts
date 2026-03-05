@@ -68,6 +68,22 @@ export async function listAppInstances(): Promise<RedactedAppInstance[]> {
   return records.map(redactRecord);
 }
 
+export async function listAppInstancesByTeam(
+  teamId: string,
+): Promise<RedactedAppInstance[]> {
+  const prisma = await getPrisma();
+  const records = await prisma.appInstance.findMany({
+    where: { teamId },
+    orderBy: { createdAt: "desc" },
+  });
+  return records.map(redactRecord);
+}
+
+export async function countAppInstances(): Promise<number> {
+  const prisma = await getPrisma();
+  return prisma.appInstance.count();
+}
+
 export async function updateAppInstance(
   id: string,
   data: Partial<AppInstanceInput>

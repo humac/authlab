@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { listAppInstances } from "@/repositories/app-instance.repo";
+import { requireUser } from "@/lib/user-session";
+import { listAppInstancesByTeam } from "@/repositories/app-instance.repo";
 import { Button } from "@/components/ui/Button";
 import { Dashboard } from "@/components/apps/Dashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const apps = await listAppInstances();
+  const user = await requireUser();
+  const apps = await listAppInstancesByTeam(user.activeTeamId);
 
   if (apps.length === 0) {
     return (

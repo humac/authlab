@@ -66,3 +66,62 @@ export const UpdateAppInstanceSchema = z.object({
 
 export type CreateAppInstanceInput = z.infer<typeof CreateAppInstanceSchema>;
 export type UpdateAppInstanceInput = z.infer<typeof UpdateAppInstanceSchema>;
+
+// User auth schemas
+export const RegisterSchema = z.object({
+  email: z.email("Invalid email address"),
+  name: z.string().min(1, "Name is required").max(100),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
+export const LoginSchema = z.object({
+  email: z.email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const UpdateUserSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    email: z.email().optional(),
+    currentPassword: z.string().optional(),
+    newPassword: z.string().min(8).max(128).optional(),
+  })
+  .refine((data) => !data.newPassword || data.currentPassword, {
+    message: "Current password required to set new password",
+  });
+
+// Team schemas
+export const CreateTeamSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  slug: z
+    .string()
+    .min(1, "Slug is required")
+    .max(50)
+    .regex(slugRegex, "Slug must be lowercase alphanumeric with hyphens"),
+});
+
+export const UpdateTeamSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  slug: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(slugRegex, "Slug must be lowercase alphanumeric with hyphens")
+    .optional(),
+});
+
+// Invite schemas
+export const CreateInviteSchema = z.object({
+  email: z.email("Invalid email address"),
+  role: z.enum(["ADMIN", "MEMBER"]),
+});
+
+export const AcceptInviteSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+});
+
+// Admin schemas
+export const UpdateSystemSettingSchema = z.object({
+  key: z.string().min(1),
+  value: z.string(),
+});

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { CreateAppInstanceSchema } from "@/lib/validators";
 import { getCurrentUser } from "@/lib/user-session";
-import { getTeamMembership } from "@/repositories/team.repo";
+import { CreateTeamSchema } from "@/lib/validators";
 import {
-  createAppInstance,
-  listAppInstancesByTeam,
-} from "@/repositories/app-instance.repo";
+  createTeam,
+  getTeamsByUserId,
+  addTeamMember,
+} from "@/repositories/team.repo";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -13,8 +13,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const apps = await listAppInstancesByTeam(user.activeTeamId);
-  return NextResponse.json(apps);
+  const teams = await getTeamsByUserId(user.userId);
+  return NextResponse.json(teams);
 }
 
 export async function POST(request: Request) {
@@ -23,15 +23,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Verify user is a member of the active team
-  const membership = await getTeamMembership(user.userId, user.activeTeamId);
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body = await request.json();
-  const parsed = CreateAppInstanceSchema.safeParse(body);
-
+  const parsed = CreateTeamSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", issues: parsed.error.issues },
@@ -40,18 +33,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const app = await createAppInstance({
-      ...parsed.data,
-      teamId: user.activeTeamId,
-    });
-    return NextResponse.json(app, { status: 201 });
+    const team = await createTeam(parsed.data);
+    await addTeamMember(team.id, user.userId, "OWNER");
+    return NextResponse.json(team, { status: 201 });
   } catch (error) {
     if (
       error instanceof Error &&
       error.message.includes("Unique constraint")
     ) {
       return NextResponse.json(
-        { error: "An app with this slug already exists" },
+        { error: "A team with this slug already exists" },
         { status: 409 },
       );
     }
