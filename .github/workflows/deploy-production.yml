@@ -119,6 +119,7 @@ jobs:
             .vercel/project.json
             .vercel/output
             .vercel/.env.production.local
+          include-hidden-files: true
           if-no-files-found: error
 
   deploy:
