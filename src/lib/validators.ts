@@ -176,18 +176,27 @@ export const UpdateSystemSettingSchema = z.object({
 
 export const EmailProviderTypeSchema = z.enum(["SMTP", "BREVO"]);
 
+const OptionalNonEmptyStringSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}, z.string().min(1).optional());
+
 export const SmtpConfigSchema = z.object({
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535),
   secure: z.boolean(),
   username: z.string().min(1),
-  password: z.string().min(1).optional(),
+  password: OptionalNonEmptyStringSchema,
   fromName: z.string().min(1).max(100),
   fromEmail: z.email(),
 });
 
 export const BrevoConfigSchema = z.object({
-  apiKey: z.string().min(1).optional(),
+  apiKey: OptionalNonEmptyStringSchema,
   fromName: z.string().min(1).max(100),
   fromEmail: z.email(),
 });
