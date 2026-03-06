@@ -19,7 +19,12 @@ const STATE_SESSION_OPTIONS = {
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
-    sameSite: "lax" as const,
+    // SAML IdP callbacks are cross-site POSTs; browsers require SameSite=None
+    // for the pending auth cookie to be included in production.
+    sameSite:
+      process.env.NODE_ENV === "production"
+        ? ("none" as const)
+        : ("lax" as const),
     path: "/",
     maxAge: 600, // 10 minutes
   },

@@ -31,6 +31,9 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 npm install
 npm run dev
 npm run lint
+npm run test:unit
+npm run build:ci
+npm run test:ci
 npx tsc --noEmit
 npx prisma db push
 npx prisma generate
@@ -42,6 +45,7 @@ npm run build -- --webpack
 ### High-Level Areas
 
 - `src/app/api/auth/callback/*` — app protocol callbacks (OIDC/SAML)
+- `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
 - `src/app/api/user/*` — account security APIs:
   - login + MFA
   - register + verify email
@@ -111,3 +115,20 @@ npm run build -- --webpack
 - If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
 - Next.js 16 warns that `middleware` convention is deprecated in favor of `proxy`; current implementation still works.
 - If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
+- Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
+- SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.
+- Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
+
+## Agent Commit Rule
+
+- All coding agents must run local unit tests before committing changes: `npm run test:unit`.
+
+## CI/CD Notes
+
+- `.github/workflows/ci.yml` contains:
+  - `Quality Gate`: lint, typecheck, unit tests, Prisma validate, CI build
+  - `Release Readiness`: trusted PR/merge queue checks for Vercel credentials/env and `vercel build --prod`
+  - `Dependency Review`: runs only when GitHub Dependency Graph is enabled
+- `.github/workflows/deploy-production.yml` contains:
+  - `verify-release`: re-validates quality, Vercel credentials, production env vars, and production artifact build
+  - `deploy`: rebuilds Vercel artifacts, applies Turso migrations, then deploys with `vercel deploy --prebuilt --prod`
