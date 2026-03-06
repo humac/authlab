@@ -52,6 +52,101 @@ jobs:
       - name: Build
         run: npm run build:ci
 
+  release-readiness:
+    name: Release Readiness
+    if: github.event_name == 'merge_group' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Validate Vercel credentials
+        run: |
+          required_secrets=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+          )
+
+          missing=()
+          for secret_name in "${required_secrets[@]}"; do
+            if [ -z "${!secret_name:-}" ]; then
+              missing+=("$secret_name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing required Vercel GitHub Actions secrets: ${missing[*]}"
+            exit 1
+          fi
+
+          status_code="$(
+            curl -sS -o /tmp/vercel-user.json -w "%{http_code}" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              https://api.vercel.com/v2/user
+          )"
+
+          if [ "$status_code" != "200" ]; then
+            echo "VERCEL_TOKEN is invalid or no longer accepted by Vercel (HTTP $status_code)."
+            echo "Update the VERCEL_TOKEN repository secret with a fresh token from Vercel Settings > Tokens."
+            exit 1
+          fi
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Validate required Vercel env vars
+        run: |
+          ENV_FILE=".vercel/.env.production.local"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Missing $ENV_FILE after vercel pull"
+            exit 1
+          fi
+
+          required_vars=(
+            MASTER_ENCRYPTION_KEY
+            SESSION_PASSWORD
+            NEXT_PUBLIC_APP_URL
+            TURSO_DATABASE_URL
+            TURSO_AUTH_TOKEN
+            DATABASE_URL
+          )
+
+          missing=()
+          for var in "${required_vars[@]}"; do
+            if ! grep -q "^${var}=" "$ENV_FILE"; then
+              missing+=("$var")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing required Vercel production env vars: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Build Vercel artifacts
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
   dependency-review:
     name: Dependency Review
     if: github.event_name == 'pull_request'

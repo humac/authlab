@@ -15,11 +15,17 @@ Runs on every pull request and merge queue event:
 - `npm ci`
 - `npm run lint`
 - `npm run typecheck`
+- `npm run test:unit`
 - `npm run prisma:validate`
 - `npm run build:ci`
 - Dependency diff scanning with `actions/dependency-review-action`
+- Production release-readiness verification for trusted PRs and merge queue runs:
+  - validate `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`
+  - `vercel pull --environment=production`
+  - validate required production env vars
+  - `vercel build --prod`
 
-This is the fast feedback lane. It proves the branch compiles, the Prisma schema is valid, and the Next.js production build succeeds with CI-safe stub secrets.
+This catches both code regressions and production configuration failures before merge. The release-readiness job uses real Vercel secrets only for trusted PRs from this repository and merge queue runs.
 
 ### Pre-deploy gate
 
@@ -43,6 +49,7 @@ To make the workflows enforceable, configure GitHub branch protection for `main`
 - Require pull requests before merge
 - Require status checks:
   - `Quality Gate`
+  - `Release Readiness`
   - `Dependency Review`
 - Block direct pushes to `main`
 - Require the branch to be up to date before merging
