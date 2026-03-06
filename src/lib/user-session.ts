@@ -58,6 +58,7 @@ export function setAuthenticatedUserSession(
   session.isVerified = user.isVerified;
   session.mfaEnabled = user.mfaEnabled;
   session.activeTeamId = activeTeamId;
+  session.lastActivityAt = Date.now();
   clearAuthState(session);
 }
 

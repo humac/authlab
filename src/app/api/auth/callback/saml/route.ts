@@ -82,11 +82,11 @@ export async function POST(request: Request) {
       normalized.includes("destination") ||
       normalized.includes("invalid");
 
-    console.error("SAML callback failed", error);
+    console.error("SAML callback failed:", message);
     return NextResponse.json(
       {
         error: isValidationError
-          ? `SAML validation failed: ${message}`
+          ? "SAML validation failed"
           : "SAML callback failed",
       },
       { status: isValidationError ? 400 : 500 },

@@ -67,7 +67,7 @@ export async function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self' https:",
+    "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
@@ -76,8 +76,13 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains",
+    );
+  }
 
   if (
     pathname.startsWith("/api/") &&
@@ -91,11 +96,21 @@ export async function proxy(request: NextRequest) {
       const origin = request.headers.get("origin");
       const host = request.headers.get("host");
 
-      if (origin && host && !origin.includes(host)) {
-        return NextResponse.json(
-          { error: "CSRF validation failed" },
-          { status: 403 },
-        );
+      if (origin && host) {
+        try {
+          const originHost = new URL(origin).host;
+          if (originHost !== host) {
+            return NextResponse.json(
+              { error: "CSRF validation failed" },
+              { status: 403 },
+            );
+          }
+        } catch {
+          return NextResponse.json(
+            { error: "CSRF validation failed" },
+            { status: 403 },
+          );
+        }
       }
 
       const contentLength = request.headers.get("content-length");
@@ -151,6 +166,21 @@ export async function proxy(request: NextRequest) {
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
+
+  // Idle session timeout: 1 hour of inactivity
+  const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+  const now = Date.now();
+  if (session.lastActivityAt && now - session.lastActivityAt > IDLE_TIMEOUT_MS) {
+    session.destroy();
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Session expired" }, { status: 401 });
+    }
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  session.lastActivityAt = now;
+  await session.save();
 
   if (mustChangePassword) {
     const isSettingsPage = pathname === "/settings";
