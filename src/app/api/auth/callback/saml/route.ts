@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { SAMLHandler } from "@/lib/saml-handler";
 import { getState } from "@/lib/state-store";
-import { getAppSession } from "@/lib/session";
+import { getAppSession, saveAuthResultSession } from "@/lib/session";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -60,12 +60,12 @@ export async function POST(request: Request) {
 
     // Store in session
     const session = await getAppSession(slug);
-    session.appSlug = slug;
-    session.protocol = "SAML";
-    session.claims = result.claims;
-    session.rawXml = result.rawXml;
-    session.authenticatedAt = new Date().toISOString();
-    await session.save();
+    await saveAuthResultSession(session, {
+      slug,
+      protocol: "SAML",
+      claims: result.claims,
+      rawXml: result.rawXml,
+    });
 
     return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`, 303);
   } catch (error) {
