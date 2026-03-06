@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Missing RelayState. Start SAML from /test/{slug}/login and ensure your IdP preserves RelayState in the response.",
+            "Missing RelayState. SP-initiated flow requires RelayState. For IdP-initiated flow, configure the IdP ACS URL to /api/auth/callback/saml/{slug}.",
         },
         { status: 400 },
       );
