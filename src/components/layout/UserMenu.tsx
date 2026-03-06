@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useUser } from "@/components/providers/UserProvider";
 
 export function UserMenu() {
-  const { name, email, isSystemAdmin } = useUser();
+  const { name, email, hasProfileImage, isSystemAdmin } = useUser();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -40,8 +41,21 @@ export function UserMenu() {
         onClick={() => setOpen(!open)}
         className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-2)]"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--primary)_16%,transparent)] text-xs font-bold text-[var(--primary)]">
-          {initials}
+        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--primary)_16%,transparent)] text-xs font-bold text-[var(--primary)]">
+          <span>{initials}</span>
+          {hasProfileImage && (
+            <Image
+              src="/api/user/profile-image"
+              alt={`${name} profile`}
+              width={32}
+              height={32}
+              unoptimized
+              className="absolute inset-0 h-8 w-8 rounded-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          )}
         </div>
         <div className="min-w-0 flex-1 text-left">
           <div className="truncate font-medium text-[var(--text)]">{name}</div>
@@ -52,7 +66,7 @@ export function UserMenu() {
       {open && (
         <div className="absolute bottom-full left-3 right-3 z-50 mb-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-md)]">
           <Link href="/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)]">
-            Settings
+            Profile
           </Link>
           <Link href="/teams/new" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)]">
             Create Team
