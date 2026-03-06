@@ -111,17 +111,6 @@ jobs:
       - name: Build Vercel artifacts
         run: vercel build --prod --token="$VERCEL_TOKEN"
 
-      - name: Upload Vercel prebuilt output
-        uses: actions/upload-artifact@v4
-        with:
-          name: vercel-prebuilt-output
-          path: |
-            .vercel/project.json
-            .vercel/output
-            .vercel/.env.production.local
-          include-hidden-files: true
-          if-no-files-found: error
-
   deploy:
     needs: verify-release
     runs-on: ubuntu-latest
@@ -146,11 +135,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download Vercel prebuilt output
-        uses: actions/download-artifact@v4
-        with:
-          name: vercel-prebuilt-output
-          path: .vercel
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build Vercel artifacts
+        run: vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Install Turso CLI
         run: curl -sSfL https://get.tur.so/install.sh | bash
@@ -160,9 +152,6 @@ jobs:
           export PATH="$HOME/.turso:$PATH"
           chmod +x ./scripts/ci/apply-turso-migrations.sh
           ./scripts/ci/apply-turso-migrations.sh
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
 
       - name: Deploy to Vercel
         run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
