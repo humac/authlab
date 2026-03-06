@@ -37,6 +37,10 @@ export async function resolve(specifier, context, nextResolve) {
     return nextResolve(specifier, context);
   }
 
+  if (specifier === "next/headers") {
+    return nextResolve("next/headers.js", context);
+  }
+
   const { pathPart, suffix } = splitSpecifier(specifier);
 
   if (pathPart.startsWith("@/")) {

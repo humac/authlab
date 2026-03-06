@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   // Look up state to find slug and code verifier
-  const stateEntry = getState(state);
+  const stateEntry = await getState(state);
   if (!stateEntry) {
     return NextResponse.json(
       { error: "Invalid or expired state parameter" },

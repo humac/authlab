@@ -29,7 +29,7 @@ export async function GET(
   const result = await handler.getAuthorizationUrl(callbackUrl);
 
   // Store state → slug mapping for callback routing
-  setState(result.state, {
+  await setState(result.state, {
     slug,
     codeVerifier: result.codeVerifier,
   });
