@@ -30,7 +30,7 @@ export async function POST(
   }
 
   // Look up RelayState to find slug
-  const stateEntry = getState(relayState);
+  const stateEntry = await getState(relayState);
   if (!stateEntry) {
     return NextResponse.json(
       { error: "Invalid or expired RelayState" },
