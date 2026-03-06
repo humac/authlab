@@ -25,8 +25,12 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const parsed = UpdateEmailProviderSchema.safeParse(body);
   if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0]?.message;
     return NextResponse.json(
-      { error: "Validation failed", issues: parsed.error.issues },
+      {
+        error: firstIssue ? `Validation failed: ${firstIssue}` : "Validation failed",
+        issues: parsed.error.issues,
+      },
       { status: 400 },
     );
   }
