@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { RegisterSchema } from "@/lib/validators";
 import { hashPassword } from "@/lib/password";
-import { getUserSession } from "@/lib/user-session";
 import { createUser, getUserByEmail, countUsers } from "@/repositories/user.repo";
-import { createTeam } from "@/repositories/team.repo";
-import { addTeamMember } from "@/repositories/team.repo";
+import { createTeam, addTeamMember } from "@/repositories/team.repo";
 import { claimLegacyMigrationAppsForTeam } from "@/repositories/app-instance.repo";
 import { getSetting } from "@/repositories/system-setting.repo";
+import { createAuthToken } from "@/repositories/auth-token.repo";
+import { sendEmailVerificationLink } from "@/lib/auth-email";
+
+const GENERIC_RESPONSE = {
+  message: "If an account can be created, a verification email has been sent.",
+};
 
 export async function POST(request: Request) {
-  // Check if registration is enabled
   const registrationEnabled = await getSetting("registrationEnabled");
   if (registrationEnabled === "false") {
     return NextResponse.json(
@@ -28,18 +31,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const { email, name, password } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
+  const { name, password } = parsed.data;
 
-  // Check if email already taken
   const existing = await getUserByEmail(email);
   if (existing) {
-    return NextResponse.json(
-      { error: "An account with this email already exists" },
-      { status: 409 },
-    );
+    if (!existing.isVerified) {
+      try {
+        const token = await createAuthToken({
+          userId: existing.id,
+          purpose: "EMAIL_VERIFY",
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        });
+        await sendEmailVerificationLink({
+          email: existing.email,
+          name: existing.name,
+          token,
+        });
+      } catch {
+        // Intentionally suppress errors to keep response generic.
+      }
+    }
+
+    return NextResponse.json(GENERIC_RESPONSE);
   }
 
-  // First user becomes system admin
   const userCount = await countUsers();
   const isSystemAdmin = userCount === 0;
 
@@ -50,9 +66,10 @@ export async function POST(request: Request) {
     passwordHash,
     isSystemAdmin,
     mustChangePassword: false,
+    isVerified: false,
+    mfaEnabled: false,
   });
 
-  // Create personal team
   const personalTeam = await createTeam({
     name: `${name}'s Workspace`,
     slug: `personal-${user.id}`,
@@ -65,25 +82,21 @@ export async function POST(request: Request) {
     await claimLegacyMigrationAppsForTeam(personalTeam.id);
   }
 
-  // Set user session
-  const session = await getUserSession();
-  session.userId = user.id;
-  session.email = user.email;
-  session.name = user.name;
-  session.isSystemAdmin = user.isSystemAdmin;
-  session.mustChangePassword = user.mustChangePassword;
-  session.activeTeamId = personalTeam.id;
-  await session.save();
+  try {
+    const token = await createAuthToken({
+      userId: user.id,
+      purpose: "EMAIL_VERIFY",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
 
-  return NextResponse.json(
-    {
-      id: user.id,
+    await sendEmailVerificationLink({
       email: user.email,
       name: user.name,
-      isSystemAdmin: user.isSystemAdmin,
-      mustChangePassword: user.mustChangePassword,
-      activeTeamId: personalTeam.id,
-    },
-    { status: 201 },
-  );
+      token,
+    });
+  } catch {
+    // Intentionally suppress errors to keep response generic.
+  }
+
+  return NextResponse.json(GENERIC_RESPONSE, { status: 201 });
 }

@@ -4,128 +4,122 @@
 
 ### Security Auditor
 
-**Purpose**: Review authentication flows, encryption, and session management for vulnerabilities.
+**Purpose**: Review authentication, secret handling, and session security.
 
 **Focus Areas**:
-- Verify AES-256-GCM encryption in `src/lib/encryption.ts` — check IV uniqueness, auth tag validation, key derivation
-- Audit state parameter handling in `src/lib/state-store.ts` — TTL enforcement, one-time use, replay prevention
-- Review XXE sanitization in `src/lib/xxe-sanitizer.ts` — coverage of attack vectors (billion laughs, external entities)
-- Check session isolation in `src/lib/session.ts` — cookie name uniqueness, `httpOnly`/`secure` flags
-- Validate CSRF protection in `src/middleware.ts` — origin checking, content-type enforcement
-- Ensure secrets never leak via `src/repositories/app-instance.repo.ts` — redaction in list/get operations
-- Verify SAML response handling in `src/lib/saml-handler.ts` — XML sanitization before validation
+- Verify AES-256-GCM usage in `src/lib/encryption.ts` with `MASTER_ENCRYPTION_KEY`
+- Audit password hashing/migration in `src/lib/password.ts` (Argon2id + legacy bcrypt verify)
+- Review token lifecycle in `src/repositories/auth-token.repo.ts` (hashing, TTL, one-time use)
+- Validate MFA setup/verification in `src/app/api/user/mfa/` and `src/lib/totp.ts`
+- Validate passkey registration/login in `src/app/api/user/passkeys/` and `src/lib/webauthn.ts`
+- Check profile image hardening in `src/lib/profile-image.ts` (magic bytes, type allowlist, size, EXIF stripping)
+- Confirm write-only secret handling for SMTP/Brevo in `src/lib/email-provider.ts`
+- Validate CSP + CSRF controls in `src/middleware.ts` and nonce usage in `src/app/layout.tsx`
+- Ensure invite acceptance is email-scoped in `src/app/api/invites/accept/route.ts`
 
 **Critical Files**:
 - `src/lib/encryption.ts`
-- `src/lib/state-store.ts`
-- `src/lib/xxe-sanitizer.ts`
-- `src/lib/session.ts`
+- `src/lib/password.ts`
+- `src/lib/email-provider.ts`
+- `src/lib/totp.ts`
+- `src/lib/webauthn.ts`
+- `src/lib/profile-image.ts`
+- `src/lib/user-session.ts`
 - `src/middleware.ts`
-- `src/repositories/app-instance.repo.ts`
+- `src/repositories/auth-token.repo.ts`
 
 ### Auth Protocol Specialist
 
-**Purpose**: Maintain and extend OIDC and SAML authentication handlers.
+**Purpose**: Maintain OIDC/SAML app-testing flows and account-auth security flows.
 
 **Focus Areas**:
-- OIDC flow in `src/lib/oidc-handler.ts` — issuer discovery, PKCE, authorization code grant, token extraction
-- SAML flow in `src/lib/saml-handler.ts` — SP configuration, assertion validation, attribute extraction
-- Auth factory in `src/lib/auth-factory.ts` — handler interface, protocol routing
-- Callback routes in `src/app/api/auth/callback/` — per-app OIDC callback (`oidc/[slug]`) + per-app SAML callback (`saml/[slug]`)
-- Login initiation in `src/app/test/[slug]/login/route.ts` — dynamic redirect construction
+- OIDC app flow in `src/lib/oidc-handler.ts` and callback routes
+- SAML app flow in `src/lib/saml-handler.ts` and callback routes
+- User auth routes in `src/app/api/user/`:
+  - login + MFA (`login`, `login/mfa/totp`)
+  - registration + verification (`register`, `verify-email`, `verify-email/resend`)
+  - password reset (`password-reset/request`, `password-reset/complete`)
+  - passkeys (`passkeys/**`)
+  - TOTP setup/disable (`mfa/totp/**`)
 
 **Key Libraries**:
-- `openid-client` v6 — functional API (not class-based), uses `discovery()`, `buildAuthorizationUrl()`, `authorizationCodeGrant()`
-- `@node-saml/node-saml` v5 — `SAML` class with `getAuthorizeUrlAsync()`, `validatePostResponseAsync()`
-
-**Testing Protocol**:
-1. Configure a test OIDC provider (Google, Auth0 dev tenant) via the stepper UI
-2. Register `{NEXT_PUBLIC_APP_URL}/api/auth/callback/oidc/{slug}` as redirect URI in the IdP for that app
-3. Click "Login with OIDC" on the test page — should redirect to IdP and back to inspector
-4. For SAML, use an IdP like Okta with `{NEXT_PUBLIC_APP_URL}/api/auth/callback/saml/{slug}` as ACS URL
+- `openid-client` v6
+- `@node-saml/node-saml` v5
+- `@simplewebauthn/server` + `@simplewebauthn/browser`
+- `otplib` + `qrcode`
 
 ### UI/Frontend Developer
 
-**Purpose**: Build and maintain React components and pages.
+**Purpose**: Build and maintain dashboard/auth UI flows.
 
 **Focus Areas**:
-- UI primitives in `src/components/ui/` — Button, Card, Input, Modal, Tabs, Stepper, Badge, CopyButton
-- Layout in `src/components/layout/AppShell.tsx` — sidebar navigation, responsive design
-- App management in `src/components/apps/` — Dashboard grid, TeamMembersPanel, CreationStepper (4-step flow), EditForm
-- Inspector in `src/components/inspector/` — ClaimsTable, RawPayloadView, JWTDecoder, SessionInfo
-- Dashboard-first team UX:
-  - `src/app/(dashboard)/page.tsx` renders apps + active-team member panel
-  - `src/components/apps/TeamMembersPanel.tsx` handles member listing, add/invite, remove actions
-  - `src/components/apps/AppInstanceCard.tsx` provides move/copy transfer actions between teams
+- Auth pages:
+  - `src/app/(auth)/login/page.tsx`
+  - `src/app/(auth)/register/page.tsx`
+  - `src/app/(auth)/forgot-password/page.tsx`
+  - `src/app/(auth)/reset-password/page.tsx`
+  - `src/app/(auth)/verify-email/page.tsx`
+- Settings UX in `src/app/(dashboard)/settings/page.tsx`:
+  - passkey management
+  - TOTP enrollment/disable
+  - profile image upload/remove
+- Admin email provider settings in `src/app/(dashboard)/admin/settings/page.tsx`
 
 **Design System**:
-- Primary color: `#3B71CA` (TW-Elements blue) — defined as `--color-primary` in `globals.css`
-- Tailwind CSS v4 with `@theme inline` for custom properties
-- Components use Tailwind utility classes directly (no CSS modules)
-- All interactive components are client components (`"use client"`)
-- Server components fetch data and pass via props to client components
+- Primary color: `#3B71CA` via CSS custom properties in `globals.css`
+- Tailwind CSS v4 utilities
+- Client components for interactive forms
+- Server components for data-loading layout/page shells
 
 ### Database/Backend Developer
 
-**Purpose**: Manage data access, schema, and API routes.
+**Purpose**: Manage Prisma schema, repositories, and API contracts.
 
 **Focus Areas**:
-- Prisma schema in `prisma/schema.prisma` — AppInstance model, Protocol enum
-- Prisma config in `prisma.config.ts` — datasource URL (always local SQLite for CLI)
-- Database client in `src/lib/db.ts` — async `getPrisma()` with strict production Turso checks
-- Repository layer in `src/repositories/app-instance.repo.ts` — CRUD + move/copy transfer helpers with encryption
-- Team repositories in `src/repositories/team.repo.ts` — memberships, role checks, owner-count checks for leave flow
-- API routes in `src/app/api/apps/` — REST endpoints with Zod validation
-- Team API routes in `src/app/api/teams/` — member management and leave flows
-- Validation schemas in `src/lib/validators.ts` — OIDC/SAML + transfer/member-management schemas
+- Prisma schema in `prisma/schema.prisma`
+- New models:
+  - `Credential`
+  - `AuthToken`
+  - `UserProfileImage`
+- Extended `User` fields:
+  - `isVerified`, `mfaEnabled`, `totpSecretEnc`, `totpEnabledAt`
+- Turso migration scripts in `prisma/turso-migrations/`
+- Repository layer for auth tokens, credentials, profile images, user updates
 
 **Database Notes**:
-- **Local**: Prisma 7 + `@prisma/adapter-better-sqlite3` driver adapter, SQLite file at `./dev.db`
-- **Production**: Prisma 7 + `@prisma/adapter-libsql` for Turso (SQLite-compatible edge database on Vercel)
-- `db.ts` exports `getPrisma()` (async) — dynamically imports the correct adapter based on `TURSO_DATABASE_URL` env var
-- Generated client at `src/generated/prisma/client/` — NOT committed to git, auto-generated on `npm install`
-- `prisma.config.ts` always uses local SQLite (`DATABASE_URL` or `file:./dev.db` fallback) for CLI commands
-- Prisma CLI does NOT support `libsql://` URLs — use `prisma migrate diff` + `turso db shell` for production schema changes
-- `clientSecret` and `idpCert` are AES-256-GCM encrypted; encryption/decryption happens only in the repository layer
-- `next.config.ts` externalizes `better-sqlite3` via `serverExternalPackages` (native module, incompatible with Vercel bundling)
-- App copy flow re-encrypts secrets by going through repository create paths (fresh IV/auth tag)
+- Local: Prisma 7 + better-sqlite3 adapter (`file:./dev.db`)
+- Production: Prisma 7 + libsql adapter (Turso)
+- `prisma.config.ts` remains local-SQLite-only for CLI
+- Apply production schema via `prisma migrate diff` + `turso db shell`
 
 ## Development Workflow
 
 ### Schema Changes
-
 1. Edit `prisma/schema.prisma`
-2. Run `npx prisma db push` to apply to local SQLite
-3. Run `npx prisma generate` to regenerate client
-4. For production (Turso):
+2. Run `npx prisma db push`
+3. Run `npx prisma generate`
+4. For Turso:
    ```bash
-   npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
-   turso db shell authlab < migration.sql
+   npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > prisma/turso-migrations/<timestamp>_<name>.sql
+   turso db shell authlab < prisma/turso-migrations/<timestamp>_<name>.sql
    ```
-5. Deploy to Vercel (auto-runs `prisma generate` via postinstall)
 
-### Adding a New Protocol
-
-1. Create a new handler class in `src/lib/` implementing the `AuthHandler` interface
-2. Add the protocol to the `Protocol` enum in `prisma/schema.prisma`
-3. Add protocol-specific fields to the `AppInstance` model
-4. Update `src/lib/auth-factory.ts` to route to the new handler
-5. Add validation schema variant in `src/lib/validators.ts`
-6. Create UI config fields component in `src/components/apps/`
-7. Add the protocol option to `src/components/apps/CreationStepper.tsx`
-8. Add a callback route in `src/app/api/auth/callback/`
-
-### Adding a New Inspector Tab
-
-1. Create a new component in `src/components/inspector/`
-2. Add it to the tabs array in `src/app/test/[slug]/inspector/page.tsx`
-3. Ensure relevant data is stored in the session (`src/types/session.ts`)
+### Security-Sensitive Changes
+- Never log secrets or decrypted values
+- Never return SMTP/Brevo secrets from API responses
+- Keep account existence responses generic for login/register/reset/verify resend
+- Keep profile image serving via API proxy (no local filesystem)
 
 ### Common Tasks
+- Run app: `npm run dev`
+- Lint: `npm run lint`
+- Typecheck: `npx tsc --noEmit`
+- Production build (stable path): `npm run build -- --webpack`
+- Reset local DB: delete `dev.db`, then `npx prisma db push`
 
-- **Run the app**: `npm run dev` then visit `http://localhost:3000`
-- **Reset database**: Delete `dev.db` and run `npx prisma db push`
-- **Update schema**: Edit `prisma/schema.prisma`, then `npx prisma db push && npx prisma generate`
-- **Add a dependency**: `npm install <package>` — check Prisma 7 compatibility for database-related packages
-- **Deploy**: Push to `main` branch — Vercel auto-deploys via GitHub integration
-- **Set Vercel env vars**: Use `printf 'value' | vercel env add NAME production` (not `echo`, to avoid trailing newlines)
+## Environment Variables
+- `MASTER_ENCRYPTION_KEY` (required) — 64-char hex AES key
+- `SESSION_PASSWORD` (required) — iron-session encryption/signing secret
+- `NEXT_PUBLIC_APP_URL` (required for WebAuthn/email links)
+- `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (production DB)
+- `DATABASE_URL` (local SQLite / production placeholder)

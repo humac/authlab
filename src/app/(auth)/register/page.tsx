@@ -1,25 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
 export default function RegisterPage() {
-  const router = useRouter();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -35,14 +34,19 @@ export default function RegisterPage() {
         body: JSON.stringify({ name, email, password }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         setError(data.error || "Registration failed");
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      setSuccess(
+        data.message ||
+          "If an account can be created, a verification email has been sent.",
+      );
+      setPassword("");
+      setConfirmPassword("");
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -62,6 +66,12 @@ export default function RegisterPage() {
       {error && (
         <div className="alert-danger mb-4 rounded-xl p-3 text-sm">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="alert-success mb-4 rounded-xl p-3 text-sm">
+          {success}
         </div>
       )}
 

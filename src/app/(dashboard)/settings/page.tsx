@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { startRegistration } from "@simplewebauthn/browser";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/components/providers/UserProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+
+interface PasskeyItem {
+  id: string;
+  credentialId: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
 
 export default function SettingsPage() {
   const user = useUser();
@@ -22,8 +31,50 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [leavingTeamId, setLeavingTeamId] = useState<string | null>(null);
+
+  const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
+  const [loadingPasskeys, setLoadingPasskeys] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(user.mfaEnabled);
+  const [totpQr, setTotpQr] = useState("");
+  const [totpManualKey, setTotpManualKey] = useState("");
+  const [totpVerifyCode, setTotpVerifyCode] = useState("");
+  const [totpDisableCode, setTotpDisableCode] = useState("");
+  const [totpDisablePassword, setTotpDisablePassword] = useState("");
+  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [avatarHasError, setAvatarHasError] = useState(false);
+
   const forcePasswordChange =
     user.mustChangePassword || searchParams.get("forcePasswordChange") === "1";
+
+  const avatarUrl = useMemo(
+    () => `/api/user/profile-image?v=${avatarVersion}`,
+    [avatarVersion],
+  );
+  const avatarFallback =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23dfe7f6'/%3E%3Ctext x='50%25' y='53%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='20' fill='%233B71CA'%3E%3F%3C/text%3E%3C/svg%3E";
+
+  async function loadPasskeys() {
+    setLoadingPasskeys(true);
+    try {
+      const res = await fetch("/api/user/passkeys");
+      const data = await res.json();
+      if (res.ok) {
+        setPasskeys(data.credentials || []);
+      }
+    } finally {
+      setLoadingPasskeys(false);
+    }
+  }
+
+  useEffect(() => {
+    setAvatarHasError(false);
+  }, [avatarUrl]);
+
+  useEffect(() => {
+    if (!forcePasswordChange) {
+      void loadPasskeys();
+    }
+  }, [forcePasswordChange]);
 
   async function handleProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -125,6 +176,201 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleStartTotpSetup() {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/user/mfa/totp/setup/start", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to start MFA setup");
+        return;
+      }
+      setTotpQr(data.qrCodeDataUrl || "");
+      setTotpManualKey(data.manualKey || "");
+      setSuccess("Scan the QR code and verify with a 6-digit code.");
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyTotpSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/user/mfa/totp/setup/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: totpVerifyCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to verify MFA setup");
+        return;
+      }
+
+      setMfaEnabled(true);
+      setTotpVerifyCode("");
+      setTotpQr("");
+      setTotpManualKey("");
+      setSuccess("MFA enabled");
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDisableTotp(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/user/mfa/totp/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: totpDisablePassword,
+          code: totpDisableCode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to disable MFA");
+        return;
+      }
+
+      setMfaEnabled(false);
+      setTotpDisableCode("");
+      setTotpDisablePassword("");
+      setSuccess("MFA disabled");
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddPasskey() {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const optionsRes = await fetch("/api/user/passkeys/register/options", {
+        method: "POST",
+      });
+      const options = await optionsRes.json();
+      if (!optionsRes.ok) {
+        setError(options.error || "Failed to start passkey setup");
+        return;
+      }
+
+      const registrationResponse = await startRegistration({ optionsJSON: options });
+
+      const verifyRes = await fetch("/api/user/passkeys/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response: registrationResponse }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        setError(verifyData.error || "Failed to save passkey");
+        return;
+      }
+
+      setSuccess("Passkey added");
+      await loadPasskeys();
+    } catch {
+      setError("Passkey registration cancelled or failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeletePasskey(id: string) {
+    setError("");
+    setSuccess("");
+
+    const res = await fetch(`/api/user/passkeys/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Failed to delete passkey");
+      return;
+    }
+
+    setSuccess("Passkey removed");
+    await loadPasskeys();
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setError("");
+    setSuccess("");
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/user/profile-image", {
+        method: "PUT",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to upload image");
+        return;
+      }
+
+      setAvatarVersion((v) => v + 1);
+      setAvatarHasError(false);
+      setSuccess("Profile image updated");
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleAvatarDelete() {
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/user/profile-image", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to remove image");
+        return;
+      }
+      setAvatarVersion((v) => v + 1);
+      setAvatarHasError(false);
+      setSuccess("Profile image removed");
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 animate-enter">
       <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Settings</h1>
@@ -149,6 +395,31 @@ export default function SettingsPage() {
       {!forcePasswordChange && (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Profile</h2>
+
+          <div className="mb-4 flex items-center gap-4">
+            <Image
+              src={avatarHasError ? avatarFallback : avatarUrl}
+              alt="Profile"
+              width={64}
+              height={64}
+              unoptimized
+              className="h-16 w-16 rounded-full border border-[var(--border)] object-cover"
+              onError={() => setAvatarHasError(true)}
+            />
+            <div className="space-y-2">
+              <Input
+                label="Upload Profile Image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarUpload}
+                helperText="JPEG/PNG/WebP up to 2MB. EXIF metadata is stripped."
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={handleAvatarDelete}>
+                Remove Image
+              </Button>
+            </div>
+          </div>
+
           <form onSubmit={handleProfile} className="space-y-4">
             <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -173,6 +444,97 @@ export default function SettingsPage() {
 
       {!forcePasswordChange && (
         <>
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[var(--text)]">MFA (TOTP)</h2>
+              <Badge variant={mfaEnabled ? "green" : "gray"}>{mfaEnabled ? "Enabled" : "Disabled"}</Badge>
+            </div>
+
+            {!mfaEnabled ? (
+              <div className="space-y-4">
+                <Button type="button" onClick={handleStartTotpSetup} loading={loading}>
+                  Start MFA Setup
+                </Button>
+
+                {totpQr && (
+                  <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                    <Image
+                      src={totpQr}
+                      alt="TOTP QR"
+                      width={160}
+                      height={160}
+                      unoptimized
+                      className="h-40 w-40 rounded-lg border border-[var(--border)] bg-white p-2"
+                    />
+                    <Input label="Manual Key" value={totpManualKey} readOnly />
+                    <form onSubmit={handleVerifyTotpSetup} className="space-y-3">
+                      <Input
+                        label="Verification Code"
+                        value={totpVerifyCode}
+                        onChange={(e) => setTotpVerifyCode(e.target.value)}
+                        required
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                      />
+                      <Button type="submit" loading={loading}>Enable MFA</Button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleDisableTotp} className="space-y-4">
+                <Input
+                  label="Current Password"
+                  type="password"
+                  value={totpDisablePassword}
+                  onChange={(e) => setTotpDisablePassword(e.target.value)}
+                  required
+                />
+                <Input
+                  label="Authenticator Code"
+                  type="text"
+                  value={totpDisableCode}
+                  onChange={(e) => setTotpDisableCode(e.target.value)}
+                  required
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                />
+                <Button type="submit" variant="danger" loading={loading}>Disable MFA</Button>
+              </form>
+            )}
+          </Card>
+
+          <Card>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[var(--text)]">Passkeys</h2>
+              <Button type="button" size="sm" onClick={handleAddPasskey} loading={loading}>
+                Add Passkey
+              </Button>
+            </div>
+
+            {loadingPasskeys ? (
+              <p className="text-sm text-[var(--muted)]">Loading passkeys...</p>
+            ) : passkeys.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No passkeys enrolled.</p>
+            ) : (
+              <div className="space-y-2">
+                {passkeys.map((passkey) => (
+                  <div key={passkey.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--text)]">Credential {passkey.credentialId.slice(0, 12)}...</p>
+                      <p className="text-xs text-[var(--muted)]">
+                        Added {new Date(passkey.createdAt).toLocaleString()} · Last used {passkey.lastUsedAt ? new Date(passkey.lastUsedAt).toLocaleString() : "Never"}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={() => handleDeletePasskey(passkey.id)}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Team Memberships</h2>
             <div className="space-y-2">

@@ -3,7 +3,7 @@ import { getCurrentUser, getUserSession } from "@/lib/user-session";
 import { getUserById, updateUser } from "@/repositories/user.repo";
 import { getTeamsByUserId } from "@/repositories/team.repo";
 import { UpdateUserSchema } from "@/lib/validators";
-import { verifyPassword, hashPassword } from "@/lib/password";
+import { verifyPasswordAndMaybeUpgrade, hashPassword } from "@/lib/password";
 
 export async function GET() {
   const sessionUser = await getCurrentUser();
@@ -24,6 +24,8 @@ export async function GET() {
     name: user.name,
     isSystemAdmin: user.isSystemAdmin,
     mustChangePassword: user.mustChangePassword,
+    isVerified: user.isVerified,
+    mfaEnabled: user.mfaEnabled,
     activeTeamId: sessionUser.activeTeamId,
     teams: teams.map((t) => ({
       id: t.id,
@@ -61,27 +63,32 @@ export async function PUT(request: Request) {
   }> = {};
 
   if (name) updateData.name = name;
-  if (email) updateData.email = email;
+  if (email) updateData.email = email.toLowerCase();
 
   if (newPassword && currentPassword) {
     const user = await getUserById(sessionUser.userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-    const valid = await verifyPassword(currentPassword, user.passwordHash);
-    if (!valid) {
+
+    const verified = await verifyPasswordAndMaybeUpgrade(
+      currentPassword,
+      user.passwordHash,
+    );
+
+    if (!verified.valid) {
       return NextResponse.json(
         { error: "Current password is incorrect" },
         { status: 400 },
       );
     }
+
     updateData.passwordHash = await hashPassword(newPassword);
     updateData.mustChangePassword = false;
   }
 
   const updated = await updateUser(sessionUser.userId, updateData);
 
-  // Update session if name or email changed
   const session = await getUserSession();
   if (name) session.name = updated.name;
   if (email) session.email = updated.email;
@@ -96,5 +103,7 @@ export async function PUT(request: Request) {
     name: updated.name,
     isSystemAdmin: updated.isSystemAdmin,
     mustChangePassword: updated.mustChangePassword,
+    isVerified: updated.isVerified,
+    mfaEnabled: updated.mfaEnabled,
   });
 }

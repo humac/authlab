@@ -39,16 +39,30 @@ export async function PUT(
     isSystemAdmin: boolean;
     mustChangePassword: boolean;
     passwordHash: string;
+    isVerified: boolean;
+    mfaEnabled: boolean;
+    totpSecretEnc: string | null;
+    totpEnabledAt: Date | null;
   }> = {};
 
   if (parsed.data.name !== undefined) {
     updates.name = parsed.data.name;
   }
   if (parsed.data.email !== undefined) {
-    updates.email = parsed.data.email;
+    updates.email = parsed.data.email.toLowerCase();
   }
   if (parsed.data.mustChangePassword !== undefined) {
     updates.mustChangePassword = parsed.data.mustChangePassword;
+  }
+  if (parsed.data.isVerified !== undefined) {
+    updates.isVerified = parsed.data.isVerified;
+  }
+  if (parsed.data.mfaEnabled !== undefined) {
+    updates.mfaEnabled = parsed.data.mfaEnabled;
+    if (!parsed.data.mfaEnabled) {
+      updates.totpSecretEnc = null;
+      updates.totpEnabledAt = null;
+    }
   }
 
   if (typeof parsed.data.isSystemAdmin === "boolean") {
@@ -85,6 +99,8 @@ export async function PUT(
       name: updated.name,
       isSystemAdmin: updated.isSystemAdmin,
       mustChangePassword: updated.mustChangePassword,
+      isVerified: updated.isVerified,
+      mfaEnabled: updated.mfaEnabled,
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {

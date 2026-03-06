@@ -6,6 +6,10 @@ export async function createUser(data: {
   passwordHash: string;
   isSystemAdmin?: boolean;
   mustChangePassword?: boolean;
+  isVerified?: boolean;
+  mfaEnabled?: boolean;
+  totpSecretEnc?: string | null;
+  totpEnabledAt?: Date | null;
 }) {
   const prisma = await getPrisma();
   return prisma.user.create({ data });
@@ -13,7 +17,7 @@ export async function createUser(data: {
 
 export async function getUserByEmail(email: string) {
   const prisma = await getPrisma();
-  return prisma.user.findUnique({ where: { email } });
+  return prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 }
 
 export async function getUserById(id: string) {
@@ -29,6 +33,10 @@ export async function updateUser(
     passwordHash: string;
     isSystemAdmin: boolean;
     mustChangePassword: boolean;
+    isVerified: boolean;
+    mfaEnabled: boolean;
+    totpSecretEnc: string | null;
+    totpEnabledAt: Date | null;
   }>,
 ) {
   const prisma = await getPrisma();
@@ -86,6 +94,8 @@ export async function listUsers(page = 1, limit = 50) {
         name: true,
         isSystemAdmin: true,
         mustChangePassword: true,
+        isVerified: true,
+        mfaEnabled: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { teamMemberships: true } },
@@ -109,6 +119,8 @@ export async function listUsersWithMemberships(page = 1, limit = 50) {
         name: true,
         isSystemAdmin: true,
         mustChangePassword: true,
+        isVerified: true,
+        mfaEnabled: true,
         createdAt: true,
         updatedAt: true,
         _count: { select: { teamMemberships: true } },

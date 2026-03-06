@@ -2,144 +2,112 @@
 
 ## Project Overview
 
-AuthLab is a Multi-Tenant Auth Testing Workbench — a developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. After authenticating via an IdP, users see an inspector page with decoded claims, raw tokens/assertions, and JWT breakdowns.
+AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security:
+- email verification
+- password reset with one-time tokens
+- passkeys (WebAuthn)
+- TOTP MFA
+- encrypted SMTP/Brevo provider settings
+- secure profile image handling via DB blob + API proxy
 
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, TypeScript, Tailwind CSS v4)
 - **Database (local)**: Prisma 7 + SQLite (`@prisma/adapter-better-sqlite3`)
 - **Database (production)**: Prisma 7 + Turso/libSQL (`@prisma/adapter-libsql`)
-- **OIDC**: `openid-client` v6 (dynamic issuer discovery, PKCE)
-- **SAML**: `@node-saml/node-saml` v5 (standalone, no Passport)
-- **Sessions**: `iron-session` (encrypted cookies, per-tenant dynamic cookie names)
-- **Encryption**: AES-256-GCM via Node.js `crypto` module
-- **Validation**: Zod v4 with discriminated unions
-- **UI**: Custom Tailwind components (TW-Elements design language)
-- **Hosting**: Vercel (serverless) + Turso (SQLite-compatible edge database)
+- **OIDC**: `openid-client` v6
+- **SAML**: `@node-saml/node-saml` v5
+- **Passkeys**: `@simplewebauthn/server`, `@simplewebauthn/browser`
+- **MFA**: `otplib`, `qrcode`
+- **Email**: SMTP (`nodemailer`) and Brevo API v3
+- **Image hardening**: `file-type`, `sharp`
+- **Password hashing**: Argon2id with legacy bcrypt verification/migration
+- **Sessions**: `iron-session`
+- **Validation**: Zod v4
 
 ## Commands
 
 ```bash
-npm install              # Install deps + auto-runs prisma generate (postinstall)
-npm run dev              # Start dev server on port 3000
-npm run build            # Production build
-npm run lint             # Run ESLint
-npx prisma db push       # Sync schema to LOCAL SQLite database
-npx prisma generate      # Regenerate Prisma client (also runs on npm install)
-npx prisma studio        # Open database GUI (local only)
-```
-
-### Turso (Production Database)
-
-```bash
-# Generate migration SQL and apply to Turso
-npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > migration.sql
-turso db shell authlab < migration.sql
-
-# For incremental changes (after initial setup)
-npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > migration.sql
-turso db shell authlab < migration.sql
+npm install
+npm run dev
+npm run lint
+npx tsc --noEmit
+npx prisma db push
+npx prisma generate
+npm run build -- --webpack
 ```
 
 ## Architecture
 
-### Directory Structure
+### High-Level Areas
 
-```
-src/
-├── app/                      # Next.js App Router pages and routes
-│   ├── api/apps/             # CRUD REST API for app instances
-│   │   └── [id]/transfer/    # Cross-team app move/copy endpoint
-│   ├── api/auth/callback/    # OIDC + SAML per-app callbacks (`oidc/[slug]`, `saml/[slug]`)
-│   ├── api/auth/logout/      # Session destruction
-│   ├── api/teams/[id]/       # Team detail, delete, leave, members, invites
-│   ├── apps/new/             # Creation stepper UI
-│   ├── apps/[id]/            # Edit app instance UI
-│   ├── test/[slug]/          # Test landing page + login route + inspector
-│   └── page.tsx              # Dashboard (force-dynamic, queries DB at runtime)
-├── lib/                      # Core libraries
-│   ├── auth-factory.ts       # Factory: AppInstance → OIDCHandler | SAMLHandler
-│   ├── oidc-handler.ts       # openid-client v6 flow (discovery, PKCE, token exchange)
-│   ├── saml-handler.ts       # node-saml flow (authorize URL, validate response)
-│   ├── session.ts            # iron-session with dynamic cookie name per tenant
-│   ├── state-store.ts        # In-memory state/nonce/PKCE store (10min TTL, one-time use)
-│   ├── encryption.ts         # AES-256-GCM encrypt/decrypt (iv:authTag:ciphertext hex)
-│   ├── xxe-sanitizer.ts      # Strip DOCTYPE/ENTITY from SAML XML
-│   ├── validators.ts         # Zod schemas for API input validation
-│   └── db.ts                 # Async getPrisma() — dual adapter (libSQL for Turso, better-sqlite3 for local)
-├── repositories/             # Data access layer
-│   ├── app-instance.repo.ts  # CRUD + move/copy transfer helpers (secrets re-encrypted on copy)
-│   ├── team.repo.ts          # Team membership/role/owner-count helpers
-│   └── invite.repo.ts        # Invite token lifecycle
-├── components/               # React components
-│   ├── ui/                   # Primitives: Button, Card, Input, Modal, Tabs, Stepper, Badge
-│   ├── layout/               # AppShell (sidebar + content)
-│   ├── apps/                 # Dashboard, TeamMembersPanel, App card transfer UI, CreationStepper, EditForm
-│   └── inspector/            # ClaimsTable, RawPayloadView, JWTDecoder, SessionInfo
-└── types/                    # TypeScript interfaces
-```
+- `src/app/api/auth/callback/*` — app protocol callbacks (OIDC/SAML)
+- `src/app/api/user/*` — account security APIs:
+  - login + MFA
+  - register + verify email
+  - password reset request/complete
+  - passkey register/login/list/delete
+  - TOTP setup/verify/disable
+  - profile image upload/get/delete
+- `src/app/api/admin/email-provider/*` — encrypted SMTP/Brevo config and connection testing
+- `src/lib/` — security primitives (`encryption`, `password`, `webauthn`, `totp`, `profile-image`, `email-provider`)
+- `src/repositories/` — DB access layer including `auth-token`, `credential`, `profile-image`
 
-### Key Design Patterns
+### Key Security Patterns
 
-1. **Auth Factory Pattern**: `createAuthHandler(appInstance)` returns an `OIDCHandler` or `SAMLHandler` based on the protocol field. Both conform to the same `AuthHandler` interface.
+1. **Master-key encryption**
+   - Secrets use AES-256-GCM in `src/lib/encryption.ts`
+   - Key source: `MASTER_ENCRYPTION_KEY` only
 
-2. **Callback Routing**: OIDC and SAML both use app-specific callback URLs (`/api/auth/callback/oidc/{slug}` and `/api/auth/callback/saml/{slug}`). The `state` parameter (OIDC) or `RelayState` (SAML) maps back to the tenant slug via an in-memory store.
+2. **Password strategy**
+   - New hashes: Argon2id
+   - Existing bcrypt hashes: verify + lazy rehash to Argon2id
 
-3. **Session Isolation**: Each tenant gets its own encrypted cookie (`authlab_{slug}`), preventing cross-contamination when testing multiple providers simultaneously.
+3. **Token safety**
+   - Email verify/reset tokens are random opaque values
+   - Only `sha256(token)` stored in DB
+   - One-time use via `usedAt` + TTL via `expiresAt`
 
-4. **Repository Pattern**: All database access goes through `app-instance.repo.ts`, which handles AES-256-GCM encryption/decryption transparently. API routes never see encrypted data; the auth factory receives already-decrypted instances.
+4. **No enumeration responses**
+   - Generic outward messages for account existence-sensitive routes
 
-5. **Secret Redaction**: GET endpoints return `hasClientSecret: boolean` instead of actual secrets. Secrets are never exposed via the API.
+5. **Write-only external provider secrets**
+   - SMTP password/Brevo API key encrypted at rest
+   - GET APIs return only masked/`hasSecret` indicators
 
-6. **Dual Database Adapter with Production Guardrails**: `db.ts` exports async `getPrisma()` and enforces strict production configuration:
-   - both `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` must be set in production
-   - partial Turso env config throws startup/runtime errors instead of silently falling back
+6. **Profile image hardening**
+   - Type allowlist + magic-byte validation
+   - 2MB max
+   - EXIF stripped by re-encode
+   - Stored in DB and served through API route
 
-7. **Dashboard-First Team Management**:
-   - Team switcher controls active team
-   - Dashboard shows active-team apps plus a right-side members panel
-   - Member add/invite/remove actions are performed from dashboard context
+7. **CSP + session protections**
+   - CSP set in middleware with nonce
+   - nonce applied to inline theme script in root layout
+   - CSRF origin/content-type checks on mutating API calls
 
-8. **Cross-Team App Transfer**:
-   - `POST /api/apps/[id]/transfer` supports `MOVE` and `COPY`
-   - Caller must be `OWNER`/`ADMIN` on both source and target teams
-   - Copy flow duplicates config and re-encrypts secrets through repository create path
+## Prisma Notes
 
-9. **Membership Leave Flow**:
-   - `POST /api/teams/[id]/leave` removes current user from non-personal team
-   - Last-owner leave is blocked
-   - If leaving active team, session falls back to personal team or first available team
+- `prisma/schema.prisma` now includes:
+  - extended `User` security fields
+  - `Credential`, `AuthToken`, `UserProfileImage`
+- Use local SQLite for CLI through `prisma.config.ts`
+- For Turso changes, generate SQL diff then apply via `turso db shell`
+- Current hardening migration: `prisma/turso-migrations/20260306_hardened_auth_and_profile.sql`
 
-### Prisma 7 Notes
+## Environment Variables
 
-- Prisma 7 requires `prisma.config.ts` at project root (no `url` in schema.prisma)
-- `prisma.config.ts` always points to local SQLite for CLI commands (db push, generate)
-- Turso schema changes must be applied via `prisma migrate diff` + `turso db shell` (Prisma CLI doesn't support `libsql://` URLs)
-- Generated client lives at `src/generated/prisma/client/` — import from `client/client` and `client/enums`
-- `prisma generate` runs automatically on `npm install` via the `postinstall` script
-- `next.config.ts` uses `serverExternalPackages` to externalize `better-sqlite3` (native module incompatible with Vercel)
+### Required (local + production)
+- `MASTER_ENCRYPTION_KEY` (64-char hex)
+- `SESSION_PASSWORD` (64-char hex)
+- `NEXT_PUBLIC_APP_URL`
 
-### Environment Variables
+### Database
+- Local: `DATABASE_URL=file:./dev.db`
+- Production: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `DATABASE_URL` placeholder
 
-**Local development** (`.env`):
-- `DATABASE_URL` — SQLite path (`file:./dev.db`)
-- `ENCRYPTION_KEY` — 64-char hex string (32 bytes) for AES-256-GCM
-- `SESSION_PASSWORD` — 64-char hex string for iron-session cookie encryption
-- `NEXT_PUBLIC_APP_URL` — Base URL for callback redirect construction (`http://localhost:3000`)
+## Operational Notes
 
-**Production / Vercel** (set via `vercel env add`, use `printf` not `echo` to avoid trailing newlines):
-- `TURSO_DATABASE_URL` — Turso database URL (`libsql://your-db.turso.io`)
-- `TURSO_AUTH_TOKEN` — Turso auth token (JWT)
-- `DATABASE_URL` — Dummy value for Prisma config (`file:/tmp/dummy.db`)
-- `ENCRYPTION_KEY` — Same format as local
-- `SESSION_PASSWORD` — Same format as local
-- `NEXT_PUBLIC_APP_URL` — Vercel deployment URL (`https://authlab-snowy.vercel.app`)
-
-## Code Style
-
-- Server components by default; client components only where interactivity is needed
-- `"use client"` directive at top of interactive components
-- Prefer named exports over default exports (except page components)
-- All secrets encrypted at the repository layer, never in route handlers
-- Zod validation on all API inputs before database operations
-- Database access via `await getPrisma()` (async, not a direct import)
+- If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
+- Next.js 16 warns that `middleware` convention is deprecated in favor of `proxy`; current implementation still works.
+- If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
