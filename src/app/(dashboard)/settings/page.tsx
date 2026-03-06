@@ -341,6 +341,7 @@ export default function SettingsPage() {
       setAvatarVersion((v) => v + 1);
       setAvatarHasError(false);
       setSuccess("Profile image updated");
+      router.refresh();
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -364,6 +365,7 @@ export default function SettingsPage() {
       setAvatarVersion((v) => v + 1);
       setAvatarHasError(false);
       setSuccess("Profile image removed");
+      router.refresh();
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -373,7 +375,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 animate-enter">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Settings</h1>
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Profile</h1>
 
       {error && (
         <div className="alert-danger rounded-xl p-3 text-sm">

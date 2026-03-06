@@ -7,6 +7,15 @@ export async function getProfileImageByUserId(userId: string) {
   });
 }
 
+export async function hasProfileImageByUserId(userId: string) {
+  const prisma = await getPrisma();
+  const image = await prisma.userProfileImage.findUnique({
+    where: { userId },
+    select: { userId: true },
+  });
+  return Boolean(image);
+}
+
 export async function upsertProfileImage(data: {
   userId: string;
   mimeType: string;

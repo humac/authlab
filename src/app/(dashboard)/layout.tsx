@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { UserProvider, type UserContextType } from "@/components/providers/UserProvider";
 import { requireUser } from "@/lib/user-session";
+import { hasProfileImageByUserId } from "@/repositories/profile-image.repo";
 import { getTeamsByUserId } from "@/repositories/team.repo";
 
 export default async function DashboardLayout({
@@ -9,12 +10,16 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const sessionUser = await requireUser();
-  const teams = await getTeamsByUserId(sessionUser.userId);
+  const [teams, hasProfileImage] = await Promise.all([
+    getTeamsByUserId(sessionUser.userId),
+    hasProfileImageByUserId(sessionUser.userId),
+  ]);
 
   const userData: UserContextType = {
     userId: sessionUser.userId,
     name: sessionUser.name,
     email: sessionUser.email,
+    hasProfileImage,
     isSystemAdmin: sessionUser.isSystemAdmin,
     mustChangePassword: sessionUser.mustChangePassword,
     isVerified: sessionUser.isVerified,

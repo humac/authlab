@@ -16,6 +16,7 @@ export interface UserContextType {
   userId: string;
   name: string;
   email: string;
+  hasProfileImage: boolean;
   isSystemAdmin: boolean;
   mustChangePassword: boolean;
   isVerified: boolean;
