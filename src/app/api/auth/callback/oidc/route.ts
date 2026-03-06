@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { OIDCHandler } from "@/lib/oidc-handler";
 import { getState } from "@/lib/state-store";
-import { getAppSession } from "@/lib/session";
+import { getAppSession, saveAuthResultSession } from "@/lib/session";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -60,14 +60,14 @@ export async function GET(request: Request) {
 
     // Store in session
     const session = await getAppSession(slug);
-    session.appSlug = slug;
-    session.protocol = "OIDC";
-    session.claims = result.claims;
-    session.rawToken = result.rawToken;
-    session.idToken = result.idToken;
-    session.accessToken = result.accessToken;
-    session.authenticatedAt = new Date().toISOString();
-    await session.save();
+    await saveAuthResultSession(session, {
+      slug,
+      protocol: "OIDC",
+      claims: result.claims,
+      rawToken: result.rawToken,
+      idToken: result.idToken,
+      accessToken: result.accessToken,
+    });
 
     return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`);
   } catch (error) {
