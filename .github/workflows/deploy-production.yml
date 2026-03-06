@@ -44,6 +44,38 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      - name: Validate Vercel credentials
+        run: |
+          required_secrets=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+          )
+
+          missing=()
+          for secret_name in "${required_secrets[@]}"; do
+            if [ -z "${!secret_name:-}" ]; then
+              missing+=("$secret_name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing required Vercel GitHub Actions secrets: ${missing[*]}"
+            exit 1
+          fi
+
+          status_code="$(
+            curl -sS -o /tmp/vercel-user.json -w "%{http_code}" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              https://api.vercel.com/v2/user
+          )"
+
+          if [ "$status_code" != "200" ]; then
+            echo "VERCEL_TOKEN is invalid or no longer accepted by Vercel (HTTP $status_code)."
+            echo "Update the VERCEL_TOKEN repository secret with a fresh token from Vercel Settings > Tokens."
+            exit 1
+          fi
+
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
@@ -87,6 +119,7 @@ jobs:
             .vercel/project.json
             .vercel/output
             .vercel/.env.production.local
+          include-hidden-files: true
           if-no-files-found: error
 
   deploy:
