@@ -227,6 +227,36 @@ export async function sendEmailWithUnsavedProviderConfig(data: {
   await sendWithBrevo(data.brevo, data.email);
 }
 
+export async function resolveSmtpPasswordForTest(
+  providedPassword?: string,
+): Promise<string | null> {
+  if (providedPassword && providedPassword.trim().length > 0) {
+    return providedPassword;
+  }
+
+  const passwordEnc = await getRequiredSetting(KEYS.smtpPasswordEnc);
+  if (!passwordEnc) {
+    return null;
+  }
+
+  return decrypt(passwordEnc);
+}
+
+export async function resolveBrevoApiKeyForTest(
+  providedApiKey?: string,
+): Promise<string | null> {
+  if (providedApiKey && providedApiKey.trim().length > 0) {
+    return providedApiKey;
+  }
+
+  const apiKeyEnc = await getRequiredSetting(KEYS.brevoApiKeyEnc);
+  if (!apiKeyEnc) {
+    return null;
+  }
+
+  return decrypt(apiKeyEnc);
+}
+
 async function loadActiveProviderConfig(): Promise<
   | { provider: "SMTP"; config: Required<SmtpConfigInput> }
   | { provider: "BREVO"; config: Required<BrevoConfigInput> }
