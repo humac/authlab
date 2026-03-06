@@ -64,5 +64,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check dependency graph availability
+        id: dependency-graph
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const status = data.security_and_analysis?.dependency_graph?.status ?? "disabled";
+            const enabled = status === "enabled";
+
+            core.setOutput("enabled", enabled ? "true" : "false");
+
+            if (!enabled) {
+              core.notice(
+                `Skipping dependency review because Dependency Graph is not enabled for ${context.repo.owner}/${context.repo.repo}. ` +
+                `Enable it at https://github.com/${context.repo.owner}/${context.repo.repo}/settings/security_analysis.`,
+              );
+            }
+
       - name: Review dependency changes
+        if: steps.dependency-graph.outputs.enabled == 'true'
         uses: actions/dependency-review-action@v4
