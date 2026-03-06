@@ -86,7 +86,7 @@ npm run build -- --webpack
    - Stored in DB and served through API route
 
 7. **CSP + session protections**
-   - CSP set in middleware with nonce
+   - CSP set in proxy with nonce
    - nonce applied to inline theme script in root layout
    - CSRF origin/content-type checks on mutating API calls
 
@@ -113,7 +113,7 @@ npm run build -- --webpack
 ## Operational Notes
 
 - If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
-- Next.js 16 warns that `middleware` convention is deprecated in favor of `proxy`; current implementation still works.
+- Next.js 16 uses the `proxy` convention for request interception; the app now follows that convention.
 - If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
 - Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.

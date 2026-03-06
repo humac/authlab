@@ -41,6 +41,14 @@ export async function resolve(specifier, context, nextResolve) {
     return nextResolve("next/headers.js", context);
   }
 
+  if (specifier === "next/navigation") {
+    return nextResolve("next/navigation.js", context);
+  }
+
+  if (specifier === "next/server") {
+    return nextResolve("next/server.js", context);
+  }
+
   const { pathPart, suffix } = splitSpecifier(specifier);
 
   if (pathPart.startsWith("@/")) {

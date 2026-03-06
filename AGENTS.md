@@ -15,7 +15,7 @@
 - Validate passkey registration/login in `src/app/api/user/passkeys/` and `src/lib/webauthn.ts`
 - Check profile image hardening in `src/lib/profile-image.ts` (magic bytes, type allowlist, size, EXIF stripping)
 - Confirm write-only secret handling for SMTP/Brevo in `src/lib/email-provider.ts`
-- Validate CSP + CSRF controls in `src/middleware.ts` and nonce usage in `src/app/layout.tsx`
+- Validate CSP + CSRF controls in `src/proxy.ts` and nonce usage in `src/app/layout.tsx`
 - Ensure invite acceptance is email-scoped in `src/app/api/invites/accept/route.ts`
 
 **Critical Files**:
@@ -27,7 +27,7 @@
 - `src/lib/profile-image.ts`
 - `src/lib/user-session.ts`
 - `src/lib/state-store.ts`
-- `src/middleware.ts`
+- `src/proxy.ts`
 - `src/repositories/auth-token.repo.ts`
 
 ### Auth Protocol Specialist

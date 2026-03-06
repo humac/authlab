@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  AdminCreateUserSchema,
   CreateAppInstanceSchema,
+  CreateTeamJoinRequestSchema,
   PasswordResetCompleteSchema,
+  ReviewTeamJoinRequestSchema,
   RegisterSchema,
   SmtpConfigSchema,
   TestEmailProviderSchema,
+  TransferAppSchema,
   UpdateUserSchema,
 } from "../../src/lib/validators.ts";
 
@@ -40,6 +44,24 @@ describe("validators", () => {
 
     assert.equal(parsed.success, false);
     assert.match(parsed.error.issues[0]?.message ?? "", /Slug must be lowercase alphanumeric with hyphens/);
+  });
+
+  it("requires SAML-specific fields for SAML app payloads", () => {
+    const parsed = CreateAppInstanceSchema.safeParse({
+      name: "Broken SAML App",
+      slug: "broken-saml-app",
+      protocol: "SAML",
+      issuerUrl: null,
+      clientId: null,
+      clientSecret: null,
+      scopes: null,
+      buttonColor: "#3B71CA",
+    });
+
+    assert.equal(parsed.success, false);
+    assert.ok(parsed.error.issues.some((issue) => issue.path.includes("entryPoint")));
+    assert.ok(parsed.error.issues.some((issue) => issue.path.includes("issuer")));
+    assert.ok(parsed.error.issues.some((issue) => issue.path.includes("idpCert")));
   });
 
   it("requires the current password before allowing a password change", () => {
@@ -104,5 +126,36 @@ describe("validators", () => {
 
     assert.equal(parsed.success, false);
     assert.match(parsed.error.issues[0]?.message ?? "", /Invalid email/);
+  });
+
+  it("accepts valid transfer modes and rejects missing target team ids", () => {
+    assert.equal(
+      TransferAppSchema.safeParse({ mode: "COPY", targetTeamId: "team-1" }).success,
+      true,
+    );
+
+    const parsed = TransferAppSchema.safeParse({ mode: "MOVE", targetTeamId: "" });
+    assert.equal(parsed.success, false);
+    assert.match(parsed.error.issues[0]?.message ?? "", /targetTeamId is required/);
+  });
+
+  it("defaults admin-created users to non-admin with empty memberships", () => {
+    const parsed = AdminCreateUserSchema.parse({
+      email: "user@example.com",
+      name: "User",
+      tempPassword: "TemporaryPass123!",
+    });
+
+    assert.equal(parsed.isSystemAdmin, false);
+    assert.deepEqual(parsed.memberships, []);
+  });
+
+  it("defaults team join requests to member role and restricts review actions", () => {
+    const joinRequest = CreateTeamJoinRequestSchema.parse({});
+    assert.equal(joinRequest.role, "MEMBER");
+
+    const review = ReviewTeamJoinRequestSchema.safeParse({ action: "maybe" });
+    assert.equal(review.success, false);
+    assert.match(review.error.issues[0]?.message ?? "", /Invalid option/);
   });
 });

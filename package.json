@@ -11,9 +11,10 @@
     "lint": "eslint",
     "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --experimental-test-module-mocks --import ./test/register-loader.mjs --test test/unit/*.test.ts",
     "test:unit:coverage": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --experimental-test-module-mocks --import ./test/register-loader.mjs --test --experimental-test-coverage test/unit/*.test.ts",
+    "test:integration": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --experimental-test-module-mocks --import ./test/register-loader.mjs --import ./test/integration/setup-env.mjs --test --test-concurrency=1 test/integration/*.test.ts",
     "typecheck": "tsc --noEmit",
     "prisma:validate": "prisma validate",
-    "test:ci": "npm run lint && npm run typecheck && npm run test:unit && npm run prisma:validate && npm run build:ci"
+    "test:ci": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run prisma:validate && npm run build:ci"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
