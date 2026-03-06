@@ -98,10 +98,17 @@ export async function middleware(request: NextRequest) {
         );
       }
 
+      const contentLength = request.headers.get("content-length");
+      const transferEncoding = request.headers.get("transfer-encoding");
+      const hasRequestBody =
+        (contentLength !== null && contentLength !== "0") ||
+        Boolean(transferEncoding);
+
       if (
         request.method !== "DELETE" &&
         !pathname.includes("/logout") &&
         !isProfileImageUpload &&
+        hasRequestBody &&
         !contentType.includes("application/json")
       ) {
         return NextResponse.json(

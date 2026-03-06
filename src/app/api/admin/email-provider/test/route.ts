@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/user-session";
 import { TestEmailProviderSchema } from "@/lib/validators";
-import { sendEmailWithUnsavedProviderConfig } from "@/lib/email-provider";
+import {
+  resolveBrevoApiKeyForTest,
+  resolveSmtpPasswordForTest,
+  sendEmailWithUnsavedProviderConfig,
+} from "@/lib/email-provider";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -20,7 +24,8 @@ export async function POST(request: Request) {
 
   try {
     if (parsed.data.provider === "SMTP") {
-      if (!parsed.data.smtp || !parsed.data.smtp.password) {
+      const smtpPassword = await resolveSmtpPasswordForTest(parsed.data.smtp?.password);
+      if (!parsed.data.smtp || !smtpPassword) {
         return NextResponse.json(
           { error: "SMTP password is required for test" },
           { status: 400 },
@@ -34,7 +39,7 @@ export async function POST(request: Request) {
           port: parsed.data.smtp.port,
           secure: parsed.data.smtp.secure,
           username: parsed.data.smtp.username,
-          password: parsed.data.smtp.password,
+          password: smtpPassword,
           fromName: parsed.data.smtp.fromName,
           fromEmail: parsed.data.smtp.fromEmail,
         },
@@ -46,7 +51,8 @@ export async function POST(request: Request) {
         },
       });
     } else {
-      if (!parsed.data.brevo || !parsed.data.brevo.apiKey) {
+      const brevoApiKey = await resolveBrevoApiKeyForTest(parsed.data.brevo?.apiKey);
+      if (!parsed.data.brevo || !brevoApiKey) {
         return NextResponse.json(
           { error: "Brevo API key is required for test" },
           { status: 400 },
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
       await sendEmailWithUnsavedProviderConfig({
         provider: "BREVO",
         brevo: {
-          apiKey: parsed.data.brevo.apiKey,
+          apiKey: brevoApiKey,
           fromName: parsed.data.brevo.fromName,
           fromEmail: parsed.data.brevo.fromEmail,
         },
