@@ -8,19 +8,26 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  passwordHash  String
-  isSystemAdmin Boolean  @default(false)
-  mustChangePassword Boolean @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String
+  passwordHash       String
+  isSystemAdmin      Boolean  @default(false)
+  mustChangePassword Boolean  @default(false)
+  isVerified         Boolean  @default(true)
+  mfaEnabled         Boolean  @default(false)
+  totpSecretEnc      String?
+  totpEnabledAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  teamMemberships TeamMember[]
-  invitesSent     InviteToken[]
-  joinRequests        TeamJoinRequest[] @relation("TeamJoinRequester")
+  teamMemberships      TeamMember[]
+  invitesSent          InviteToken[]
+  joinRequests         TeamJoinRequest[] @relation("TeamJoinRequester")
   reviewedJoinRequests TeamJoinRequest[] @relation("TeamJoinReviewer")
+  credentials          Credential[]
+  authTokens           AuthToken[]
+  profileImage         UserProfileImage?
 }
 
 model Team {
@@ -81,6 +88,43 @@ model TeamJoinRequest {
   @@unique([teamId, userId, status])
 }
 
+model Credential {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String @unique
+  publicKey  String
+  signCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
+}
+
+model AuthToken {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, purpose])
+}
+
+model UserProfileImage {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mimeType  String
+  sizeBytes Int
+  content   Bytes
+  sha256    String
+  updatedAt DateTime @updatedAt
+}
+
 model SystemSetting {
   key       String   @id
   value     String
@@ -130,4 +174,9 @@ enum TeamJoinRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
 }

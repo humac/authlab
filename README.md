@@ -60,7 +60,7 @@ cp .env.example .env
 Edit `.env` and generate secret keys:
 
 ```bash
-# Generate a 64-character hex string for ENCRYPTION_KEY
+# Generate a 64-character hex string for MASTER_ENCRYPTION_KEY
 openssl rand -hex 32
 
 # Generate a 64-character hex string for SESSION_PASSWORD
@@ -71,7 +71,7 @@ Your `.env` should look like:
 
 ```env
 DATABASE_URL="file:./dev.db"
-ENCRYPTION_KEY="<your-64-char-hex-string>"
+MASTER_ENCRYPTION_KEY="<your-64-char-hex-string>"
 SESSION_PASSWORD="<your-64-char-hex-string>"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 SAML_SP_PRIVATE_KEY=""
@@ -174,7 +174,7 @@ Set environment variables on Vercel using `printf` (not `echo`, which adds trail
 printf 'libsql://your-db.turso.io' | vercel env add TURSO_DATABASE_URL production
 printf 'your-turso-auth-token' | vercel env add TURSO_AUTH_TOKEN production
 printf 'file:/tmp/dummy.db' | vercel env add DATABASE_URL production
-printf 'your-64-char-hex-key' | vercel env add ENCRYPTION_KEY production
+printf 'your-64-char-hex-key' | vercel env add MASTER_ENCRYPTION_KEY production
 printf 'your-64-char-hex-password' | vercel env add SESSION_PASSWORD production
 printf 'https://your-app.vercel.app' | vercel env add NEXT_PUBLIC_APP_URL production
 ```

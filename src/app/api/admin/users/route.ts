@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const existing = await getUserByEmail(parsed.data.email);
+  const email = parsed.data.email.toLowerCase();
+  const existing = await getUserByEmail(email);
   if (existing) {
     return NextResponse.json(
       { error: "An account with this email already exists" },
@@ -50,11 +51,13 @@ export async function POST(request: Request) {
 
   try {
     const user = await createUser({
-      email: parsed.data.email,
+      email,
       name: parsed.data.name,
       passwordHash,
       isSystemAdmin: parsed.data.isSystemAdmin,
       mustChangePassword: true,
+      isVerified: true,
+      mfaEnabled: false,
     });
 
     const personalTeam = await createTeam({
@@ -86,6 +89,8 @@ export async function POST(request: Request) {
         name: user.name,
         isSystemAdmin: user.isSystemAdmin,
         mustChangePassword: user.mustChangePassword,
+        isVerified: user.isVerified,
+        mfaEnabled: user.mfaEnabled,
       },
       { status: 201 },
     );

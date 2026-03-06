@@ -72,7 +72,6 @@ export const TransferAppSchema = z.object({
 export type CreateAppInstanceInput = z.infer<typeof CreateAppInstanceSchema>;
 export type UpdateAppInstanceInput = z.infer<typeof UpdateAppInstanceSchema>;
 
-// User auth schemas
 export const RegisterSchema = z.object({
   email: z.email("Invalid email address"),
   name: z.string().min(1, "Name is required").max(100),
@@ -82,6 +81,27 @@ export const RegisterSchema = z.object({
 export const LoginSchema = z.object({
   email: z.email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
+});
+
+export const LoginMfaTotpSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "TOTP code must be 6 digits"),
+});
+
+export const VerifyEmailResendSchema = z.object({
+  email: z.email("Invalid email address"),
+});
+
+export const PasswordResetRequestSchema = z.object({
+  email: z.email("Invalid email address"),
+});
+
+export const PasswordResetCompleteSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  newPassword: z.string().min(8).max(128),
+  totpCode: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
 });
 
 export const UpdateUserSchema = z
@@ -95,7 +115,27 @@ export const UpdateUserSchema = z
     message: "Current password required to set new password",
   });
 
-// Team schemas
+export const TotpSetupVerifySchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "TOTP code must be 6 digits"),
+});
+
+export const TotpDisableSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  code: z.string().regex(/^\d{6}$/, "TOTP code must be 6 digits"),
+});
+
+export const PasskeyAssertionSchema = z.object({
+  response: z.unknown(),
+});
+
+export const PasskeyRegistrationSchema = z.object({
+  response: z.unknown(),
+});
+
+export const PasskeyLoginOptionsSchema = z.object({
+  email: z.email("Invalid email address").optional(),
+});
+
 export const CreateTeamSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   slug: z
@@ -115,7 +155,6 @@ export const UpdateTeamSchema = z.object({
     .optional(),
 });
 
-// Invite schemas
 export const CreateInviteSchema = z.object({
   email: z.email("Invalid email address"),
   role: z.enum(["ADMIN", "MEMBER"]),
@@ -130,10 +169,40 @@ export const AddOrInviteMemberSchema = z.object({
   role: z.enum(["ADMIN", "MEMBER"]),
 });
 
-// Admin schemas
 export const UpdateSystemSettingSchema = z.object({
   key: z.string().min(1),
   value: z.string(),
+});
+
+export const EmailProviderTypeSchema = z.enum(["SMTP", "BREVO"]);
+
+export const SmtpConfigSchema = z.object({
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535),
+  secure: z.boolean(),
+  username: z.string().min(1),
+  password: z.string().min(1).optional(),
+  fromName: z.string().min(1).max(100),
+  fromEmail: z.email(),
+});
+
+export const BrevoConfigSchema = z.object({
+  apiKey: z.string().min(1).optional(),
+  fromName: z.string().min(1).max(100),
+  fromEmail: z.email(),
+});
+
+export const UpdateEmailProviderSchema = z.object({
+  activeProvider: EmailProviderTypeSchema,
+  smtp: SmtpConfigSchema.optional(),
+  brevo: BrevoConfigSchema.optional(),
+});
+
+export const TestEmailProviderSchema = z.object({
+  provider: EmailProviderTypeSchema,
+  recipientEmail: z.email(),
+  smtp: SmtpConfigSchema.optional(),
+  brevo: BrevoConfigSchema.optional(),
 });
 
 const TeamMembershipAssignmentSchema = z.object({
@@ -155,6 +224,8 @@ export const AdminUpdateUserSchema = z.object({
   isSystemAdmin: z.boolean().optional(),
   mustChangePassword: z.boolean().optional(),
   tempPassword: z.string().min(8).max(128).optional(),
+  isVerified: z.boolean().optional(),
+  mfaEnabled: z.boolean().optional(),
 });
 
 export const AdminSetUserTeamsSchema = z.object({

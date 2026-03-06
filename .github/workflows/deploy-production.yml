@@ -52,6 +52,35 @@ jobs:
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+      - name: Validate required Vercel env vars
+        run: |
+          ENV_FILE=".vercel/.env.production.local"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Missing $ENV_FILE after vercel pull"
+            exit 1
+          fi
+
+          required_vars=(
+            MASTER_ENCRYPTION_KEY
+            SESSION_PASSWORD
+            NEXT_PUBLIC_APP_URL
+            TURSO_DATABASE_URL
+            TURSO_AUTH_TOKEN
+            DATABASE_URL
+          )
+
+          missing=()
+          for var in "${required_vars[@]}"; do
+            if ! grep -q "^${var}=" "$ENV_FILE"; then
+              missing+=("$var")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing required Vercel production env vars: ${missing[*]}"
+            exit 1
+          fi
+
       - name: Build Vercel artifacts
         run: vercel build --prod --token="$VERCEL_TOKEN"
 

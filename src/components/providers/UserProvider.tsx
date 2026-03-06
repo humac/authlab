@@ -18,6 +18,8 @@ export interface UserContextType {
   email: string;
   isSystemAdmin: boolean;
   mustChangePassword: boolean;
+  isVerified: boolean;
+  mfaEnabled: boolean;
   activeTeamId: string;
   teams: TeamInfo[];
 }

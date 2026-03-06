@@ -46,6 +46,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+    return NextResponse.json(
+      { error: "This invitation is not for your account" },
+      { status: 403 },
+    );
+  }
+
   await addTeamMember(invite.teamId, user.userId, invite.role);
   await deleteInvite(invite.id);
 
