@@ -245,7 +245,7 @@ export default function AdminSettingsPage() {
               port: Number(smtpPort),
               secure: smtpSecure,
               username: smtpUsername,
-              password: smtpPassword,
+              password: smtpPassword || undefined,
               fromName: smtpFromName,
               fromEmail: smtpFromEmail,
             },
@@ -254,7 +254,7 @@ export default function AdminSettingsPage() {
             provider: "BREVO",
             recipientEmail: normalizedRecipient,
             brevo: {
-              apiKey: brevoApiKey.trim(),
+              apiKey: brevoApiKey.trim() || undefined,
               fromName: brevoFromName,
               fromEmail: brevoFromEmail,
             },
