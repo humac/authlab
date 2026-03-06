@@ -24,7 +24,10 @@ export async function POST(
 
   if (!relayState) {
     return NextResponse.json(
-      { error: "Missing RelayState" },
+      {
+        error:
+          "Missing RelayState. Start SAML from /test/{slug}/login and ensure your IdP preserves RelayState in the response.",
+      },
       { status: 400 },
     );
   }
@@ -33,7 +36,10 @@ export async function POST(
   const stateEntry = await getState(relayState);
   if (!stateEntry) {
     return NextResponse.json(
-      { error: "Invalid or expired RelayState" },
+      {
+        error:
+          "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
+      },
       { status: 400 },
     );
   }
@@ -70,5 +76,5 @@ export async function POST(
   session.authenticatedAt = new Date().toISOString();
   await session.save();
 
-  return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`);
+  return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`, 303);
 }

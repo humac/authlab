@@ -10,6 +10,7 @@
 - Verify AES-256-GCM usage in `src/lib/encryption.ts` with `MASTER_ENCRYPTION_KEY`
 - Audit password hashing/migration in `src/lib/password.ts` (Argon2id + legacy bcrypt verify)
 - Review token lifecycle in `src/repositories/auth-token.repo.ts` (hashing, TTL, one-time use)
+- Validate auth flow state handling in `src/lib/state-store.ts` (TTL, one-time use, cookie security)
 - Validate MFA setup/verification in `src/app/api/user/mfa/` and `src/lib/totp.ts`
 - Validate passkey registration/login in `src/app/api/user/passkeys/` and `src/lib/webauthn.ts`
 - Check profile image hardening in `src/lib/profile-image.ts` (magic bytes, type allowlist, size, EXIF stripping)
@@ -25,6 +26,7 @@
 - `src/lib/webauthn.ts`
 - `src/lib/profile-image.ts`
 - `src/lib/user-session.ts`
+- `src/lib/state-store.ts`
 - `src/middleware.ts`
 - `src/repositories/auth-token.repo.ts`
 
@@ -35,6 +37,8 @@
 **Focus Areas**:
 - OIDC app flow in `src/lib/oidc-handler.ts` and callback routes
 - SAML app flow in `src/lib/saml-handler.ts` and callback routes
+  - SAML callback routes now use `303` redirects after POST so browser navigation lands on inspector with `GET`
+  - Pending auth state cookie uses `SameSite=None` in production to support cross-site IdP POST callback RelayState lookups
 - User auth routes in `src/app/api/user/`:
   - login + MFA (`login`, `login/mfa/totp`)
   - registration + verification (`register`, `verify-email`, `verify-email/resend`)
@@ -114,8 +118,20 @@
 - Run app: `npm run dev`
 - Lint: `npm run lint`
 - Typecheck: `npx tsc --noEmit`
+- Unit tests: `npm run test:unit`
+- CI-quality build: `npm run build:ci`
+- Full local CI parity: `npm run test:ci`
 - Production build (stable path): `npm run build -- --webpack`
 - Reset local DB: delete `dev.db`, then `npx prisma db push`
+
+### Agent Commit Gate
+- Before creating a commit, all coding agents must run local unit tests: `npm run test:unit`
+- If unit tests fail, do not commit until failures are fixed or explicitly acknowledged by the user
+
+### CI/CD Release Gates
+- PR and merge queue checks live in `.github/workflows/ci.yml` (`Quality Gate`, `Release Readiness`, and conditional `Dependency Review`)
+- `Release Readiness` validates Vercel credentials, pulls production env vars, validates required env keys, and runs `vercel build --prod`
+- Production deploys in `.github/workflows/deploy-production.yml` rebuild artifacts in the deploy job before `vercel deploy --prebuilt`
 
 ## Environment Variables
 - `MASTER_ENCRYPTION_KEY` (required) — 64-char hex AES key
