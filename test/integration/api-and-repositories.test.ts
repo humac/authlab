@@ -565,9 +565,65 @@ describe("integration: repositories and api routes", () => {
       });
     });
 
-    it("rejects missing RelayState", async (t) => {
+    it("allows IdP-initiated callback without RelayState on slug callback", async (t) => {
+      const getState = t.mock.fn(async () => null);
+      const saveAuthResultSession = t.mock.fn(async () => undefined);
+
+      class MockSAMLHandler {
+        async handleCallback() {
+          return {
+            claims: { sub: "user-1" },
+            rawXml: "<Assertion />",
+          };
+        }
+      }
+
       t.mock.module("@/lib/state-store", {
-        namedExports: { getState: t.mock.fn() },
+        namedExports: { getState },
+      });
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app-1",
+            slug: "saml-app",
+            protocol: "SAML",
+          })),
+        },
+      });
+      t.mock.module("@/lib/saml-handler", {
+        namedExports: { SAMLHandler: MockSAMLHandler },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getAppSession: t.mock.fn(async () => ({ save: t.mock.fn(async () => undefined) })),
+          saveAuthResultSession,
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/callback/saml/[slug]/route.ts")
+      >("../../src/app/api/auth/callback/saml/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/callback/saml/saml-app", {
+          method: "POST",
+          body: new URLSearchParams({ SAMLResponse: "response" }),
+        }),
+        { params: Promise.resolve({ slug: "saml-app" }) },
+      );
+
+      assert.equal(response.status, 303);
+      assert.equal(
+        response.headers.get("location"),
+        "http://localhost:3000/test/saml-app/inspector",
+      );
+      assert.equal(getState.mock.callCount(), 0);
+      assert.equal(saveAuthResultSession.mock.callCount(), 1);
+    });
+
+    it("rejects invalid RelayState when RelayState is provided", async (t) => {
+      t.mock.module("@/lib/state-store", {
+        namedExports: { getState: t.mock.fn(async () => null) },
       });
       t.mock.module("@/repositories/app-instance.repo", {
         namedExports: { getAppInstanceBySlug: t.mock.fn() },
@@ -589,12 +645,19 @@ describe("integration: repositories and api routes", () => {
       const response = await route.POST(
         new Request("http://localhost/api/auth/callback/saml/saml-app", {
           method: "POST",
-          body: new URLSearchParams({ SAMLResponse: "response" }),
+          body: new URLSearchParams({
+            SAMLResponse: "response",
+            RelayState: "stale-state",
+          }),
         }),
         { params: Promise.resolve({ slug: "saml-app" }) },
       );
 
       assert.equal(response.status, 400);
+      assert.deepEqual(await getJson(response), {
+        error:
+          "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
+      });
     });
   });
 

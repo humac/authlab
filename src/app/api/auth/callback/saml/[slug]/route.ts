@@ -23,34 +23,27 @@ export async function POST(
       );
     }
 
-    if (!relayState) {
-      return NextResponse.json(
-        {
-          error:
-            "Missing RelayState. Start SAML from /test/{slug}/login and ensure your IdP preserves RelayState in the response.",
-        },
-        { status: 400 },
-      );
-    }
+    // SP-initiated flow should include RelayState; IdP-initiated often does not.
+    let slug = expectedSlug;
+    if (relayState) {
+      const stateEntry = await getState(relayState);
+      if (!stateEntry) {
+        return NextResponse.json(
+          {
+            error:
+              "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
+          },
+          { status: 400 },
+        );
+      }
 
-    // Look up RelayState to find slug
-    const stateEntry = await getState(relayState);
-    if (!stateEntry) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const { slug } = stateEntry;
-    if (slug !== expectedSlug) {
-      return NextResponse.json(
-        { error: "Callback slug does not match login session" },
-        { status: 400 },
-      );
+      slug = stateEntry.slug;
+      if (slug !== expectedSlug) {
+        return NextResponse.json(
+          { error: "Callback slug does not match login session" },
+          { status: 400 },
+        );
+      }
     }
 
     // Load app instance
