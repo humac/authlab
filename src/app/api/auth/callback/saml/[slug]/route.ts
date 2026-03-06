@@ -10,71 +10,96 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const { slug: expectedSlug } = await params;
-  const formData = await request.formData();
-  const samlResponse = formData.get("SAMLResponse") as string;
-  const relayState = formData.get("RelayState") as string;
+  try {
+    const { slug: expectedSlug } = await params;
+    const formData = await request.formData();
+    const samlResponse = formData.get("SAMLResponse") as string;
+    const relayState = formData.get("RelayState") as string;
 
-  if (!samlResponse) {
-    return NextResponse.json(
-      { error: "Missing SAMLResponse" },
-      { status: 400 },
-    );
-  }
+    if (!samlResponse) {
+      return NextResponse.json(
+        { error: "Missing SAMLResponse" },
+        { status: 400 },
+      );
+    }
 
-  if (!relayState) {
+    if (!relayState) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing RelayState. Start SAML from /test/{slug}/login and ensure your IdP preserves RelayState in the response.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Look up RelayState to find slug
+    const stateEntry = await getState(relayState);
+    if (!stateEntry) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const { slug } = stateEntry;
+    if (slug !== expectedSlug) {
+      return NextResponse.json(
+        { error: "Callback slug does not match login session" },
+        { status: 400 },
+      );
+    }
+
+    // Load app instance
+    const appInstance = await getAppInstanceBySlug(slug);
+    if (!appInstance) {
+      return NextResponse.json(
+        { error: "App instance not found" },
+        { status: 404 },
+      );
+    }
+
+    const callbackUrl = `${APP_URL}/api/auth/callback/saml/${slug}`;
+
+    // Process the callback
+    const handler = new SAMLHandler(appInstance);
+    const result = await handler.handleCallback(samlResponse, callbackUrl);
+
+    // Store in session
+    const session = await getAppSession(slug);
+    session.appSlug = slug;
+    session.protocol = "SAML";
+    session.claims = result.claims;
+    session.rawXml = result.rawXml;
+    session.authenticatedAt = new Date().toISOString();
+    await session.save();
+
+    return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`, 303);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unexpected callback error";
+    const normalized = message.toLowerCase();
+    const isValidationError =
+      normalized.includes("saml") ||
+      normalized.includes("assertion") ||
+      normalized.includes("relaystate") ||
+      normalized.includes("inresponseto") ||
+      normalized.includes("signature") ||
+      normalized.includes("audience") ||
+      normalized.includes("destination") ||
+      normalized.includes("invalid");
+
+    console.error("SAML callback failed", error);
     return NextResponse.json(
       {
-        error:
-          "Missing RelayState. Start SAML from /test/{slug}/login and ensure your IdP preserves RelayState in the response.",
+        error: isValidationError
+          ? `SAML validation failed: ${message}`
+          : "SAML callback failed",
       },
-      { status: 400 },
+      { status: isValidationError ? 400 : 500 },
     );
   }
-
-  // Look up RelayState to find slug
-  const stateEntry = await getState(relayState);
-  if (!stateEntry) {
-    return NextResponse.json(
-      {
-        error:
-          "Invalid or expired RelayState. This is often caused by an expired flow, missing state cookie, or IdP not returning RelayState.",
-      },
-      { status: 400 },
-    );
-  }
-
-  const { slug } = stateEntry;
-  if (slug !== expectedSlug) {
-    return NextResponse.json(
-      { error: "Callback slug does not match login session" },
-      { status: 400 },
-    );
-  }
-
-  // Load app instance
-  const appInstance = await getAppInstanceBySlug(slug);
-  if (!appInstance) {
-    return NextResponse.json(
-      { error: "App instance not found" },
-      { status: 404 },
-    );
-  }
-
-  const callbackUrl = `${APP_URL}/api/auth/callback/saml/${slug}`;
-
-  // Process the callback
-  const handler = new SAMLHandler(appInstance);
-  const result = await handler.handleCallback(samlResponse, callbackUrl);
-
-  // Store in session
-  const session = await getAppSession(slug);
-  session.appSlug = slug;
-  session.protocol = "SAML";
-  session.claims = result.claims;
-  session.rawXml = result.rawXml;
-  session.authenticatedAt = new Date().toISOString();
-  await session.save();
-
-  return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`, 303);
 }
