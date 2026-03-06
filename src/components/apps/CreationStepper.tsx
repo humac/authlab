@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stepper } from "@/components/ui/Stepper";
 import { Button } from "@/components/ui/Button";
@@ -12,8 +12,8 @@ import { SAMLConfigFields } from "./SAMLConfigFields";
 
 const STEPS = [
   { label: "Protocol" },
-  { label: "Configure" },
   { label: "Customize" },
+  { label: "Configure" },
   { label: "Review" },
 ];
 
@@ -51,6 +51,9 @@ export function CreationStepper() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [appUrl, setAppUrl] = useState(
+    (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, ""),
+  );
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -68,6 +71,20 @@ export function CreationStepper() {
       .replace(/^-|-$/g, "");
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAppUrl(window.location.origin.replace(/\/+$/, ""));
+    }
+  }, []);
+
+  const displaySlug = formData.slug || "your-slug";
+  const testUrl = `${appUrl}/test/${displaySlug}`;
+  const oidcCallbackUrl = `${appUrl}/api/auth/callback/oidc/${displaySlug}`;
+  const samlCallbackUrl = `${appUrl}/api/auth/callback/saml/${displaySlug}`;
+  const samlMetadataUrl = `${appUrl}/api/saml/metadata/${displaySlug}`;
+  const testLoginUrl = `${appUrl}/test/${displaySlug}/login`;
+  const testInspectorUrl = `${appUrl}/test/${displaySlug}/inspector`;
+
   const validateStep = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -76,6 +93,14 @@ export function CreationStepper() {
     }
 
     if (step === 1) {
+      if (!formData.name) newErrors.name = "Required";
+      if (!formData.slug) newErrors.slug = "Required";
+      else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formData.slug)) {
+        newErrors.slug = "Must be lowercase alphanumeric with hyphens";
+      }
+    }
+
+    if (step === 2) {
       if (formData.protocol === "OIDC") {
         if (!formData.issuerUrl) newErrors.issuerUrl = "Required";
         if (!formData.clientId) newErrors.clientId = "Required";
@@ -84,14 +109,6 @@ export function CreationStepper() {
         if (!formData.entryPoint) newErrors.entryPoint = "Required";
         if (!formData.issuer) newErrors.issuer = "Required";
         if (!formData.idpCert) newErrors.idpCert = "Required";
-      }
-    }
-
-    if (step === 2) {
-      if (!formData.name) newErrors.name = "Required";
-      if (!formData.slug) newErrors.slug = "Required";
-      else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formData.slug)) {
-        newErrors.slug = "Must be lowercase alphanumeric with hyphens";
       }
     }
 
@@ -181,37 +198,7 @@ export function CreationStepper() {
           </div>
         )}
 
-        {step === 1 && formData.protocol === "OIDC" && (
-          <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">OIDC Configuration</h2>
-            <OIDCConfigFields
-              values={{
-                issuerUrl: formData.issuerUrl,
-                clientId: formData.clientId,
-                clientSecret: formData.clientSecret,
-                scopes: formData.scopes,
-              }}
-              onChange={updateField}
-              errors={errors}
-            />
-          </div>
-        )}
-        {step === 1 && formData.protocol === "SAML" && (
-          <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">SAML Configuration</h2>
-            <SAMLConfigFields
-              values={{
-                entryPoint: formData.entryPoint,
-                issuer: formData.issuer,
-                idpCert: formData.idpCert,
-              }}
-              onChange={updateField}
-              errors={errors}
-            />
-          </div>
-        )}
-
-        {step === 2 && (
+        {step === 1 && (
           <div>
             <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Customize</h2>
             <div className="space-y-4">
@@ -233,7 +220,7 @@ export function CreationStepper() {
                 value={formData.slug}
                 onChange={(e) => updateField("slug", e.target.value)}
                 error={errors.slug}
-                helperText={`Test URL: /test/${formData.slug || "your-slug"}`}
+                helperText={`Test URL: ${testUrl}`}
               />
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-[var(--text)]">Button Color</label>
@@ -247,7 +234,87 @@ export function CreationStepper() {
                   <span className="font-mono text-sm text-[var(--muted)]">{formData.buttonColor}</span>
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+                <h3 className="text-sm font-semibold text-[var(--text)]">Important URLs</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Configure these values in your identity provider.
+                </p>
+                <dl className="mt-3 space-y-2">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Test URL</dt>
+                    <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                      {testUrl}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Test Login URL</dt>
+                    <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                      {testLoginUrl}
+                    </dd>
+                  </div>
+                  {formData.protocol === "OIDC" ? (
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">OIDC Redirect URI</dt>
+                      <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                        {oidcCallbackUrl}
+                      </dd>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">SAML ACS URL (Callback)</dt>
+                        <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                          {samlCallbackUrl}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">SAML SP Metadata URL</dt>
+                        <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                          {samlMetadataUrl}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Inspector URL (after successful login)</dt>
+                    <dd className="mt-1 break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 font-mono text-xs text-[var(--text)]">
+                      {testInspectorUrl}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             </div>
+          </div>
+        )}
+
+        {step === 2 && formData.protocol === "OIDC" && (
+          <div>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">OIDC Configuration</h2>
+            <OIDCConfigFields
+              values={{
+                issuerUrl: formData.issuerUrl,
+                clientId: formData.clientId,
+                clientSecret: formData.clientSecret,
+                scopes: formData.scopes,
+              }}
+              onChange={updateField}
+              errors={errors}
+            />
+          </div>
+        )}
+        {step === 2 && formData.protocol === "SAML" && (
+          <div>
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">SAML Configuration</h2>
+            <SAMLConfigFields
+              values={{
+                entryPoint: formData.entryPoint,
+                issuer: formData.issuer,
+                idpCert: formData.idpCert,
+              }}
+              onChange={updateField}
+              errors={errors}
+            />
           </div>
         )}
 
@@ -286,14 +353,20 @@ export function CreationStepper() {
           </div>
         )}
 
-        <div className="mt-8 flex justify-between border-t border-[var(--border)] pt-5">
-          <Button
-            variant="secondary"
-            onClick={() => setStep((s) => s - 1)}
-            disabled={step === 0 || submitting}
-          >
-            Back
-          </Button>
+        <div
+          className={`mt-8 flex border-t border-[var(--border)] pt-5 ${
+            step === 0 ? "justify-end" : "justify-between"
+          }`}
+        >
+          {step > 0 && (
+            <Button
+              variant="secondary"
+              onClick={() => setStep((s) => s - 1)}
+              disabled={submitting}
+            >
+              Back
+            </Button>
+          )}
 
           {step < 3 ? (
             <Button onClick={handleNext}>Continue</Button>
