@@ -48,7 +48,7 @@ function isAuthPage(pathname: string): boolean {
   return pathname === "/login" || pathname === "/register";
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const nonce = crypto.randomUUID().replace(/-/g, "");

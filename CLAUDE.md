@@ -32,6 +32,7 @@ npm install
 npm run dev
 npm run lint
 npm run test:unit
+npm run test:integration
 npm run build:ci
 npm run test:ci
 npx tsc --noEmit
@@ -86,7 +87,7 @@ npm run build -- --webpack
    - Stored in DB and served through API route
 
 7. **CSP + session protections**
-   - CSP set in middleware with nonce
+   - CSP set in proxy with nonce
    - nonce applied to inline theme script in root layout
    - CSRF origin/content-type checks on mutating API calls
 
@@ -113,7 +114,7 @@ npm run build -- --webpack
 ## Operational Notes
 
 - If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
-- Next.js 16 warns that `middleware` convention is deprecated in favor of `proxy`; current implementation still works.
+- Next.js 16 uses the `proxy` convention for request interception; the app now follows that convention.
 - If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
 - Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.
@@ -121,7 +122,9 @@ npm run build -- --webpack
 
 ## Agent Commit Rule
 
+- All coding agents must update `AGENTS.md` and `CLAUDE.md` before committing if repo workflow, testing strategy, or agent guidance changed during the task.
 - All coding agents must run local unit tests before committing changes: `npm run test:unit`.
+- All coding agents must run local integration tests before committing changes: `npm run test:integration`.
 
 ## CI/CD Notes
 

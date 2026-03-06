@@ -46,6 +46,9 @@ jobs:
       - name: Unit Tests
         run: npm run test:unit
 
+      - name: Integration Tests
+        run: npm run test:integration
+
       - name: Validate Prisma schema
         run: npm run prisma:validate
 
