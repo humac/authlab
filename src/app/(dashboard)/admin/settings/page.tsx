@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -79,6 +79,20 @@ export default function AdminSettingsPage() {
   const [savingProvider, setSavingProvider] = useState(false);
   const [testingProvider, setTestingProvider] = useState(false);
 
+  const applyProviderConfig = useCallback((config: ProviderConfigResponse) => {
+    setProvider(config.activeProvider || "SMTP");
+    setSmtpHost(config.smtp.host || "");
+    setSmtpPort(String(config.smtp.port || 587));
+    setSmtpSecure(Boolean(config.smtp.secure));
+    setSmtpUsername(config.smtp.username || "");
+    setSmtpFromName(config.smtp.fromName || "");
+    setSmtpFromEmail(config.smtp.fromEmail || "");
+    setSmtpHasPassword(config.smtp.hasPassword);
+    setBrevoFromName(config.brevo.fromName || "");
+    setBrevoFromEmail(config.brevo.fromEmail || "");
+    setBrevoHasApiKey(config.brevo.hasApiKey);
+  }, []);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -107,19 +121,7 @@ export default function AdminSettingsPage() {
         setTeams(teamsData.teams || []);
 
         if (providerRes.ok) {
-          const config = providerData as ProviderConfigResponse;
-          setProvider(config.activeProvider || "SMTP");
-          setSmtpHost(config.smtp.host || "");
-          setSmtpPort(String(config.smtp.port || 587));
-          setSmtpSecure(Boolean(config.smtp.secure));
-          setSmtpUsername(config.smtp.username || "");
-          setSmtpFromName(config.smtp.fromName || "");
-          setSmtpFromEmail(config.smtp.fromEmail || "");
-          setSmtpHasPassword(config.smtp.hasPassword);
-
-          setBrevoFromName(config.brevo.fromName || "");
-          setBrevoFromEmail(config.brevo.fromEmail || "");
-          setBrevoHasApiKey(config.brevo.hasApiKey);
+          applyProviderConfig(providerData as ProviderConfigResponse);
         }
       } catch {
         setError("An unexpected error occurred while loading admin settings");
@@ -129,7 +131,7 @@ export default function AdminSettingsPage() {
     }
 
     load();
-  }, []);
+  }, [applyProviderConfig]);
 
   async function toggleSetting(key: string, current: string) {
     const newValue = current === "true" ? "false" : "true";
@@ -192,10 +194,15 @@ export default function AdminSettingsPage() {
         return;
       }
 
-      if (smtpPassword) setSmtpPassword("");
-      if (brevoApiKey) setBrevoApiKey("");
-      setSmtpHasPassword(true);
-      setBrevoHasApiKey(true);
+      setSmtpPassword("");
+      setBrevoApiKey("");
+
+      const providerRes = await fetch("/api/admin/email-provider");
+      const providerData = await providerRes.json();
+      if (providerRes.ok) {
+        applyProviderConfig(providerData as ProviderConfigResponse);
+      }
+
       setSuccess("Email provider settings saved");
     } catch {
       setError("An unexpected error occurred while saving provider settings");
@@ -208,12 +215,31 @@ export default function AdminSettingsPage() {
     setTestingProvider(true);
     setError("");
     setSuccess("");
+    const normalizedRecipient = testRecipient.trim();
+
+    if (!normalizedRecipient) {
+      setError("Test recipient email is required");
+      setTestingProvider(false);
+      return;
+    }
+
+    if (provider === "SMTP" && !smtpPassword && !smtpHasPassword) {
+      setError("SMTP password is required for test. Save it first or enter it now.");
+      setTestingProvider(false);
+      return;
+    }
+
+    if (provider === "BREVO" && !brevoApiKey.trim() && !brevoHasApiKey) {
+      setError("Brevo API key is required for test. Save it first or enter it now.");
+      setTestingProvider(false);
+      return;
+    }
 
     const payload =
       provider === "SMTP"
         ? {
             provider: "SMTP",
-            recipientEmail: testRecipient,
+            recipientEmail: normalizedRecipient,
             smtp: {
               host: smtpHost,
               port: Number(smtpPort),
@@ -226,9 +252,9 @@ export default function AdminSettingsPage() {
           }
         : {
             provider: "BREVO",
-            recipientEmail: testRecipient,
+            recipientEmail: normalizedRecipient,
             brevo: {
-              apiKey: brevoApiKey,
+              apiKey: brevoApiKey.trim(),
               fromName: brevoFromName,
               fromEmail: brevoFromEmail,
             },
@@ -298,7 +324,13 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Input label="Test Recipient Email" type="email" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} />
+          <Input
+            label="Test Recipient Email"
+            type="email"
+            value={testRecipient}
+            onChange={(e) => setTestRecipient(e.target.value)}
+            required
+          />
         </div>
 
         {provider === "SMTP" ? (

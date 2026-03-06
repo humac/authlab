@@ -16,8 +16,12 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = TestEmailProviderSchema.safeParse(body);
   if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0]?.message;
     return NextResponse.json(
-      { error: "Validation failed", issues: parsed.error.issues },
+      {
+        error: firstIssue ? `Validation failed: ${firstIssue}` : "Validation failed",
+        issues: parsed.error.issues,
+      },
       { status: 400 },
     );
   }
@@ -54,7 +58,10 @@ export async function POST(request: Request) {
       const brevoApiKey = await resolveBrevoApiKeyForTest(parsed.data.brevo?.apiKey);
       if (!parsed.data.brevo || !brevoApiKey) {
         return NextResponse.json(
-          { error: "Brevo API key is required for test" },
+          {
+            error:
+              "Brevo API key is required for test. Enter one now or save provider settings with an API key first.",
+          },
           { status: 400 },
         );
       }
@@ -74,9 +81,13 @@ export async function POST(request: Request) {
         },
       });
     }
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Failed to send test email";
     return NextResponse.json(
-      { error: "Failed to send test email" },
+      { error: message },
       { status: 400 },
     );
   }

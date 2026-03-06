@@ -156,13 +156,15 @@ export async function saveEmailProviderConfig(input: EmailProviderConfigInput) {
   }
 
   if (input.brevo) {
+    const normalizedBrevoApiKey = input.brevo.apiKey?.trim();
+
     await Promise.all([
       setSetting(KEYS.brevoFromName, input.brevo.fromName),
       setSetting(KEYS.brevoFromEmail, input.brevo.fromEmail),
     ]);
 
-    if (input.brevo.apiKey) {
-      await setSetting(KEYS.brevoApiKeyEnc, encrypt(input.brevo.apiKey));
+    if (normalizedBrevoApiKey) {
+      await setSetting(KEYS.brevoApiKeyEnc, encrypt(normalizedBrevoApiKey));
     }
   }
 }
@@ -188,11 +190,16 @@ async function sendWithSmtp(config: Required<SmtpConfigInput>, email: SendEmailI
 }
 
 async function sendWithBrevo(config: Required<BrevoConfigInput>, email: SendEmailInput) {
+  const apiKey = config.apiKey.trim();
+  if (!apiKey) {
+    throw new Error("Brevo API key is required");
+  }
+
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "api-key": config.apiKey,
+      "api-key": apiKey,
     },
     body: JSON.stringify({
       sender: {
@@ -207,7 +214,26 @@ async function sendWithBrevo(config: Required<BrevoConfigInput>, email: SendEmai
   });
 
   if (!res.ok) {
-    throw new Error("Brevo API send failed");
+    const bodyText = await res.text();
+    let reason = `HTTP ${res.status}`;
+    if (bodyText) {
+      try {
+        const parsed = JSON.parse(bodyText) as {
+          message?: unknown;
+          code?: unknown;
+        };
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          reason = parsed.message.trim();
+        } else if (typeof parsed.code === "string" && parsed.code.trim()) {
+          reason = parsed.code.trim();
+        }
+      } catch {
+        reason = bodyText.trim();
+      }
+    }
+
+    const normalizedReason = reason.replace(/\s+/g, " ").slice(0, 240);
+    throw new Error(`Brevo send failed (${res.status}): ${normalizedReason}`);
   }
 }
 
@@ -245,8 +271,9 @@ export async function resolveSmtpPasswordForTest(
 export async function resolveBrevoApiKeyForTest(
   providedApiKey?: string,
 ): Promise<string | null> {
-  if (providedApiKey && providedApiKey.trim().length > 0) {
-    return providedApiKey;
+  const normalizedProvided = providedApiKey?.trim();
+  if (normalizedProvided) {
+    return normalizedProvided;
   }
 
   const apiKeyEnc = await getRequiredSetting(KEYS.brevoApiKeyEnc);
@@ -254,7 +281,8 @@ export async function resolveBrevoApiKeyForTest(
     return null;
   }
 
-  return decrypt(apiKeyEnc);
+  const decrypted = decrypt(apiKeyEnc).trim();
+  return decrypted || null;
 }
 
 async function loadActiveProviderConfig(): Promise<
