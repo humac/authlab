@@ -64,7 +64,7 @@ If you use GitHub Environments for production, add required reviewers there as a
 - Static analysis: ESLint
 - Type safety: TypeScript compiler
 - Unit tests: native Node test runner with 107 passing tests across 26 suites covering auth/security helpers, session helpers, passkey helpers, metadata parsing, repository helpers, and validator branches
-- Integration tests: disposable SQLite-backed route and repository flows for registration, invite acceptance, join requests, and auth token lifecycle
+- Integration tests: disposable SQLite-backed route and repository flows for auth token lifecycle, registration, invite acceptance, join requests, OIDC callbacks, SAML callbacks, MFA TOTP setup/disable, passkey registration/login management, password reset, and core admin routes
 - Schema validation: Prisma
 - Build verification: Next.js webpack production build
 - Dependency risk review: GitHub dependency review
@@ -72,7 +72,6 @@ If you use GitHub Environments for production, add required reviewers there as a
 
 ### Not yet automated in this repository
 
-- Broader integration-style coverage for higher-coupling protocol/database flows such as OIDC, SAML, MFA, passkeys, password reset, and admin routes
 - End-to-end browser tests for registration, verification, login, MFA, passkeys, password reset, invites, and admin settings
 - Security regression tests for auth abuse cases
 - Performance smoke tests for critical auth paths

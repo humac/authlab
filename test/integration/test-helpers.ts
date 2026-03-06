@@ -82,6 +82,23 @@ export async function createInvite(data: {
   });
 }
 
+export async function createCredentialRecord(data: {
+  userId: string;
+  credentialId: string;
+  publicKey?: string;
+  signCount?: number;
+}) {
+  const prisma = await getPrisma();
+  return prisma.credential.create({
+    data: {
+      userId: data.userId,
+      credentialId: data.credentialId,
+      publicKey: data.publicKey ?? Buffer.from("public-key").toString("base64url"),
+      signCount: data.signCount ?? 0,
+    },
+  });
+}
+
 export async function createJoinRequest(data: {
   teamId: string;
   userId: string;
