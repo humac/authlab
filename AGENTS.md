@@ -119,14 +119,17 @@
 - Lint: `npm run lint`
 - Typecheck: `npx tsc --noEmit`
 - Unit tests: `npm run test:unit`
+- Integration tests: `npm run test:integration`
 - CI-quality build: `npm run build:ci`
 - Full local CI parity: `npm run test:ci`
 - Production build (stable path): `npm run build -- --webpack`
 - Reset local DB: delete `dev.db`, then `npx prisma db push`
 
 ### Agent Commit Gate
+- Before creating a commit, update `AGENTS.md` and `CLAUDE.md` if the repo workflow, testing strategy, or agent guidance changed during the work
 - Before creating a commit, all coding agents must run local unit tests: `npm run test:unit`
-- If unit tests fail, do not commit until failures are fixed or explicitly acknowledged by the user
+- Before creating a commit, all coding agents must run local integration tests: `npm run test:integration`
+- If unit or integration tests fail, do not commit until failures are fixed or explicitly acknowledged by the user
 
 ### CI/CD Release Gates
 - PR and merge queue checks live in `.github/workflows/ci.yml` (`Quality Gate`, `Release Readiness`, and conditional `Dependency Review`)

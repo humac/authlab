@@ -32,6 +32,7 @@ npm install
 npm run dev
 npm run lint
 npm run test:unit
+npm run test:integration
 npm run build:ci
 npm run test:ci
 npx tsc --noEmit
@@ -121,7 +122,9 @@ npm run build -- --webpack
 
 ## Agent Commit Rule
 
+- All coding agents must update `AGENTS.md` and `CLAUDE.md` before committing if repo workflow, testing strategy, or agent guidance changed during the task.
 - All coding agents must run local unit tests before committing changes: `npm run test:unit`.
+- All coding agents must run local integration tests before committing changes: `npm run test:integration`.
 
 ## CI/CD Notes
 

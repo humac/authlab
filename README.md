@@ -96,7 +96,18 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab dashboard with a "Create Your First App" prompt.
 
-### 6. Create a test app instance
+### 6. Verify local changes before commit
+
+Run both local test suites before creating a commit:
+
+```bash
+npm run test:unit
+npm run test:integration
+```
+
+If your work changes repo workflow, testing strategy, or agent guidance, update `AGENTS.md` and `CLAUDE.md` in the same branch before committing.
+
+### 7. Create a test app instance
 
 1. Click **Create Your First App** (or **Create New App** in the sidebar)
 2. Choose **OIDC** or **SAML**
@@ -107,7 +118,7 @@ Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab
 4. Set a name and slug (auto-generated from name)
 5. Review and create
 
-### 7. Register callback URLs with your IdP
+### 8. Register callback URLs with your IdP
 
 Register these callback URLs in your identity provider's configuration:
 
@@ -118,7 +129,7 @@ Use the exact slug for the app instance you are testing (shown on each app test 
 OIDC example for slug `finance-oidc`: `http://localhost:3000/api/auth/callback/oidc/finance-oidc`  
 SAML example for slug `hr-saml`: `http://localhost:3000/api/auth/callback/saml/hr-saml`  
 
-### 8. SAML metadata export (Service Provider metadata)
+### 9. SAML metadata export (Service Provider metadata)
 
 For each SAML app, AuthLab exposes:
 
@@ -132,7 +143,7 @@ The signed endpoint requires:
 
 If these variables are not set, unsigned metadata still works and the signed metadata endpoint returns `400`.
 
-### 9. Test the auth flow
+### 10. Test the auth flow
 
 1. Click **Test** on your app instance card
 2. Click the **Login with OIDC/SAML** button
@@ -212,6 +223,16 @@ This repo now includes:
 
 1. `.github/workflows/ci.yml` for pull request and merge queue validation
 2. `.github/workflows/deploy-production.yml` for pre-deploy verification, Turso migrations, and production release
+
+The pull request gate runs:
+
+1. `npm ci`
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm run test:unit`
+5. `npm run test:integration`
+6. `npm run prisma:validate`
+7. `npm run build:ci`
 
 The deploy workflow now:
 
