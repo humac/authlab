@@ -1,0 +1,81 @@
+# CI/CD Testing Strategy
+
+## Goal
+
+Block production deployments unless the repository passes static quality checks, dependency review, environment validation, and a production artifact build in GitHub Actions.
+
+## Enforced Gates
+
+### Pull request gate
+
+Workflow: `.github/workflows/ci.yml`
+
+Runs on every pull request and merge queue event:
+
+- `npm ci`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run prisma:validate`
+- `npm run build:ci`
+- Dependency diff scanning with `actions/dependency-review-action`
+
+This is the fast feedback lane. It proves the branch compiles, the Prisma schema is valid, and the Next.js production build succeeds with CI-safe stub secrets.
+
+### Pre-deploy gate
+
+Workflow: `.github/workflows/deploy-production.yml`
+
+Runs on pushes to `main` and manual dispatch:
+
+- Re-runs lint, typecheck, and Prisma validation
+- Pulls the real production Vercel environment
+- Fails if required production secrets are missing
+- Builds the production artifact with `vercel build --prod`
+- Applies Turso migrations only after the build succeeds
+- Deploys the prebuilt artifact to Vercel
+
+This separates release verification from the irreversible parts of release execution. The schema is no longer mutated before the build is proven valid.
+
+## Branch Protection
+
+To make the workflows enforceable, configure GitHub branch protection for `main`:
+
+- Require pull requests before merge
+- Require status checks:
+  - `Quality Gate`
+  - `Dependency Review`
+- Block direct pushes to `main`
+- Require the branch to be up to date before merging
+
+If you use GitHub Environments for production, add required reviewers there as a second release control.
+
+## Current Coverage
+
+### Automated today
+
+- Static analysis: ESLint
+- Type safety: TypeScript compiler
+- Unit tests: native Node test runner for auth/security helpers, metadata parsing, repository logic, and validator branches
+- Schema validation: Prisma
+- Build verification: Next.js webpack production build
+- Dependency risk review: GitHub dependency review
+- Deployment readiness: Vercel env validation and prebuilt artifact generation
+
+### Not yet automated in this repository
+
+- Remaining unit gaps in higher-coupling auth/session libraries and repository branches not yet covered
+- Integration tests for API routes, repositories, and auth token lifecycle
+- End-to-end browser tests for registration, verification, login, MFA, passkeys, password reset, invites, and admin settings
+- Security regression tests for auth abuse cases
+- Performance smoke tests for critical auth paths
+
+## Next Additions
+
+Add the following in order, and wire each suite into `ci.yml` as it becomes real:
+
+1. Expand `test:unit` coverage across `src/lib/**`, repository helpers, and additional validators
+2. Add `test:integration` with a disposable SQLite database for API routes and repositories
+3. Add `test:e2e` with Playwright for the auth and dashboard journeys already documented in `e2e-test-report.md`
+4. Add nightly security/performance jobs for abuse cases and latency baselines
+
+Each new suite should become a required status check before merge once it is stable and non-flaky.

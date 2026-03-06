@@ -11,13 +11,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  verify-release:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
-      TURSO_DATABASE_NAME: ${{ secrets.TURSO_DATABASE_NAME }}
-      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -37,14 +35,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Install Turso CLI
-        run: curl -sSfL https://get.tur.so/install.sh | bash
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Apply Turso migrations
-        run: |
-          export PATH="$HOME/.turso:$PATH"
-          chmod +x ./scripts/ci/apply-turso-migrations.sh
-          ./scripts/ci/apply-turso-migrations.sh
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
@@ -83,6 +78,55 @@ jobs:
 
       - name: Build Vercel artifacts
         run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Upload Vercel prebuilt output
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-prebuilt-output
+          path: |
+            .vercel/project.json
+            .vercel/output
+            .vercel/.env.production.local
+          if-no-files-found: error
+
+  deploy:
+    needs: verify-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TURSO_DATABASE_NAME: ${{ secrets.TURSO_DATABASE_NAME }}
+      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Download Vercel prebuilt output
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-prebuilt-output
+          path: .vercel
+
+      - name: Install Turso CLI
+        run: curl -sSfL https://get.tur.so/install.sh | bash
+
+      - name: Apply Turso migrations
+        run: |
+          export PATH="$HOME/.turso:$PATH"
+          chmod +x ./scripts/ci/apply-turso-migrations.sh
+          ./scripts/ci/apply-turso-migrations.sh
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
 
       - name: Deploy to Vercel
         run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

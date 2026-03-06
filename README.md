@@ -208,11 +208,18 @@ vercel --prod
 
 ### Automated Deploy (GitHub Actions)
 
-This repo now includes a production workflow at `.github/workflows/deploy-production.yml` that:
+This repo now includes:
 
-1. Installs dependencies and runs `lint`
-2. Applies pending SQL files from `prisma/turso-migrations/` to Turso
-3. Pulls project settings, builds Vercel artifacts, and deploys with `--prebuilt`
+1. `.github/workflows/ci.yml` for pull request and merge queue validation
+2. `.github/workflows/deploy-production.yml` for pre-deploy verification, Turso migrations, and production release
+
+The deploy workflow now:
+
+1. Installs dependencies and runs `lint`, `typecheck`, and `prisma validate`
+2. Pulls project settings and validates required production env vars
+3. Builds Vercel artifacts before any production migration runs
+4. Applies pending SQL files from `prisma/turso-migrations/` to Turso
+5. Deploys the verified prebuilt artifact with `--prebuilt`
 
 Required repository secrets:
 
@@ -226,6 +233,7 @@ Each Turso migration file is applied exactly once and tracked in `_authlab_schem
 `prisma/turso-migrations/0001_init.sql` is the baseline schema for greenfield deployments.
 Do not delete historical migration files after deployment; keep them committed for replay/recovery.
 The repo includes `.vercelignore` with `.next` to prevent uploading local Next.js build output.
+For the full gate design and branch protection recommendations, see `docs/ci-cd-testing-strategy.md`.
 
 ### Schema Changes in Production
 
