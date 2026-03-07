@@ -67,7 +67,7 @@ describe("user session helpers", () => {
       "../../src/lib/user-session.ts",
     );
 
-    const session = {
+    const session: Record<string, unknown> = {
       pendingAuth: { userId: "user-1" },
       webauthnChallenge: { challenge: "abc" },
       pendingTotpSetup: { secretEnc: "enc" },
@@ -87,16 +87,19 @@ describe("user session helpers", () => {
       "team-1",
     );
 
-    assert.deepEqual(session, {
-      userId: "user-1",
-      email: "user@example.com",
-      name: "User",
-      isSystemAdmin: true,
-      mustChangePassword: false,
-      isVerified: true,
-      mfaEnabled: true,
-      activeTeamId: "team-1",
-    });
+    assert.equal(session.userId, "user-1");
+    assert.equal(session.email, "user@example.com");
+    assert.equal(session.name, "User");
+    assert.equal(session.isSystemAdmin, true);
+    assert.equal(session.mustChangePassword, false);
+    assert.equal(session.isVerified, true);
+    assert.equal(session.mfaEnabled, true);
+    assert.equal(session.activeTeamId, "team-1");
+    assert.equal(typeof session.lastActivityAt, "number");
+    // Pending auth state should be cleared
+    assert.equal(session.pendingAuth, undefined);
+    assert.equal(session.webauthnChallenge, undefined);
+    assert.equal(session.pendingTotpSetup, undefined);
   });
 
   it("returns null when the session is missing required user fields", async (t) => {

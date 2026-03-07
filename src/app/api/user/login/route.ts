@@ -8,10 +8,27 @@ import {
 } from "@/lib/user-session";
 import { getUserByEmail, updateUser } from "@/repositories/user.repo";
 import { resolveUserActiveTeamId } from "@/lib/auth-login";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 const INVALID_LOGIN_RESPONSE = { error: "Invalid email or password" };
 
+const LOGIN_RATE_LIMIT = {
+  namespace: "login",
+  maxAttempts: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(LOGIN_RATE_LIMIT, ip);
+  if (!rl.allowed) {
+    return rateLimitExceededResponse(rl.retryAfterMs);
+  }
+
   const body = await request.json();
   const parsed = LoginSchema.safeParse(body);
 

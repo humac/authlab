@@ -7,12 +7,29 @@ import { claimLegacyMigrationAppsForTeam } from "@/repositories/app-instance.rep
 import { getSetting } from "@/repositories/system-setting.repo";
 import { createAuthToken } from "@/repositories/auth-token.repo";
 import { sendEmailVerificationLink } from "@/lib/auth-email";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 const GENERIC_RESPONSE = {
   message: "If an account can be created, a verification email has been sent.",
 };
 
+const REGISTER_RATE_LIMIT = {
+  namespace: "register",
+  maxAttempts: 5,
+  windowMs: 60 * 60 * 1000, // 1 hour
+};
+
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(REGISTER_RATE_LIMIT, ip);
+  if (!rl.allowed) {
+    return rateLimitExceededResponse(rl.retryAfterMs);
+  }
+
   const registrationEnabled = await getSetting("registrationEnabled");
   if (registrationEnabled === "false") {
     return NextResponse.json(

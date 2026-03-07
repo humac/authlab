@@ -4,6 +4,7 @@ export interface PendingAuthChallenge {
   method: "PASSWORD" | "PASSKEY";
   issuedAt: number;
   expiresAt: number;
+  mfaAttempts?: number;
 }
 
 export interface WebAuthnChallengeState {
@@ -27,6 +28,7 @@ export interface UserSessionData {
   isVerified?: boolean;
   mfaEnabled?: boolean;
   activeTeamId?: string;
+  lastActivityAt?: number;
   pendingAuth?: PendingAuthChallenge;
   webauthnChallenge?: WebAuthnChallengeState;
   pendingTotpSetup?: PendingTotpSetupState;

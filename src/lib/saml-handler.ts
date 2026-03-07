@@ -12,13 +12,15 @@ export class SAMLHandler implements AuthHandler {
   }
 
   private createSamlClient(callbackUrl: string): SAML {
+    const hasIdpCert = Boolean(this.appInstance.idpCert?.trim());
+
     return new SAML({
       callbackUrl,
       entryPoint: this.appInstance.entryPoint!,
       issuer: this.appInstance.issuer!,
       idpCert: this.appInstance.idpCert!,
-      wantAssertionsSigned: false,
-      wantAuthnResponseSigned: false,
+      wantAssertionsSigned: hasIdpCert,
+      wantAuthnResponseSigned: hasIdpCert,
     });
   }
 

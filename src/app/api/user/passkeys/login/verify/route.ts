@@ -12,6 +12,17 @@ import {
 import { getUserById } from "@/repositories/user.repo";
 import { resolveUserActiveTeamId } from "@/lib/auth-login";
 import { verifyPasskeyAuthentication } from "@/lib/webauthn";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
+
+const PASSKEY_LOGIN_RATE_LIMIT = {
+  namespace: "passkey-login",
+  maxAttempts: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
 
 function getCredentialIdFromAssertion(response: unknown): string | null {
   if (!response || typeof response !== "object") {
@@ -27,6 +38,12 @@ function getCredentialIdFromAssertion(response: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(PASSKEY_LOGIN_RATE_LIMIT, ip);
+  if (!rl.allowed) {
+    return rateLimitExceededResponse(rl.retryAfterMs);
+  }
+
   const body = await request.json();
   const parsed = PasskeyAssertionSchema.safeParse(body);
 
