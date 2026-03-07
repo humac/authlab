@@ -46,14 +46,20 @@ export default function AcceptInvitePage() {
         return;
       }
 
-      setResult({ teamName: data.teamName, role: data.role });
-      setStatus("done");
-
-      await fetch("/api/teams/switch", {
+      const switchRes = await fetch("/api/teams/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId: data.teamId }),
       });
+
+      if (!switchRes.ok) {
+        setError("Invitation accepted, but failed to switch your active team");
+        setStatus("error");
+        return;
+      }
+
+      setResult({ teamName: data.teamName, role: data.role });
+      setStatus("done");
     } catch {
       setError("An unexpected error occurred");
       setStatus("error");
