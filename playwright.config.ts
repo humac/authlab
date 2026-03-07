@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100";
+const baseUrl =
+  process.env.AUTHLAB_E2E_BASE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "http://localhost:3100";
 const databaseUrl = process.env.DATABASE_URL || "file:./test/e2e/.tmp/e2e.db";
 const masterKey =
   process.env.MASTER_ENCRYPTION_KEY ||

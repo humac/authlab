@@ -63,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: quality-gate
+    env:
+      AUTHLAB_E2E_BASE_URL: http://localhost:3100
 
     steps:
       - name: Checkout
