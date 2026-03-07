@@ -12,24 +12,41 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   options: SelectOption[];
   error?: string;
   helperText?: string;
+  uiSize?: "sm" | "md";
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, options, error, helperText, className = "", id, ...props }, ref) => {
+  (
+    {
+      label,
+      options,
+      error,
+      helperText,
+      className = "",
+      id,
+      uiSize = "md",
+      ...props
+    },
+    ref,
+  ) => {
     const selectId = id || label.toLowerCase().replace(/\s+/g, "-");
+    const sizes = {
+      sm: "h-9 px-3 text-sm",
+      md: "h-10 px-3.5 text-sm",
+    };
 
     return (
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <label
           htmlFor={selectId}
-          className="block text-sm font-medium text-[var(--text)]"
+          className="block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
         >
           {label}
         </label>
         <select
           ref={ref}
           id={selectId}
-          className={`focus-ring block h-11 w-full rounded-xl border bg-[var(--surface)] px-3.5 text-sm text-[var(--text)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] ${
+          className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] ${sizes[uiSize]} ${
             error
               ? "border-red-400"
               : "border-[var(--border)] hover:border-[var(--border-strong)]"

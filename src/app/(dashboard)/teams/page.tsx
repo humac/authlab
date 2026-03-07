@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/components/providers/UserProvider";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 type JoinRequestRole = "ADMIN" | "MEMBER";
@@ -44,7 +47,7 @@ interface TeamDirectoryTeam {
   pendingJoinRequests: TeamJoinRequest[];
 }
 
-function roleBadge(role: TeamRole | JoinRequestRole) {
+function roleBadge(role: TeamRole | JoinRequestRole | null) {
   if (role === "OWNER") return "blue";
   if (role === "ADMIN") return "green";
   return "gray";
@@ -65,22 +68,20 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [query, setQuery] = useState("");
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamSlug, setNewTeamSlug] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
 
-  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<TeamDirectoryTeam | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingSlug, setEditingSlug] = useState("");
   const [updatingTeam, setUpdatingTeam] = useState(false);
 
-  const [memberForms, setMemberForms] = useState<
-    Record<string, { email: string; role: JoinRequestRole }>
-  >({});
+  const [reviewTarget, setReviewTarget] = useState<TeamDirectoryTeam | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
-
-  const isSystemAdmin = user.isSystemAdmin;
 
   async function loadDirectory() {
     setLoading(true);
@@ -104,34 +105,24 @@ export default function TeamsPage() {
     loadDirectory();
   }, []);
 
-  const sortedTeams = useMemo(
-    () => [...teams].sort((a, b) => a.name.localeCompare(b.name)),
-    [teams],
+  const filteredTeams = useMemo(
+    () =>
+      teams
+        .filter((team) =>
+          [team.name, team.slug, team.myRole || ""]
+            .join(" ")
+            .toLowerCase()
+            .includes(query.toLowerCase()),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [query, teams],
   );
-
-  function getMemberForm(teamId: string) {
-    return memberForms[teamId] || { email: "", role: "MEMBER" };
-  }
-
-  function updateMemberForm(
-    teamId: string,
-    field: "email" | "role",
-    value: string,
-  ) {
-    setMemberForms((prev) => ({
-      ...prev,
-      [teamId]: {
-        ...getMemberForm(teamId),
-        [field]: value,
-      },
-    }));
-  }
 
   async function handleCreateTeam(e: React.FormEvent) {
     e.preventDefault();
+    setCreatingTeam(true);
     setError("");
     setSuccess("");
-    setCreatingTeam(true);
 
     try {
       const res = await fetch("/api/teams", {
@@ -147,9 +138,10 @@ export default function TeamsPage() {
         setError(data.error || "Failed to create team");
         return;
       }
-      setSuccess("Team created");
+      setCreateOpen(false);
       setNewTeamName("");
       setNewTeamSlug("");
+      setSuccess("Team created");
       await loadDirectory();
       router.refresh();
     } catch {
@@ -159,13 +151,15 @@ export default function TeamsPage() {
     }
   }
 
-  async function handleUpdateTeam(teamId: string) {
+  async function handleUpdateTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setUpdatingTeam(true);
     setError("");
     setSuccess("");
-    setUpdatingTeam(true);
 
     try {
-      const res = await fetch(`/api/teams/${teamId}`, {
+      const res = await fetch(`/api/teams/${editTarget.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editingName, slug: editingSlug }),
@@ -175,8 +169,8 @@ export default function TeamsPage() {
         setError(data.error || "Failed to update team");
         return;
       }
+      setEditTarget(null);
       setSuccess("Team updated");
-      setEditingTeamId(null);
       await loadDirectory();
     } catch {
       setError("An unexpected error occurred while updating team");
@@ -186,10 +180,8 @@ export default function TeamsPage() {
   }
 
   async function handleDeleteTeam(teamId: string) {
-    if (!confirm("Delete this team? This cannot be undone.")) return;
-    setError("");
-    setSuccess("");
     setPendingActionId(`delete-${teamId}`);
+    setError("");
     try {
       const res = await fetch(`/api/teams/${teamId}`, { method: "DELETE" });
       const data = await res.json();
@@ -207,44 +199,9 @@ export default function TeamsPage() {
     }
   }
 
-  async function handleAddMember(teamId: string, e: React.FormEvent) {
-    e.preventDefault();
-    const form = getMemberForm(teamId);
-    setError("");
-    setSuccess("");
-    setPendingActionId(`member-${teamId}`);
-    try {
-      const res = await fetch(`/api/teams/${teamId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, role: form.role }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to add/invite member");
-        return;
-      }
-      setSuccess(
-        data.mode === "invited"
-          ? `Invite sent to ${form.email}`
-          : `Added ${form.email} to team`,
-      );
-      setMemberForms((prev) => ({
-        ...prev,
-        [teamId]: { email: "", role: "MEMBER" },
-      }));
-      await loadDirectory();
-    } catch {
-      setError("An unexpected error occurred while adding member");
-    } finally {
-      setPendingActionId(null);
-    }
-  }
-
   async function handleRequestJoin(teamId: string) {
-    setError("");
-    setSuccess("");
     setPendingActionId(`join-${teamId}`);
+    setError("");
     try {
       const res = await fetch(`/api/teams/${teamId}/join-requests`, {
         method: "POST",
@@ -259,19 +216,15 @@ export default function TeamsPage() {
       setSuccess("Join request submitted");
       await loadDirectory();
     } catch {
-      setError("An unexpected error occurred while requesting to join");
+      setError("An unexpected error occurred while requesting access");
     } finally {
       setPendingActionId(null);
     }
   }
 
-  async function handleReviewJoinRequest(
-    requestId: string,
-    action: "approve" | "reject",
-  ) {
-    setError("");
-    setSuccess("");
+  async function handleReviewJoinRequest(requestId: string, action: "approve" | "reject") {
     setPendingActionId(`request-${requestId}`);
+    setError("");
     try {
       const res = await fetch(`/api/teams/join-requests/${requestId}`, {
         method: "PUT",
@@ -287,7 +240,7 @@ export default function TeamsPage() {
       await loadDirectory();
       router.refresh();
     } catch {
-      setError("An unexpected error occurred while reviewing request");
+      setError("An unexpected error occurred while reviewing the request");
     } finally {
       setPendingActionId(null);
     }
@@ -298,233 +251,223 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 animate-enter">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Teams</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Browse teams and members. Admins can manage teams, members, and join requests.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-4 animate-enter">
+      <PageHeader
+        title="Teams"
+        description="Browse workspaces, request access, and manage pending approvals."
+        actions={
+          user.isSystemAdmin ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              Create team
+            </Button>
+          ) : null
+        }
+      />
 
-      {error && <div className="alert-danger rounded-xl p-3 text-sm">{error}</div>}
-      {success && <div className="alert-success rounded-xl p-3 text-sm">{success}</div>}
+      {error && <div className="alert-danger rounded-lg p-3 text-sm">{error}</div>}
+      {success && <div className="alert-success rounded-lg p-3 text-sm">{success}</div>}
 
-      {isSystemAdmin && (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Create Team</h2>
-          <form onSubmit={handleCreateTeam} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
-            <Input
-              label="Name"
-              value={newTeamName}
-              onChange={(e) => {
-                setNewTeamName(e.target.value);
-                if (!newTeamSlug || newTeamSlug === toSlug(newTeamName)) {
-                  setNewTeamSlug(toSlug(e.target.value));
-                }
-              }}
-              required
-            />
-            <Input
-              label="Slug"
-              value={newTeamSlug}
-              onChange={(e) => setNewTeamSlug(e.target.value)}
-              required
-            />
-            <div className="md:self-end">
-              <Button type="submit" loading={creatingTeam}>Create Team</Button>
-            </div>
-          </form>
-        </Card>
-      )}
+      <Card className="space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <Input
+            label="Search teams"
+            uiSize="sm"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by team name, slug, or your role"
+          />
+          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <Badge variant="blue">OWNER</Badge>
+            <Badge variant="green">ADMIN</Badge>
+            <Badge variant="gray">MEMBER</Badge>
+          </div>
+        </div>
 
-      <div className="space-y-4">
-        {sortedTeams.map((team) => {
-          const memberForm = getMemberForm(team.id);
-          const isEditing = editingTeamId === team.id;
-
-          return (
-            <Card key={team.id} data-testid={`team-card-${team.slug}`}>
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <Input
-                        label="Team Name"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        required
-                      />
-                      <Input
-                        label="Slug"
-                        value={editingSlug}
-                        onChange={(e) => setEditingSlug(e.target.value)}
-                        required
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleUpdateTeam(team.id)}
-                          loading={updatingTeam}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => setEditingTeamId(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <h2 className="text-xl font-semibold text-[var(--text)]">{team.name}</h2>
+        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
+              <tr>
+                <th className="px-3 py-2">Team</th>
+                <th className="px-3 py-2">Your role</th>
+                <th className="px-3 py-2">Members</th>
+                <th className="px-3 py-2">Pending</th>
+                <th className="px-3 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTeams.map((team) => (
+                <tr
+                  key={team.id}
+                  data-testid={`team-card-${team.slug}`}
+                  className="border-t border-[var(--border)]"
+                >
+                  <td className="px-3 py-2.5">
+                    <div>
+                      <p className="font-medium text-[var(--text)]">{team.name}</p>
                       <p className="font-mono text-xs text-[var(--muted)]">/{team.slug}</p>
-                    </>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {team.myRole && (
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
                     <Badge variant={roleBadge(team.myRole)}>
-                      {team.myRole}
+                      {team.myRole || "none"}
                     </Badge>
-                  )}
-                  {!team.myRole && team.myPendingRequest && (
-                    <Badge variant="gray">Request Pending</Badge>
-                  )}
-                  {team.canManage && !isEditing && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setEditingTeamId(team.id);
-                          setEditingName(team.name);
-                          setEditingSlug(team.slug);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        loading={pendingActionId === `delete-${team.id}`}
-                        onClick={() => handleDeleteTeam(team.id)}
-                      >
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                  {!team.canManage && !team.myRole && !team.myPendingRequest && (
-                    <Button
-                      size="sm"
-                      loading={pendingActionId === `join-${team.id}`}
-                      onClick={() => handleRequestJoin(team.id)}
-                    >
-                      Request to Join
-                    </Button>
+                  </td>
+                  <td className="px-3 py-2.5 text-[var(--muted)]">{team.members.length}</td>
+                  <td className="px-3 py-2.5">
+                    <Badge variant={team.pendingJoinRequests.length > 0 ? "green" : "gray"}>
+                      {team.pendingJoinRequests.length}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/teams/${team.id}`}>
+                        <Button size="sm" variant="secondary">
+                          Open
+                        </Button>
+                      </Link>
+                      {team.canManage && team.pendingJoinRequests.length > 0 && (
+                        <Button size="sm" onClick={() => setReviewTarget(team)}>
+                          Review
+                        </Button>
+                      )}
+                      {!team.myRole && !team.myPendingRequest && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleRequestJoin(team.id)}
+                          loading={pendingActionId === `join-${team.id}`}
+                        >
+                          Request access
+                        </Button>
+                      )}
+                      {team.myPendingRequest && (
+                        <Badge variant="gray">Pending</Badge>
+                      )}
+                      {team.canManage && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditTarget(team);
+                              setEditingName(team.name);
+                              setEditingSlug(team.slug);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-[var(--danger)]"
+                            onClick={() => handleDeleteTeam(team.id)}
+                            loading={pendingActionId === `delete-${team.id}`}
+                          >
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredTeams.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-[var(--muted)]">
+              No teams matched this filter.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create team">
+        <form onSubmit={handleCreateTeam} className="space-y-4">
+          <Input
+            label="Name"
+            value={newTeamName}
+            onChange={(event) => {
+              setNewTeamName(event.target.value);
+              if (!newTeamSlug) {
+                setNewTeamSlug(toSlug(event.target.value));
+              }
+            }}
+            required
+          />
+          <Input
+            label="Slug"
+            value={newTeamSlug}
+            onChange={(event) => setNewTeamSlug(event.target.value)}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" loading={creatingTeam}>
+              Create
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={Boolean(editTarget)} onClose={() => setEditTarget(null)} title="Edit team">
+        <form onSubmit={handleUpdateTeam} className="space-y-4">
+          <Input label="Name" value={editingName} onChange={(event) => setEditingName(event.target.value)} required />
+          <Input label="Slug" value={editingSlug} onChange={(event) => setEditingSlug(event.target.value)} required />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setEditTarget(null)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" loading={updatingTeam}>
+              Save
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(reviewTarget)}
+        onClose={() => setReviewTarget(null)}
+        title={reviewTarget ? `Pending requests · ${reviewTarget.name}` : "Pending requests"}
+        placement="right"
+      >
+        <div className="space-y-3">
+          {(reviewTarget?.pendingJoinRequests || []).map((request) => (
+            <div key={request.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-[var(--text)]">{request.user.name}</p>
+                  <p className="text-xs text-[var(--muted)]">{request.user.email}</p>
+                  {request.note && (
+                    <p className="mt-2 text-sm text-[var(--muted)]">{request.note}</p>
                   )}
                 </div>
+                <Badge variant={roleBadge(request.role)}>{request.role}</Badge>
               </div>
-
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
-                <p className="mb-2 text-sm font-medium text-[var(--text)]">
-                  Members ({team.members.length})
-                </p>
-                <div className="space-y-2">
-                  {team.members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium text-[var(--text)]">{member.user.name}</p>
-                        <p className="text-xs text-[var(--muted)]">{member.user.email}</p>
-                      </div>
-                      <Badge variant={roleBadge(member.role)}>{member.role}</Badge>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-3 flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleReviewJoinRequest(request.id, "reject")}
+                  loading={pendingActionId === `request-${request.id}`}
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleReviewJoinRequest(request.id, "approve")}
+                  loading={pendingActionId === `request-${request.id}`}
+                >
+                  Approve
+                </Button>
               </div>
-
-              {team.canManage && (
-                <div className="mt-4 space-y-4">
-                  <form onSubmit={(e) => handleAddMember(team.id, e)} className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
-                    <Input
-                      label="Add Member by Email"
-                      type="email"
-                      value={memberForm.email}
-                      onChange={(e) => updateMemberForm(team.id, "email", e.target.value)}
-                      required
-                      placeholder="user@example.com"
-                    />
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-[var(--text)]">Role</label>
-                      <select
-                        value={memberForm.role}
-                        onChange={(e) => updateMemberForm(team.id, "role", e.target.value)}
-                        className="focus-ring h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)]"
-                      >
-                        <option value="MEMBER">Member</option>
-                        <option value="ADMIN">Admin</option>
-                      </select>
-                    </div>
-                    <div className="md:self-end">
-                      <Button type="submit" loading={pendingActionId === `member-${team.id}`}>
-                        Add or Invite
-                      </Button>
-                    </div>
-                  </form>
-
-                  {team.pendingJoinRequests.length > 0 && (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
-                      <p className="mb-2 text-sm font-medium text-[var(--text)]">
-                        Pending Join Requests ({team.pendingJoinRequests.length})
-                      </p>
-                      <div className="space-y-2">
-                        {team.pendingJoinRequests.map((request) => (
-                          <div key={request.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-                            <div>
-                              <p className="text-sm font-medium text-[var(--text)]">{request.user.name}</p>
-                              <p className="text-xs text-[var(--muted)]">
-                                {request.user.email} · requested {request.role.toLowerCase()}
-                              </p>
-                              {request.note && (
-                                <p className="text-xs text-[var(--muted)]">Note: {request.note}</p>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                loading={pendingActionId === `request-${request.id}`}
-                                onClick={() => handleReviewJoinRequest(request.id, "approve")}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                loading={pendingActionId === `request-${request.id}`}
-                                onClick={() => handleReviewJoinRequest(request.id, "reject")}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Card>
-          );
-        })}
-
-        {sortedTeams.length === 0 && (
-          <Card tone="subtle">
-            <p className="text-sm text-[var(--muted)]">No teams available.</p>
-          </Card>
-        )}
-      </div>
+            </div>
+          ))}
+          {reviewTarget && reviewTarget.pendingJoinRequests.length === 0 && (
+            <p className="text-sm text-[var(--muted)]">No pending join requests.</p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

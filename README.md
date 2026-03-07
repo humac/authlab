@@ -1,6 +1,6 @@
 # AuthLab — Multi-Tenant Auth Testing Workbench
 
-A developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. Configure an identity provider, authenticate, and inspect the resulting claims, raw tokens/assertions, and JWT breakdowns — all from a single workbench.
+A developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. Configure an identity provider, authenticate, inspect claims and payloads, exercise token lifecycle actions, and validate protocol behavior from a single enterprise-style workbench.
 
 **Live**: [authlab-snowy.vercel.app](https://authlab-snowy.vercel.app)
 
@@ -8,12 +8,16 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 
 - **Dynamic Provider Registry** — Create multiple OIDC or SAML app instances, each with its own slug-based URL
 - **Isolated Sessions** — Each tenant gets its own encrypted cookie (`authlab_{slug}`), so you can test multiple providers simultaneously
-- **Inspector Page** — Decoded claims table, raw JSON/XML view with copy, JWT header/payload/signature breakdown (OIDC)
+- **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, and client-credentials testing
+- **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, decoded claims, and raw JSON/XML views
+- **Per-App SAML Signing** — Upload or generate self-signed SP signing material per app instance for signed metadata and AuthN requests
+- **Enterprise SAML Controls** — NameID format, ForceAuthn, and IsPassive controls per app instance
 - **Callback Routing** — App-specific callback URL for both OIDC and SAML; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
 - **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
 - **Cross-Team App Transfer** — Team admins/owners can move or copy app configurations across teams
+- **Dense SaaS UI** — Compact management tables, runtime launch controls, and analyst-focused inspector tabs
 
 ## Tech Stack
 
@@ -74,8 +78,6 @@ DATABASE_URL="file:./dev.db"
 MASTER_ENCRYPTION_KEY="<your-64-char-hex-string>"
 SESSION_PASSWORD="<your-64-char-hex-string>"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-SAML_SP_PRIVATE_KEY=""
-SAML_SP_PUBLIC_CERT=""
 ```
 
 The `TURSO_*` variables are only needed for production — leave them commented out for local development.
@@ -149,12 +151,14 @@ For each SAML app, AuthLab exposes:
 - Unsigned metadata: `http://localhost:3000/api/saml/metadata/{slug}`
 - Signed metadata: `http://localhost:3000/api/saml/metadata/{slug}?signed=true`
 
-The signed endpoint requires:
+Signed metadata and signed AuthN requests now use the app instance's own stored SP signing material.
 
-- `SAML_SP_PRIVATE_KEY` (PEM private key)
-- `SAML_SP_PUBLIC_CERT` (matching PEM public certificate)
+You can provide signing material in the app create/edit flow by:
 
-If these variables are not set, unsigned metadata still works and the signed metadata endpoint returns `400`.
+- pasting PEM certificate and private key values
+- or using **Generate Test Keypair** for a self-signed testing certificate
+
+If a SAML app does not have signing material configured, unsigned metadata still works and the signed metadata endpoint returns `400`.
 
 ### 10. Test the auth flow
 
@@ -205,7 +209,7 @@ printf 'https://your-app.vercel.app' | vercel env add NEXT_PUBLIC_APP_URL produc
 
 ### Optional: Signed SAML metadata setup
 
-Only needed if you want `?signed=true` metadata export.
+Only needed if you want to prepare PEM material outside AuthLab before uploading it to a SAML app instance.
 
 Generate an SP key pair:
 
@@ -218,17 +222,31 @@ openssl req -new -x509 \
   -out saml-sp-public-cert.pem
 ```
 
-Add signing env vars to Vercel:
-
-```bash
-cat saml-sp-private-key.pem | vercel env add SAML_SP_PRIVATE_KEY production
-cat saml-sp-public-cert.pem | vercel env add SAML_SP_PUBLIC_CERT production
-```
-
 Deploy:
 ```bash
 vercel --prod
 ```
+
+After deployment, upload the PEM pair into the target SAML app instance or use the in-product test keypair generator.
+
+## Release Workflow
+
+For staged testing before merging to `main`, cut a release branch from the current working state and deploy from that branch instead of deploying directly from `main`.
+
+Recommended naming:
+
+```bash
+git switch -c release/<yyyy-mm-dd>-<scope>
+```
+
+Suggested flow:
+
+1. Create the release branch from the exact state you want to test.
+2. Push the branch and deploy from that branch only.
+3. If you need to roll back, redeploy the previous release branch commit or switch back to the prior release branch.
+4. Merge to `main` only after the release branch has been validated in detail.
+
+This keeps `main` stable while making deploy and rollback decisions branch-based instead of ad hoc.
 
 ### Automated Deploy (GitHub Actions)
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 
@@ -31,19 +32,6 @@ function canManage(role: TeamRole): boolean {
   return role === "OWNER" || role === "ADMIN";
 }
 
-function canRemoveMember(
-  currentUserRole: TeamRole,
-  targetRole: TeamRole,
-): boolean {
-  if (targetRole === "OWNER") {
-    return false;
-  }
-  if (currentUserRole === "OWNER") {
-    return true;
-  }
-  return currentUserRole === "ADMIN" && targetRole === "MEMBER";
-}
-
 function roleBadgeVariant(role: TeamRole): "blue" | "green" | "gray" {
   if (role === "OWNER") return "blue";
   if (role === "ADMIN") return "green";
@@ -58,15 +46,25 @@ export function TeamMembersPanel({
   currentUserRole,
   initialMembers,
 }: TeamMembersPanelProps) {
-  const [members, setMembers] = useState<TeamMember[]>(initialMembers);
+  const [members, setMembers] = useState(initialMembers);
+  const [query, setQuery] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("MEMBER");
   const [adding, setAdding] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const canManageMembers = canManage(currentUserRole);
+  const filteredMembers = useMemo(
+    () =>
+      members.filter((member) =>
+        [member.user.name, member.user.email, member.role]
+          .join(" ")
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+      ),
+    [members, query],
+  );
 
   async function refreshMembers() {
     const res = await fetch(`/api/teams/${teamId}`);
@@ -78,7 +76,6 @@ export function TeamMembersPanel({
   async function handleAddOrInvite(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setSuccess("");
     setAdding(true);
 
     try {
@@ -94,12 +91,11 @@ export function TeamMembersPanel({
       }
 
       if (data.mode === "added") {
-        setSuccess("Existing user added to team");
         await refreshMembers();
-      } else {
-        setSuccess("Invite sent to email");
       }
       setEmail("");
+      setRole("MEMBER");
+      setDrawerOpen(false);
     } catch {
       setError("An unexpected error occurred");
     } finally {
@@ -107,112 +103,104 @@ export function TeamMembersPanel({
     }
   }
 
-  async function handleRemoveMember(member: TeamMember) {
-    setError("");
-    setSuccess("");
-    setRemovingId(member.user.id);
-    try {
-      const res = await fetch(`/api/teams/${teamId}/members/${member.user.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to remove member");
-        return;
-      }
-      await refreshMembers();
-    } catch {
-      setError("An unexpected error occurred");
-    } finally {
-      setRemovingId(null);
-    }
-  }
-
   return (
-    <Card className="h-full">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Team Members</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {isPersonal ? "Personal Workspace" : teamName} · {members.length} member
-          {members.length !== 1 ? "s" : ""}
-        </p>
-      </div>
-
-      {error && (
-        <div className="alert-danger mb-3 rounded-xl p-3 text-sm">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="alert-success mb-3 rounded-xl p-3 text-sm">
-          {success}
-        </div>
-      )}
-
-      <div className="mb-6 max-h-96 space-y-2 overflow-auto pr-1">
-        {members.map((member) => (
-          <div
-            key={member.id}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-[var(--text)]">
-                  {member.user.name}
-                  {member.user.id === currentUserId ? " (You)" : ""}
-                </div>
-                <div className="truncate text-xs text-[var(--muted)]">{member.user.email}</div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Badge variant={roleBadgeVariant(member.role)}>{member.role}</Badge>
-                {canManageMembers && canRemoveMember(currentUserRole, member.role) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    loading={removingId === member.user.id}
-                    onClick={() => handleRemoveMember(member)}
-                    className="text-[var(--danger)]"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </div>
+    <>
+      <Card className="h-full space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Team members</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              {isPersonal ? "Personal workspace" : teamName} · {members.length} seats
+            </p>
           </div>
-        ))}
-        {members.length === 0 && (
-          <p className="text-sm text-[var(--muted)]">No members found.</p>
-        )}
-      </div>
+          {canManageMembers && !isPersonal && (
+            <Button size="sm" onClick={() => setDrawerOpen(true)}>
+              Invite
+            </Button>
+          )}
+        </div>
 
-      {canManageMembers && !isPersonal && (
-        <form onSubmit={handleAddOrInvite} className="space-y-3 border-t border-[var(--border)] pt-4">
-          <h3 className="text-sm font-semibold text-[var(--text)]">
-            Add Existing User or Invite by Email
-          </h3>
+        <Input
+          label="Search members"
+          uiSize="sm"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter by name, email, or role"
+        />
+
+        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
+              <tr>
+                <th className="px-3 py-2">Member</th>
+                <th className="px-3 py-2">Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMembers.map((member) => (
+                <tr key={member.id} className="border-t border-[var(--border)]">
+                  <td className="px-3 py-2.5">
+                    <div>
+                      <p className="font-medium text-[var(--text)]">
+                        {member.user.name}
+                        {member.user.id === currentUserId ? " (You)" : ""}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">{member.user.email}</p>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Badge variant={roleBadgeVariant(member.role)}>{member.role}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredMembers.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-[var(--muted)]">
+              No members matched this filter.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Modal
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="Invite team member"
+        placement="right"
+      >
+        <form onSubmit={handleAddOrInvite} className="space-y-4">
           <Input
-            label="User Email"
+            label="Email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="user@example.com"
+            onChange={(event) => setEmail(event.target.value)}
             required
           />
-          <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <label className="block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Role
+            </label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as TeamRole)}
-              className="focus-ring h-10 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)]"
+              onChange={(event) => setRole(event.target.value as TeamRole)}
+              className="focus-ring h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)]"
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
             </select>
-            <Button type="submit" loading={adding} className="flex-1">
+          </div>
+          {error && <div className="alert-danger rounded-lg p-3 text-sm">{error}</div>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setDrawerOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" loading={adding}>
               Add or Invite
             </Button>
           </div>
         </form>
-      )}
-    </Card>
+      </Modal>
+    </>
   );
 }

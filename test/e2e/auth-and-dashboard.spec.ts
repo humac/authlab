@@ -9,8 +9,11 @@ import {
   addTeamMember,
   countProfileImages,
   countCredentials,
+  createAuthRunEventRecord,
+  createAuthRunRecord,
   createEmailVerifyToken,
   createInviteToken,
+  createOidcApp,
   createPasswordResetToken,
   createTeam,
   createUserWithPersonalTeam,
@@ -19,6 +22,7 @@ import {
   hasTeamMembership,
   listJoinRequestsForUser,
   resetDatabase,
+  updateAuthRunRecord,
 } from "./helpers/db";
 
 async function loginViaUi(
@@ -66,6 +70,41 @@ async function authenticatePage(
   await page.context().addCookies([
     {
       name: "authlab_user",
+      value: cookieValue,
+      url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}
+
+async function authenticateAppRun(
+  page: Page,
+  session: {
+    slug: string;
+    runId: string;
+    protocol: "OIDC" | "SAML";
+    authenticatedAt: string;
+  },
+) {
+  const sessionPassword = process.env.SESSION_PASSWORD;
+  if (!sessionPassword) {
+    throw new Error("SESSION_PASSWORD is required for E2E app-run session seeding");
+  }
+
+  const cookieValue = await sealData(
+    {
+      runId: session.runId,
+      appSlug: session.slug,
+      protocol: session.protocol,
+      authenticatedAt: session.authenticatedAt,
+    },
+    { password: sessionPassword },
+  );
+
+  await page.context().addCookies([
+    {
+      name: `authlab_${session.slug}`,
       value: cookieValue,
       url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100",
       httpOnly: true,
@@ -206,17 +245,16 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByRole("button", { name: "Go to Teams" }).click();
     await expect(page).toHaveURL("/teams");
 
-    await page
-      .getByTestId(`team-card-${teamOne.slug}`)
-      .getByRole("button", { name: "Request to Join" })
-      .click();
-    await expect(page.getByText("Join request submitted")).toBeVisible();
+    const teamOneRow = page.getByTestId(`team-card-${teamOne.slug}`);
+    const teamTwoRow = page.getByTestId(`team-card-${teamTwo.slug}`);
 
-    await page
-      .getByTestId(`team-card-${teamTwo.slug}`)
-      .getByRole("button", { name: "Request to Join" })
-      .click();
+    await teamOneRow.getByRole("button", { name: "Request access" }).click();
     await expect(page.getByText("Join request submitted")).toBeVisible();
+    await expect(teamOneRow.getByText("Pending")).toBeVisible();
+
+    await teamTwoRow.getByRole("button", { name: "Request access" }).click();
+    await expect(page.getByText("Join request submitted")).toBeVisible();
+    await expect(teamTwoRow.getByText("Pending")).toBeVisible();
 
     const requests = await listJoinRequestsForUser(seeded.user.id);
     expect(requests).toHaveLength(2);
@@ -237,29 +275,16 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await loginViaUi(page, seeded.user.email, seeded.password);
     await page.goto("/settings");
 
-    await page.getByRole("button", { name: "Open user menu" }).click();
-    await expect(page.getByRole("link", { name: "Profile" })).toBeVisible();
-    await page.getByRole("link", { name: "Profile" }).click();
-
     const avatarFile = await createAvatarFile(testInfo);
     await page.getByLabel("Upload Profile Image").setInputFiles(avatarFile);
     await expect(page.getByText("Profile image updated")).toBeVisible();
     expect(await countProfileImages(seeded.user.id)).toBe(1);
 
-    await page.getByRole("button", { name: "Open user menu" }).click();
-    await expect(
-      page.getByAltText(`${seeded.user.name} profile`),
-    ).toBeVisible();
-    await page.getByRole("heading", { name: "Profile" }).first().click();
+    await expect(page.getByRole("img", { name: "Profile", exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Remove Image" }).click();
     await expect(page.getByText("Profile image removed")).toBeVisible();
     expect(await countProfileImages(seeded.user.id)).toBe(0);
-
-    await page.getByRole("button", { name: "Open user menu" }).click();
-    await expect(
-      page.getByAltText(`${seeded.user.name} profile`),
-    ).toHaveCount(0);
 
     await page.getByLabel("Name").fill("E2E Profile Updated");
     await page.getByLabel("Email").fill(updatedEmail);
@@ -275,8 +300,8 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByRole("button", { name: "Update Password" }).click();
     await expect(page.getByText("Password updated", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Open user menu" }).click();
-    await page.getByRole("button", { name: "Sign Out" }).click();
+    await page.request.post("/api/user/logout");
+    await page.goto("/login");
     await expect(page).toHaveURL("/login");
 
     await loginViaUi(page, updatedEmail, updatedPassword);
@@ -304,6 +329,7 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByLabel("Issuer URL").fill("https://example.com");
     await page.getByLabel("Client ID").fill("client-123");
     await page.getByLabel("Client Secret").fill("secret-123");
+    await page.getByLabel("PKCE Mode").selectOption("PLAIN");
     await page.getByRole("button", { name: "Continue" }).click();
 
     await page.getByRole("button", { name: "Create App Instance" }).click();
@@ -312,6 +338,7 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     const createdApp = await waitForAppBySlug(slug);
     expect(createdApp.clientSecret).not.toBe("secret-123");
+    expect(createdApp.pkceMode).toBe("PLAIN");
 
     await page
       .getByTestId(`app-card-${slug}`)
@@ -326,20 +353,65 @@ test.describe("e2e: auth and dashboard journeys", () => {
       .getByRole("link", { name: "Edit" })
       .click();
     await page.getByLabel("App Name").fill(updatedName);
+    await page.getByLabel("PKCE Mode").selectOption("NONE");
     await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.getByTestId(`app-card-${slug}`)).toContainText(updatedName);
 
     const updatedApp = await findAppBySlug(slug);
     expect(updatedApp?.name).toBe(updatedName);
+    expect(updatedApp?.pkceMode).toBe("NONE");
 
     await page
       .getByTestId(`app-card-${slug}`)
-      .getByRole("button", { name: `Delete ${updatedName}` })
+      .getByRole("button", { name: "Delete" })
       .click();
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Delete app" })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
     await expect(page.getByTestId(`app-card-${slug}`)).toHaveCount(0);
     expect(await findAppBySlug(slug)).toBeNull();
+  });
+
+  test("creates a SAML app with generated test signing material", async ({ page }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-saml-${randomUUID()}@example.com`,
+      name: "E2E SAML User",
+    });
+    const name = "E2E SAML App";
+    const slug = `e2e-saml-${randomUUID().slice(0, 8)}`;
+
+    await loginViaUi(page, seeded.user.email, seeded.password);
+
+    await page.goto("/apps/new");
+    await page.getByRole("button", { name: /SAML 2.0/i }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await page.getByLabel("App Name").fill(name);
+    await page.getByLabel("URL Slug").fill(slug);
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await page.getByLabel("SSO Entry Point URL").fill("https://idp.example.com/sso/saml");
+    await page.getByLabel("Issuer (SP Entity ID)").fill("https://authlab.example.com/sp");
+    await page.getByText("Advanced SAML defaults").click();
+    await page.getByRole("button", { name: "Generate Test Keypair" }).click();
+    await expect(page.getByText("SHA-256 Fingerprint")).toBeVisible();
+
+    const generatedCert = await page.getByLabel("SP Signing Certificate").inputValue();
+    expect(generatedCert).toContain("BEGIN CERTIFICATE");
+
+    await page.getByLabel("IdP Certificate (PEM)").fill(generatedCert);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Create App Instance" }).click();
+
+    await expect(page).toHaveURL("/");
+    await expect(page.getByText(name)).toBeVisible();
+
+    const createdApp = await waitForAppBySlug(slug);
+    expect(createdApp?.signAuthnRequests).toBe(true);
+    expect(createdApp?.hasSpSigningPrivateKey).toBe(true);
+    expect(createdApp?.hasSpSigningCert).toBe(true);
   });
 
   test("blocks non-admin access to admin pages", async ({ page }) => {
@@ -385,8 +457,8 @@ test.describe("e2e: auth and dashboard journeys", () => {
       await expect(page.getByText("Passkey added", { exact: true })).toBeVisible();
       expect(await countCredentials(seeded.user.id)).toBe(1);
 
-      await page.getByRole("button", { name: "Open user menu" }).click();
-      await page.getByRole("button", { name: "Sign Out" }).click();
+      await page.request.post("/api/user/logout");
+      await page.goto("/login");
       await expect(page).toHaveURL("/login");
 
       await page.getByLabel("Email").fill(seeded.user.email);
@@ -489,7 +561,192 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     await page.getByRole("button", { name: "Go to Dashboard" }).click();
     await expect(page).toHaveURL("/");
-    await expect(page.getByText(`Active team: ${team.name}`)).toBeVisible();
+    await expect(page.getByText("Active team")).toBeVisible();
+    await expect(
+      page.locator("main").getByText(team.name, { exact: true }).first(),
+    ).toBeVisible();
+  });
+
+  test("shows lifecycle diagnostics and actions for a seeded OIDC auth run", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-lifecycle-${randomUUID()}@example.com`,
+      name: "E2E Lifecycle User",
+    });
+    const app = await createOidcApp({
+      teamId: seeded.team.id,
+      name: "Lifecycle App",
+      slug: `lifecycle-${randomUUID().slice(0, 8)}`,
+      pkceMode: "S256",
+    });
+    const run = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      grantType: "AUTHORIZATION_CODE",
+      claims: {
+        sub: "user-123",
+        email: seeded.user.email,
+        acr: "urn:authlab:mfa",
+        amr: ["pwd", "mfa"],
+      },
+      idToken: "id-token",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      rawTokenResponse: JSON.stringify({ access_token: "access-token" }),
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    await createAuthRunEventRecord({
+      authRunId: run.id,
+      type: "AUTHENTICATED",
+      request: { grant_type: "authorization_code" },
+      metadata: { nonceStatus: "valid" },
+    });
+    await authenticateAppRun(page, {
+      slug: app.slug,
+      runId: run.id,
+      protocol: "OIDC",
+      authenticatedAt: new Date().toISOString(),
+    });
+
+    await page.route(`**/api/auth/token/introspect/${app.slug}`, async (route) => {
+      await updateAuthRunRecord(run.id, {
+        lastIntrospection: { active: true, scope: "openid profile email" },
+      });
+      await createAuthRunEventRecord({
+        authRunId: run.id,
+        type: "INTROSPECTED",
+        request: { token_type_hint: "access_token" },
+        response: JSON.stringify({ active: true, scope: "openid profile email" }),
+        metadata: { active: true },
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          introspection: { active: true, scope: "openid profile email" },
+        }),
+      });
+    });
+    await page.route(`**/api/auth/token/refresh/${app.slug}`, async (route) => {
+      await updateAuthRunRecord(run.id, {
+        accessToken: "refreshed-access-token",
+        refreshToken: "rotated-refresh-token",
+        rawTokenResponse: JSON.stringify({ access_token: "refreshed-access-token" }),
+        accessTokenExpiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      });
+      await createAuthRunEventRecord({
+        authRunId: run.id,
+        type: "REFRESHED",
+        request: { grant_type: "refresh_token" },
+        response: JSON.stringify({ access_token: "refreshed-access-token" }),
+        metadata: { replacedRefreshToken: true },
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ run: { id: run.id } }),
+      });
+    });
+    await page.route(`**/api/auth/token/revoke/${app.slug}`, async (route) => {
+      const body = route.request().postDataJSON() as { target?: string };
+      if (body.target === "refresh_token") {
+        await updateAuthRunRecord(run.id, {
+          refreshToken: null,
+          lastRevocationAt: new Date().toISOString(),
+        });
+      }
+      await createAuthRunEventRecord({
+        authRunId: run.id,
+        type: "REVOKED",
+        request: { token_type_hint: body.target ?? "access_token" },
+        metadata: { target: body.target ?? "access_token" },
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          revoked: true,
+          refreshTokenCleared: body.target === "refresh_token",
+        }),
+      });
+    });
+
+    await page.goto(`/test/${app.slug}/inspector`);
+    await expect(page.getByText("Token timeline")).toBeVisible();
+    await expect(page.getByText("Auth context")).toBeVisible();
+    await expect(page.getByText("urn:authlab:mfa")).toBeVisible();
+    await expect(page.getByText("mfa", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Refresh Tokens" })).toBeVisible();
+    await expect(page.getByText("Stored", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Introspect Access Token" }).click();
+    await expect(
+      page.getByRole("cell", { name: "openid profile email" }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("INTROSPECTED", { exact: true }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Refresh Tokens" }).click();
+    await expect(page.getByText("REFRESHED", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Rotation observed")).toBeVisible();
+
+    await page.getByRole("button", { name: "Revoke Refresh Token" }).click();
+    await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
+    await expect(page.getByText("REVOKED", { exact: true }).first()).toBeVisible();
+  });
+
+  test("launches the client credentials path from the OIDC workbench", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-client-creds-${randomUUID()}@example.com`,
+      name: "E2E Client Credentials User",
+    });
+    const app = await createOidcApp({
+      teamId: seeded.team.id,
+      name: "Client Credentials App",
+      slug: `client-creds-${randomUUID().slice(0, 8)}`,
+    });
+    const run = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      grantType: "CLIENT_CREDENTIALS",
+      accessToken: "m2m-access-token",
+      rawTokenResponse: JSON.stringify({ access_token: "m2m-access-token" }),
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    await createAuthRunEventRecord({
+      authRunId: run.id,
+      type: "CLIENT_CREDENTIALS_ISSUED",
+      request: { grant_type: "client_credentials" },
+    });
+
+    await page.route(`**/api/auth/token/client-credentials/${app.slug}`, async (route) => {
+      await authenticateAppRun(page, {
+        slug: app.slug,
+        runId: run.id,
+        protocol: "OIDC",
+        authenticatedAt: new Date().toISOString(),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100"}/test/${app.slug}/inspector`,
+          runId: run.id,
+        }),
+      });
+    });
+
+    await page.goto(`/test/${app.slug}`);
+    await page.getByLabel("Requested scopes").fill("api.read");
+    await page.getByRole("button", { name: "Run Client Credentials" }).click();
+
+    await expect(page).toHaveURL(`/test/${app.slug}/inspector`);
+    await expect(page.getByText("M2M")).toBeVisible();
+    await expect(
+      page.getByText("CLIENT CREDENTIALS ISSUED", { exact: true }).first(),
+    ).toBeVisible();
   });
 
   test("creates, updates, and deletes users from admin management", async ({ page }) => {
@@ -508,18 +765,22 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.goto("/admin/users");
     await expect(page.getByRole("heading", { name: "User Management" })).toBeVisible();
 
-    await page.getByLabel("Name", { exact: true }).fill("Managed User");
-    await page.getByLabel("Email", { exact: true }).fill(managedEmail);
-    await page.getByLabel("Temporary Password").fill("TempPassw0rd!123");
+    await page.getByRole("button", { name: "New user" }).click();
+    const createDialog = page.getByRole("dialog", { name: "Create user" });
+    await createDialog.getByLabel("Name", { exact: true }).fill("Managed User");
+    await createDialog.getByLabel("Email", { exact: true }).fill(managedEmail);
+    await createDialog.getByLabel("Temporary password").fill("TempPassw0rd!123");
     await page
+      .getByRole("dialog", { name: "Create user" })
       .getByTestId(`team-assignment-${team.id}`)
       .locator('input[type="checkbox"]')
       .check();
     await page
+      .getByRole("dialog", { name: "Create user" })
       .getByTestId(`team-assignment-${team.id}`)
       .locator("select")
       .selectOption("ADMIN");
-    await page.getByRole("button", { name: "Create User" }).click();
+    await createDialog.getByRole("button", { name: "Create" }).click();
     await expect(
       page.getByText("User created with temporary password", { exact: true }),
     ).toBeVisible();
@@ -530,12 +791,9 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     const userRow = page.getByTestId(`admin-user-row-${createdUser.id}`);
     await userRow.getByRole("button", { name: "Edit" }).click();
-    const editDialog = page.getByRole("dialog", { name: "Edit User" });
-    await editDialog.locator("input").first().fill("Managed User Updated");
-    await page
-      .getByRole("dialog", { name: "Edit User" })
-      .getByRole("button", { name: "Save Changes" })
-      .click();
+    const editDialog = page.getByRole("dialog", { name: "Edit Managed User" });
+    await editDialog.getByLabel("Name", { exact: true }).fill("Managed User Updated");
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("User updated", { exact: true })).toBeVisible();
     const updatedUser = await waitForUserByEmail(managedEmail);
     expect(updatedUser.name).toBe("Managed User Updated");

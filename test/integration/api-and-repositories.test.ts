@@ -396,13 +396,14 @@ describe("integration: repositories and api routes", () => {
     it("stores auth results and redirects to the inspector on a valid callback", async (t) => {
       const session = { save: t.mock.fn(async () => undefined) };
       const saveAuthResultSession = t.mock.fn(async () => undefined);
+      const createAuthRunEvent = t.mock.fn(async () => undefined);
 
       class MockOIDCHandler {
         async handleCallback() {
           return {
             claims: { sub: "user-1" },
-            rawToken: "{\"token\":\"raw\"}",
-            idToken: "id-token",
+            rawTokenResponse: "{\"token\":\"raw\"}",
+            idToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC0xIn0.eyJzdWIiOiJ1c2VyLTEifQ.signature",
             accessToken: "access-token",
           };
         }
@@ -413,6 +414,7 @@ describe("integration: repositories and api routes", () => {
           getState: t.mock.fn(async () => ({
             slug: "oidc-app",
             codeVerifier: "verifier-1",
+            runId: "run-1",
           })),
         },
       });
@@ -428,6 +430,20 @@ describe("integration: repositories and api routes", () => {
       t.mock.module("@/lib/oidc-handler", {
         namedExports: { OIDCHandler: MockOIDCHandler },
       });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunById: t.mock.fn(async () => ({
+            id: "run-1",
+            nonce: "nonce-1",
+          })),
+          createAuthRunEvent,
+          completeAuthRun: t.mock.fn(async () => ({
+            id: "run-1",
+            authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+          })),
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
+      });
       t.mock.module("@/lib/session", {
         namedExports: {
           getAppSession: t.mock.fn(async () => session),
@@ -440,7 +456,9 @@ describe("integration: repositories and api routes", () => {
       >("../../src/app/api/auth/callback/oidc/[slug]/route.ts");
 
       const response = await route.GET(
-        new Request("http://localhost/api/auth/callback/oidc/oidc-app?state=state-1"),
+        new Request(
+          "http://localhost/api/auth/callback/oidc/oidc-app?state=state-1&code=authorization-code-123",
+        ),
         { params: Promise.resolve({ slug: "oidc-app" }) },
       );
 
@@ -450,13 +468,15 @@ describe("integration: repositories and api routes", () => {
         "http://localhost:3000/test/oidc-app/inspector",
       );
       assert.deepEqual(saveAuthResultSession.mock.calls.at(0)?.arguments.at(1), {
+        runId: "run-1",
         slug: "oidc-app",
         protocol: "OIDC",
-        claims: { sub: "user-1" },
-        rawToken: "{\"token\":\"raw\"}",
-        idToken: "id-token",
-        accessToken: "access-token",
+        authenticatedAt: "2026-03-07T12:00:00.000Z",
       });
+      const authEvent = createAuthRunEvent.mock.calls.at(0)?.arguments.at(0) as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      assert.equal(typeof authEvent?.metadata?.expectedCHash, "string");
     });
 
     it("rejects mismatched callback slugs", async (t) => {
@@ -465,6 +485,7 @@ describe("integration: repositories and api routes", () => {
           getState: t.mock.fn(async () => ({
             slug: "other-app",
             codeVerifier: "verifier-1",
+            runId: "run-1",
           })),
         },
       });
@@ -478,6 +499,14 @@ describe("integration: repositories and api routes", () => {
         namedExports: {
           getAppSession: t.mock.fn(),
           saveAuthResultSession: t.mock.fn(),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunById: t.mock.fn(async () => ({ id: "run-1", nonce: "nonce-1" })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+          completeAuthRun: t.mock.fn(async () => ({ id: "run-1" })),
+          markAuthRunFailed: t.mock.fn(async () => undefined),
         },
       });
 
@@ -513,7 +542,7 @@ describe("integration: repositories and api routes", () => {
 
       t.mock.module("@/lib/state-store", {
         namedExports: {
-          getState: t.mock.fn(async () => ({ slug: "saml-app" })),
+          getState: t.mock.fn(async () => ({ slug: "saml-app", runId: "run-2" })),
         },
       });
       t.mock.module("@/repositories/app-instance.repo", {
@@ -527,6 +556,17 @@ describe("integration: repositories and api routes", () => {
       });
       t.mock.module("@/lib/saml-handler", {
         namedExports: { SAMLHandler: MockSAMLHandler },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunById: t.mock.fn(async () => ({ id: "run-2" })),
+          completeAuthRun: t.mock.fn(async () => ({
+            id: "run-2",
+            authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+          })),
+          createAuthRun: t.mock.fn(async () => ({ id: "run-2" })),
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
       });
       t.mock.module("@/lib/session", {
         namedExports: {
@@ -558,10 +598,10 @@ describe("integration: repositories and api routes", () => {
         "http://localhost:3000/test/saml-app/inspector",
       );
       assert.deepEqual(saveAuthResultSession.mock.calls.at(0)?.arguments.at(1), {
+        runId: "run-2",
         slug: "saml-app",
         protocol: "SAML",
-        claims: { sub: "user-1" },
-        rawXml: "<Assertion />",
+        authenticatedAt: "2026-03-07T12:00:00.000Z",
       });
     });
 
@@ -592,6 +632,17 @@ describe("integration: repositories and api routes", () => {
       });
       t.mock.module("@/lib/saml-handler", {
         namedExports: { SAMLHandler: MockSAMLHandler },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          createAuthRun: t.mock.fn(async () => ({ id: "run-3" })),
+          getAuthRunById: t.mock.fn(async () => null),
+          completeAuthRun: t.mock.fn(async () => ({
+            id: "run-3",
+            authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+          })),
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
       });
       t.mock.module("@/lib/session", {
         namedExports: {
@@ -1349,6 +1400,525 @@ describe("integration: repositories and api routes", () => {
 
       assert.equal(response.status, 200);
       assert.equal(saveEmailProviderConfig.mock.calls.length, 1);
+    });
+  });
+
+  describe("saml signing material route", () => {
+    it("generates a self-signed test keypair for authenticated users", async (t) => {
+      const user = await createUser({ email: "saml-signer@example.com" });
+
+      t.mock.module("@/lib/user-session", {
+        namedExports: {
+          getCurrentUser: t.mock.fn(async () => ({
+            userId: user.id,
+            activeTeamId: "team_test",
+          })),
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/saml/signing-material/route.ts")
+      >("../../src/app/api/saml/signing-material/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/saml/signing-material", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: "SAML Test App",
+            slug: "saml-test-app",
+          }),
+        }),
+      );
+
+      assert.equal(response.status, 201);
+      const payload = await getJson(response) as {
+        privateKeyPem: string;
+        certificatePem: string;
+        info: {
+          subject: string;
+          fingerprint256: string;
+          validTo: string;
+        };
+      };
+
+      assert.match(payload.privateKeyPem, /BEGIN PRIVATE KEY/);
+      assert.match(payload.certificatePem, /BEGIN CERTIFICATE/);
+      assert.match(payload.info.subject, /AuthLab saml-test-app/i);
+      assert.match(payload.info.fingerprint256, /^([A-F0-9]{2}:){31}[A-F0-9]{2}$/);
+      assert.ok(Number.isFinite(Date.parse(payload.info.validTo)));
+    });
+  });
+
+  describe("OIDC phase 1 routes", () => {
+    it("fetches and persists UserInfo for an active OIDC run", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            name: "OIDC App",
+            slug: "oidc-app",
+            protocol: "OIDC",
+            teamId: "team_1",
+            issuerUrl: "https://issuer.example.com",
+            clientId: "client-123",
+            clientSecret: "secret-123",
+            scopes: "openid profile email",
+            customAuthParams: [],
+            entryPoint: null,
+            issuer: null,
+            idpCert: null,
+            nameIdFormat: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-07T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_1",
+            appInstanceId: "app_oidc",
+            protocol: "OIDC",
+            status: "AUTHENTICATED",
+            loginState: null,
+            nonce: "nonce-1",
+            nonceStatus: "valid",
+            runtimeOverrides: {},
+            outboundAuthParams: {},
+            claims: { sub: "user-123" },
+            idToken: "id-token",
+            accessToken: "access-token",
+            rawTokenResponse: null,
+            rawSamlResponseXml: null,
+            userinfo: null,
+            authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+            completedAt: null,
+            logoutState: null,
+            logoutCompletedAt: null,
+            createdAt: new Date("2026-03-07T12:00:00.000Z"),
+            updatedAt: new Date("2026-03-07T12:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async fetchUserInfo() {
+              return { sub: "user-123", email: "user@example.com" };
+            }
+          },
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+          updateAuthRunUserInfo: t.mock.fn(async (_id: string, userinfo: Record<string, unknown>) => ({
+            userinfo,
+          })),
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/userinfo/[slug]/route.ts")
+      >("../../src/app/api/auth/userinfo/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/userinfo/oidc-app", {
+          method: "POST",
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = await getJson(response) as { userinfo: { email: string } };
+      assert.equal(payload.userinfo.email, "user@example.com");
+    });
+
+    it("starts RP-initiated logout and redirects to the provider", async (t) => {
+      const setAuthRunLogoutState = t.mock.fn(async () => undefined);
+
+      t.mock.module("openid-client", {
+        namedExports: {
+          randomState: t.mock.fn(() => "logout-state-123"),
+        },
+      });
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            name: "OIDC App",
+            slug: "oidc-app",
+            protocol: "OIDC",
+            teamId: "team_1",
+            issuerUrl: "https://issuer.example.com",
+            clientId: "client-123",
+            clientSecret: "secret-123",
+            scopes: "openid profile email",
+            customAuthParams: [],
+            pkceMode: "S256",
+            entryPoint: null,
+            issuer: null,
+            idpCert: null,
+            nameIdFormat: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-07T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_1",
+            idToken: "id-token",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          setAuthRunLogoutState,
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async buildLogoutUrl() {
+              return "https://issuer.example.com/logout?state=logout-state-123";
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/oidc/[slug]/route.ts")
+      >("../../src/app/api/auth/logout/oidc/[slug]/route.ts");
+
+      const response = await route.GET(
+        new Request("http://localhost/api/auth/logout/oidc/oidc-app"),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 307);
+      assert.equal(
+        response.headers.get("location"),
+        "https://issuer.example.com/logout?state=logout-state-123",
+      );
+      assert.equal(setAuthRunLogoutState.mock.callCount(), 1);
+    });
+
+    it("completes RP-initiated logout when callback state matches", async (t) => {
+      const markAuthRunLoggedOut = t.mock.fn(async () => undefined);
+      const clearAppSession = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunByLogoutState: t.mock.fn(async () => ({ id: "run_1" })),
+          markAuthRunLoggedOut,
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          clearAppSession,
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/oidc/[slug]/callback/route.ts")
+      >("../../src/app/api/auth/logout/oidc/[slug]/callback/route.ts");
+
+      const response = await route.GET(
+        new Request(
+          "http://localhost/api/auth/logout/oidc/oidc-app/callback?state=logout-state-123",
+        ),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 307);
+      assert.equal(response.headers.get("location"), "http://localhost:3000/test/oidc-app");
+      assert.equal(markAuthRunLoggedOut.mock.callCount(), 1);
+      assert.equal(clearAppSession.mock.callCount(), 1);
+    });
+
+    it("rejects RP-initiated logout callbacks without a valid state", async (t) => {
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunByLogoutState: t.mock.fn(async () => null),
+          markAuthRunLoggedOut: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          clearAppSession: t.mock.fn(async () => undefined),
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/oidc/[slug]/callback/route.ts")
+      >("../../src/app/api/auth/logout/oidc/[slug]/callback/route.ts");
+
+      const response = await route.GET(
+        new Request(
+          "http://localhost/api/auth/logout/oidc/oidc-app/callback?state=bad-state",
+        ),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 400);
+      const payload = await getJson(response) as { error: string };
+      assert.equal(payload.error, "Invalid logout state");
+    });
+  });
+
+  describe("OIDC phase 2 routes", () => {
+    it("issues client credentials tokens and saves the auth run session", async (t) => {
+      const saveAuthResultSession = t.mock.fn(async () => undefined);
+      const session = { save: t.mock.fn(async () => undefined) };
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            name: "OIDC App",
+            slug: "oidc-app",
+            protocol: "OIDC",
+            teamId: "team_1",
+            issuerUrl: "https://issuer.example.com",
+            clientId: "client-123",
+            clientSecret: "secret-123",
+            scopes: "openid profile email",
+            customAuthParams: [],
+            pkceMode: "S256",
+            entryPoint: null,
+            issuer: null,
+            idpCert: null,
+            nameIdFormat: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-07T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-07T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          createAuthRun: t.mock.fn(async () => ({ id: "run_cc" })),
+          completeAuthRun: t.mock.fn(async () => ({
+            id: "run_cc",
+            authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+          })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getAppSession: t.mock.fn(async () => session),
+          saveAuthResultSession,
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async exchangeClientCredentials(scopes?: string) {
+              return {
+                claims: {},
+                rawTokenResponse: JSON.stringify({ access_token: "cc-token", scope: scopes }),
+                idToken: null,
+                accessToken: "cc-token",
+                refreshToken: null,
+                accessTokenExpiresAt: new Date("2026-03-07T13:00:00.000Z"),
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/token/client-credentials/[slug]/route.ts")
+      >("../../src/app/api/auth/token/client-credentials/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/token/client-credentials/oidc-app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scopes: "api.read api.write" }),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(saveAuthResultSession.mock.calls.at(0)?.arguments.at(1), {
+        runId: "run_cc",
+        slug: "oidc-app",
+        protocol: "OIDC",
+        authenticatedAt: "2026-03-07T12:00:00.000Z",
+      });
+    });
+
+    it("refreshes tokens for the active OIDC run", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({ id: "app_oidc", slug: "oidc-app", protocol: "OIDC" })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_1",
+            refreshToken: "refresh-token",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          completeAuthRun: t.mock.fn(async () => ({ id: "run_1" })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async refreshTokens() {
+              return {
+                claims: { sub: "user-123" },
+                rawTokenResponse: JSON.stringify({ access_token: "new-access" }),
+                idToken: "new-id",
+                accessToken: "new-access",
+                refreshToken: "new-refresh",
+                accessTokenExpiresAt: new Date("2026-03-07T13:00:00.000Z"),
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/token/refresh/[slug]/route.ts")
+      >("../../src/app/api/auth/token/refresh/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/token/refresh/oidc-app", {
+          method: "POST",
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+    });
+
+    it("stores token introspection results on the active run", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({ id: "app_oidc", slug: "oidc-app", protocol: "OIDC" })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_1",
+            accessToken: "access-token",
+            refreshToken: "refresh-token",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          completeAuthRun: t.mock.fn(async () => ({ lastIntrospection: { active: true } })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async introspectToken() {
+              return { active: true, scope: "openid profile email" };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/token/introspect/[slug]/route.ts")
+      >("../../src/app/api/auth/token/introspect/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/token/introspect/oidc-app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "access_token" }),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = await getJson(response) as { introspection: { active: boolean } };
+      assert.equal(payload.introspection.active, true);
+    });
+
+    it("records token revocation for the active run", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({ id: "app_oidc", slug: "oidc-app", protocol: "OIDC" })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_1",
+            accessToken: "access-token",
+            refreshToken: "refresh-token",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          completeAuthRun: t.mock.fn(async () => ({
+            lastRevocationAt: new Date("2026-03-07T12:30:00.000Z"),
+          })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async revokeToken() {
+              return undefined;
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/token/revoke/[slug]/route.ts")
+      >("../../src/app/api/auth/token/revoke/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/token/revoke/oidc-app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "refresh_token" }),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = await getJson(response) as { revoked: boolean };
+      assert.equal(payload.revoked, true);
     });
   });
 });

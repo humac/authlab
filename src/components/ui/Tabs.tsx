@@ -10,22 +10,23 @@ interface Tab {
 interface TabsProps {
   tabs: Tab[];
   appearance?: "line" | "pill";
+  compact?: boolean;
 }
 
-export function Tabs({ tabs, appearance = "line" }: TabsProps) {
+export function Tabs({ tabs, appearance = "line", compact = false }: TabsProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
-      <div className="mb-4 border-b border-[var(--border)]">
-        <nav className="flex flex-wrap gap-2 pb-2">
+    <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] ${compact ? "p-3" : "p-4"}`}>
+      <div className={`border-b border-[var(--border)] ${compact ? "mb-3" : "mb-4"}`}>
+        <nav className={`flex flex-wrap gap-1.5 ${compact ? "pb-1.5" : "pb-2"}`}>
           {tabs.map((tab, index) => {
             const active = activeIndex === index;
             return (
               <button
                 key={tab.label}
                 onClick={() => setActiveIndex(index)}
-                className={`focus-ring rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`focus-ring rounded-md px-2.5 ${compact ? "py-1.5 text-xs" : "py-2 text-sm"} font-medium transition-colors ${
                   appearance === "pill"
                     ? active
                       ? "bg-[var(--surface-2)] text-[var(--text)]"

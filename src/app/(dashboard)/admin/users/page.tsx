@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { Tabs } from "@/components/ui/Tabs";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type TeamRole = "ADMIN" | "MEMBER";
 
@@ -30,6 +32,8 @@ interface AdminUser {
   name: string;
   isSystemAdmin: boolean;
   mustChangePassword: boolean;
+  isVerified?: boolean;
+  mfaEnabled?: boolean;
   createdAt: string;
   teamMemberships: UserMembership[];
 }
@@ -40,6 +44,8 @@ interface EditState {
   email: string;
   isSystemAdmin: boolean;
   mustChangePassword: boolean;
+  isVerified: boolean;
+  mfaEnabled: boolean;
   tempPassword: string;
   teams: Record<string, TeamRole | null>;
 }
@@ -52,14 +58,15 @@ function initialTeamSelection(teams: TeamOption[]) {
 
 export default function AdminUsersPage() {
   const currentUser = useUser();
-
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
   const [createTempPassword, setCreateTempPassword] = useState("");
@@ -116,6 +123,17 @@ export default function AdminUsersPage() {
       .map(([teamId, role]) => ({ teamId, role: role as TeamRole }));
   }
 
+  const filteredUsers = useMemo(
+    () =>
+      users.filter((user) =>
+        [user.name, user.email, user.isSystemAdmin ? "admin" : "user"]
+          .join(" ")
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+      ),
+    [query, users],
+  );
+
   function openEditModal(user: AdminUser) {
     const selection = initialTeamSelection(teams);
     for (const membership of user.teamMemberships) {
@@ -130,6 +148,8 @@ export default function AdminUsersPage() {
       email: user.email,
       isSystemAdmin: user.isSystemAdmin,
       mustChangePassword: user.mustChangePassword,
+      isVerified: user.isVerified ?? true,
+      mfaEnabled: user.mfaEnabled ?? false,
       tempPassword: "",
       teams: selection,
     });
@@ -171,6 +191,7 @@ export default function AdminUsersPage() {
       setCreateTempPassword("");
       setCreateIsAdmin(false);
       setCreateTeams(initialTeamSelection(teams));
+      setCreateOpen(false);
       setSuccess("User created with temporary password");
       await refreshUsers();
     } catch {
@@ -197,6 +218,8 @@ export default function AdminUsersPage() {
           isSystemAdmin: editState.isSystemAdmin,
           mustChangePassword: editState.mustChangePassword,
           tempPassword: editState.tempPassword || undefined,
+          isVerified: editState.isVerified,
+          mfaEnabled: editState.mfaEnabled,
         }),
       });
       const userData = await userRes.json();
@@ -229,8 +252,6 @@ export default function AdminUsersPage() {
   }
 
   async function handleDeleteUser(userId: string) {
-    if (!confirm("Delete this user? This action cannot be undone.")) return;
-
     setError("");
     setSuccess("");
     setPendingActionId(`delete-${userId}`);
@@ -255,17 +276,17 @@ export default function AdminUsersPage() {
     onChange: (teamId: string, role: TeamRole | null) => void,
   ) {
     return (
-      <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+      <div className="space-y-2">
         {assignableTeams.map((team) => {
           const selectedRole = selection[team.id];
           return (
             <div
               key={team.id}
               data-testid={`team-assignment-${team.id}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
             >
               <div>
-                <p className="text-sm font-medium text-[var(--text)]">{team.name}</p>
+                <p className="font-medium text-[var(--text)]">{team.name}</p>
                 <p className="font-mono text-xs text-[var(--muted)]">/{team.slug}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -278,7 +299,7 @@ export default function AdminUsersPage() {
                   value={selectedRole ?? "MEMBER"}
                   onChange={(e) => onChange(team.id, e.target.value as TeamRole)}
                   disabled={selectedRole === null}
-                  className="focus-ring h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text)] disabled:opacity-60"
+                  className="focus-ring h-8 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 text-sm text-[var(--text)]"
                 >
                   <option value="MEMBER">Member</option>
                   <option value="ADMIN">Admin</option>
@@ -300,180 +321,239 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 animate-enter">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">User Management</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Create, update, and remove users. Temporary passwords force reset on first login.
-        </p>
+    <div className="mx-auto max-w-7xl space-y-4 animate-enter">
+      <PageHeader
+        title="User Management"
+        description="Create accounts, apply temporary passwords, and manage team access."
+        actions={
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            New user
+          </Button>
+        }
+      />
+
+      {error && <div className="alert-danger rounded-lg p-3 text-sm">{error}</div>}
+      {success && <div className="alert-success rounded-lg p-3 text-sm">{success}</div>}
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="bg-[var(--surface-2)]">
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Users</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text)]">{users.length}</p>
+        </Card>
+        <Card className="bg-[var(--surface-2)]">
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">System admins</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+            {users.filter((user) => user.isSystemAdmin).length}
+          </p>
+        </Card>
+        <Card className="bg-[var(--surface-2)]">
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Password resets</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+            {users.filter((user) => user.mustChangePassword).length}
+          </p>
+        </Card>
+        <Card className="bg-[var(--surface-2)]">
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Assignable teams</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text)]">{assignableTeams.length}</p>
+        </Card>
       </div>
 
-      {error && <div className="alert-danger rounded-xl p-3 text-sm">{error}</div>}
-      {success && <div className="alert-success rounded-xl p-3 text-sm">{success}</div>}
+      <Card className="space-y-3">
+        <Input
+          label="Search users"
+          uiSize="sm"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search by name, email, or admin status"
+        />
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Create User</h2>
+        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
+              <tr>
+                <th className="px-3 py-2">User</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Teams</th>
+                <th className="px-3 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  data-testid={`admin-user-row-${user.id}`}
+                  className="border-t border-[var(--border)]"
+                >
+                  <td className="px-3 py-2.5">
+                    <p className="font-medium text-[var(--text)]">{user.name}</p>
+                    <p className="text-xs text-[var(--muted)]">{user.email}</p>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.isSystemAdmin && <Badge variant="blue">SYS ADMIN</Badge>}
+                      {user.mustChangePassword && <Badge variant="green">RESET</Badge>}
+                      {!user.isVerified && <Badge variant="gray">UNVERIFIED</Badge>}
+                      {user.mfaEnabled && <Badge variant="green">MFA</Badge>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-[var(--muted)]">
+                    {user.teamMemberships
+                      .filter((membership) => !membership.team.isPersonal)
+                      .map((membership) => `${membership.team.name} (${membership.role})`)
+                      .join(", ") || "No shared teams"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEditModal(user)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-[var(--danger)]"
+                        onClick={() => handleDeleteUser(user.id)}
+                        loading={pendingActionId === `delete-${user.id}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredUsers.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-[var(--muted)]">
+              No users matched this filter.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Modal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create user"
+        placement="right"
+      >
         <form onSubmit={handleCreateUser} className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input
-              label="Name"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              required
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={createEmail}
-              onChange={(e) => setCreateEmail(e.target.value)}
-              required
-            />
-          </div>
+          <Input label="Name" value={createName} onChange={(e) => setCreateName(e.target.value)} required />
+          <Input label="Email" type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} required />
           <Input
-            label="Temporary Password"
+            label="Temporary password"
             type="password"
             value={createTempPassword}
             onChange={(e) => setCreateTempPassword(e.target.value)}
             required
             minLength={8}
-            helperText="User will be forced to change this password on first login."
           />
-          <label className="flex items-center gap-2 text-sm text-[var(--text)]">
+          <label className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text)]">
+            <span>System admin</span>
             <input
               type="checkbox"
               checked={createIsAdmin}
               onChange={(e) => setCreateIsAdmin(e.target.checked)}
             />
-            System admin
           </label>
           <div>
-            <p className="mb-2 text-sm font-medium text-[var(--text)]">Team Assignments</p>
+            <p className="mb-2 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Team assignments</p>
             {renderTeamAssignments(createTeams, (teamId, role) =>
               setCreateTeams((prev) => ({ ...prev, [teamId]: role })),
             )}
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" loading={pendingActionId === "create-user"}>
-              Create User
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" loading={pendingActionId === "create-user"}>
+              Create
             </Button>
           </div>
         </form>
-      </Card>
-
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Users ({users.length})</h2>
-        <div className="space-y-2">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              data-testid={`admin-user-row-${user.id}`}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-[var(--text)]">{user.name}</span>
-                  {user.isSystemAdmin && <Badge variant="blue">Admin</Badge>}
-                  {user.mustChangePassword && <Badge variant="gray">Password Reset Required</Badge>}
-                </div>
-                <p className="text-sm text-[var(--muted)]">
-                  {user.email} · {user.teamMemberships.length} team membership
-                  {user.teamMemberships.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={() => openEditModal(user)}>
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  loading={pendingActionId === `delete-${user.id}`}
-                  onClick={() => handleDeleteUser(user.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      </Modal>
 
       <Modal
-        isOpen={!!editState}
+        isOpen={Boolean(editState)}
         onClose={() => setEditState(null)}
-        title="Edit User"
-        size="lg"
+        title={editState ? `Edit ${editState.name}` : "Edit user"}
+        placement="right"
       >
         {editState && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Input
-                label="Name"
-                value={editState.name}
-                onChange={(e) => setEditState((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-                required
-              />
-              <Input
-                label="Email"
-                type="email"
-                value={editState.email}
-                onChange={(e) => setEditState((prev) => (prev ? { ...prev, email: e.target.value } : prev))}
-                required
-              />
-            </div>
-
-            <Input
-              label="Reset Temporary Password (optional)"
-              type="password"
-              value={editState.tempPassword}
-              onChange={(e) => setEditState((prev) => (prev ? { ...prev, tempPassword: e.target.value } : prev))}
-              minLength={8}
-              helperText="When set, the user must change password at next login."
-            />
-
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm text-[var(--text)]">
-                <input
-                  type="checkbox"
-                  checked={editState.isSystemAdmin}
-                  onChange={(e) => setEditState((prev) => (prev ? { ...prev, isSystemAdmin: e.target.checked } : prev))}
-                />
-                System admin
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--text)]">
-                <input
-                  type="checkbox"
-                  checked={editState.mustChangePassword}
-                  onChange={(e) => setEditState((prev) => (prev ? { ...prev, mustChangePassword: e.target.checked } : prev))}
-                />
-                Require password change
-              </label>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium text-[var(--text)]">Team Assignments</p>
-              {renderTeamAssignments(editState.teams, (teamId, role) =>
-                setEditState((prev) =>
-                  prev
-                    ? { ...prev, teams: { ...prev.teams, [teamId]: role } }
-                    : prev,
+          <Tabs
+            compact
+            appearance="pill"
+            tabs={[
+              {
+                label: "Identity",
+                content: (
+                  <div className="space-y-4">
+                    <Input label="Name" value={editState.name} onChange={(e) => setEditState({ ...editState, name: e.target.value })} />
+                    <Input label="Email" type="email" value={editState.email} onChange={(e) => setEditState({ ...editState, email: e.target.value })} />
+                    <Input
+                      label="Temporary password"
+                      type="password"
+                      value={editState.tempPassword}
+                      onChange={(e) => setEditState({ ...editState, tempPassword: e.target.value })}
+                      helperText="Leave blank to keep the current password."
+                    />
+                  </div>
                 ),
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditState(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveUser}
-                loading={pendingActionId === `save-${editState.id}`}
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
+              },
+              {
+                label: "Security",
+                content: (
+                  <div className="space-y-3">
+                    {[
+                      ["System admin", "isSystemAdmin"],
+                      ["Must change password", "mustChangePassword"],
+                      ["Email verified", "isVerified"],
+                      ["MFA enabled", "mfaEnabled"],
+                    ].map(([label, field]) => (
+                      <label
+                        key={field}
+                        className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text)]"
+                      >
+                        <span>{label}</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editState[field as keyof EditState])}
+                          onChange={(e) =>
+                            setEditState({
+                              ...editState,
+                              [field]: e.target.checked,
+                            })
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                label: "Teams",
+                content: renderTeamAssignments(editState.teams, (teamId, role) =>
+                  setEditState({
+                    ...editState,
+                    teams: { ...editState.teams, [teamId]: role },
+                  }),
+                ),
+              },
+            ]}
+          />
         )}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => setEditState(null)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            loading={Boolean(editState && pendingActionId === `save-${editState.id}`)}
+            onClick={handleSaveUser}
+          >
+            Save changes
+          </Button>
+        </div>
       </Modal>
     </div>
   );

@@ -1,5 +1,7 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
+import { getAuthRunById } from "@/repositories/auth-run.repo";
+import type { AuthRun } from "@/types/auth-run";
 import type { SessionData } from "@/types/session";
 
 const SESSION_OPTIONS = {
@@ -9,7 +11,7 @@ const SESSION_OPTIONS = {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
-    maxAge: 3600, // 1 hour — appropriate for test sessions
+    maxAge: 3600,
   },
 };
 
@@ -21,73 +23,39 @@ export async function getAppSession(slug: string) {
   });
 }
 
-type SessionProtocol = "OIDC" | "SAML";
-
 interface SaveAuthSessionInput {
+  runId: string;
   slug: string;
-  protocol: SessionProtocol;
-  claims: Record<string, unknown>;
-  rawToken?: string;
-  rawXml?: string;
-  idToken?: string;
-  accessToken?: string;
-}
-
-function isCookieTooBigError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes("Cookie length is too big")
-  );
-}
-
-function buildCompactClaims(claims: Record<string, unknown>): Record<string, unknown> {
-  const keys = Object.keys(claims);
-  return {
-    _truncated: true,
-    _reason: "Session payload exceeded cookie size limit",
-    _claimCount: keys.length,
-    _claimKeys: keys.slice(0, 100),
-  };
+  protocol: "OIDC" | "SAML";
+  authenticatedAt?: string;
 }
 
 export async function saveAuthResultSession(
   session: SessionData & { save: () => Promise<void> },
   input: SaveAuthSessionInput,
 ): Promise<void> {
+  session.runId = input.runId;
   session.appSlug = input.slug;
   session.protocol = input.protocol;
-  session.claims = input.claims;
-  session.rawToken = input.rawToken;
-  session.rawXml = input.rawXml;
-  session.idToken = input.idToken;
-  session.accessToken = input.accessToken;
-  session.authenticatedAt = new Date().toISOString();
-
-  try {
-    await session.save();
-    return;
-  } catch (error) {
-    if (!isCookieTooBigError(error)) {
-      throw error;
-    }
-  }
-
-  // First fallback: remove largest raw payload fields.
-  session.rawXml = undefined;
-  session.rawToken = undefined;
-  session.accessToken = undefined;
-
-  try {
-    await session.save();
-    return;
-  } catch (error) {
-    if (!isCookieTooBigError(error)) {
-      throw error;
-    }
-  }
-
-  // Final fallback: keep only compact claim metadata.
-  session.claims = buildCompactClaims(input.claims);
-  session.idToken = undefined;
+  session.authenticatedAt = input.authenticatedAt ?? new Date().toISOString();
   await session.save();
+}
+
+export async function getActiveAuthRun(slug: string): Promise<AuthRun | null> {
+  const session = await getAppSession(slug);
+  if (!session.runId || session.appSlug !== slug) {
+    return null;
+  }
+
+  const run = await getAuthRunById(session.runId);
+  if (!run) {
+    return null;
+  }
+
+  return run;
+}
+
+export async function clearAppSession(slug: string): Promise<void> {
+  const session = await getAppSession(slug);
+  session.destroy();
 }

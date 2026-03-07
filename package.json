@@ -27,6 +27,7 @@
     }
   },
   "dependencies": {
+    "@peculiar/x509": "^1.14.3",
     "@libsql/client": "^0.17.0",
     "@node-saml/node-saml": "^5.1.0",
     "@prisma/adapter-better-sqlite3": "^7.4.2",

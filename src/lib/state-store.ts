@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 interface StateEntry {
   slug: string;
+  runId?: string;
   codeVerifier?: string;
   createdAt: number;
 }

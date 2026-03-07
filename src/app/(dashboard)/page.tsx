@@ -8,6 +8,7 @@ import {
 } from "@/repositories/team.repo";
 import { Button } from "@/components/ui/Button";
 import { Dashboard } from "@/components/apps/Dashboard";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -21,22 +22,24 @@ export default async function HomePage() {
   const members = team ? await listTeamMembers(team.id) : [];
 
   return (
-    <div className="space-y-6 animate-enter">
-      <div className="surface-panel rounded-2xl p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Dashboard</h1>
-            {team && (
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Active team: {team.isPersonal ? "Personal Workspace" : team.name}
-              </p>
-            )}
-          </div>
+    <div className="space-y-4 animate-enter">
+      <PageHeader
+        title="Dashboard"
+        actions={
           <Link href="/apps/new">
-            <Button>Create New App</Button>
+            <Button size="sm">Create New App</Button>
           </Link>
-        </div>
-      </div>
+        }
+      >
+        {team ? (
+          <p className="text-sm text-[var(--muted)]">
+            Active team{" "}
+            <span className="font-medium text-[var(--text)]">
+              {team.isPersonal ? "Personal Workspace" : team.name}
+            </span>
+          </p>
+        ) : null}
+      </PageHeader>
 
       <Dashboard
         key={user.activeTeamId}

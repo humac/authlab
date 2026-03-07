@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAppSession } from "@/lib/session";
+import { clearAppSession, getAppSession } from "@/lib/session";
+import { markAuthRunLoggedOut } from "@/repositories/auth-run.repo";
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
@@ -10,7 +11,10 @@ export async function POST(request: Request) {
   }
 
   const session = await getAppSession(slug);
-  session.destroy();
+  if (session.runId) {
+    await markAuthRunLoggedOut(session.runId).catch(() => undefined);
+  }
+  await clearAppSession(slug);
 
   return NextResponse.json({ ok: true });
 }

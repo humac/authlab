@@ -22,6 +22,8 @@ if (!globalThis.__authlabIntegrationSetup) {
     "0001_init.sql",
     "20260305_cleanup_orphaned_personal_workspaces.sql",
     "20260306_hardened_auth_and_profile.sql",
+    "20260307_phase1_authrun_and_protocol_settings.sql",
+    "20260307_phase2_oidc_token_lifecycle.sql",
   ];
   const migrationSql = migrationFiles
     .map((name) => fs.readFileSync(path.join(migrationDir, name), "utf8"))

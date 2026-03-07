@@ -146,22 +146,87 @@ model AppInstance {
   clientId     String?
   clientSecret String? // Encrypted at rest (AES-256-GCM)
   scopes       String? @default("openid profile email")
+  customAuthParamsJson String?
+  pkceMode     PkceMode @default(S256)
 
   // SAML Specific Fields
   entryPoint   String? // Identity Provider Single Sign-On URL
   issuer       String? // Service Provider Entity ID
   idpCert      String? // The IDP Public Certificate — encrypted at rest
+  nameIdFormat String?
+  forceAuthnDefault Boolean @default(false)
+  isPassiveDefault Boolean @default(false)
+  signAuthnRequests Boolean @default(false)
+  spSigningPrivateKey String? // Encrypted at rest (AES-256-GCM)
+  spSigningCert String?
 
   // UI Customization
   buttonColor  String? @default("#3B71CA")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  authRuns     AuthRun[]
+}
+
+model AuthRun {
+  id                   String        @id @default(cuid())
+  appInstanceId        String
+  appInstance          AppInstance   @relation(fields: [appInstanceId], references: [id], onDelete: Cascade)
+  protocol             Protocol
+  grantType            AuthRunGrantType @default(AUTHORIZATION_CODE)
+  status               AuthRunStatus @default(PENDING)
+  loginState           String?       @unique
+  nonce                String?
+  nonceStatus          String?
+  runtimeOverridesJson String?
+  outboundAuthParamsJson String?
+  claimsJson           String?
+  idToken              String?
+  accessTokenEnc       String?
+  refreshTokenEnc      String?
+  accessTokenExpiresAt DateTime?
+  rawTokenResponseEnc  String?
+  rawSamlResponseXml   String?
+  userinfoJson         String?
+  lastIntrospectionJson String?
+  lastRevocationAt     DateTime?
+  authenticatedAt      DateTime?
+  completedAt          DateTime?
+  logoutState          String?       @unique
+  logoutCompletedAt    DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  events               AuthRunEvent[]
+
+  @@index([appInstanceId, createdAt])
+}
+
+model AuthRunEvent {
+  id           String             @id @default(cuid())
+  authRunId    String
+  authRun      AuthRun            @relation(fields: [authRunId], references: [id], onDelete: Cascade)
+  type         AuthRunEventType
+  status       AuthRunEventStatus @default(SUCCESS)
+  requestJson  String?
+  responseEnc  String?
+  metadataJson String?
+  occurredAt   DateTime           @default(now())
+  createdAt    DateTime           @default(now())
+
+  @@index([authRunId, occurredAt])
 }
 
 enum Protocol {
   OIDC
   SAML
+}
+
+enum PkceMode {
+  S256
+  PLAIN
+  NONE
 }
 
 enum TeamRole {
@@ -179,4 +244,31 @@ enum TeamJoinRequestStatus {
 enum AuthTokenPurpose {
   EMAIL_VERIFY
   PASSWORD_RESET
+}
+
+enum AuthRunStatus {
+  PENDING
+  AUTHENTICATED
+  LOGGED_OUT
+  FAILED
+}
+
+enum AuthRunGrantType {
+  AUTHORIZATION_CODE
+  CLIENT_CREDENTIALS
+}
+
+enum AuthRunEventType {
+  AUTHENTICATED
+  CLIENT_CREDENTIALS_ISSUED
+  REFRESHED
+  INTROSPECTED
+  REVOKED
+  USERINFO_FETCHED
+  FAILED
+}
+
+enum AuthRunEventStatus {
+  SUCCESS
+  FAILED
 }

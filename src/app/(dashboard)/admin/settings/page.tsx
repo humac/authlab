@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface Stats {
   totalUsers: number;
@@ -285,31 +286,37 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 animate-enter">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Admin Settings</h1>
+    <div className="mx-auto max-w-6xl space-y-4 animate-enter">
+      <PageHeader
+        title="Admin settings"
+        description="Review platform volume, configure outbound email, and control operator-level access without leaving the admin workspace."
+      />
 
-      {error && <div className="alert-danger rounded-xl p-3 text-sm">{error}</div>}
-      {success && <div className="alert-success rounded-xl p-3 text-sm">{success}</div>}
+      {error && <div className="alert-danger rounded-lg p-3 text-sm">{error}</div>}
+      {success && <div className="alert-success rounded-lg p-3 text-sm">{success}</div>}
 
       {stats && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card>
-            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalUsers}</div>
-            <div className="text-sm text-[var(--muted)]">Total Users</div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Card className="bg-[var(--surface-2)]">
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Total users</p>
+            <div className="mt-2 text-2xl font-semibold text-[var(--text)]">{stats.totalUsers}</div>
           </Card>
-          <Card>
-            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalTeams}</div>
-            <div className="text-sm text-[var(--muted)]">Total Teams</div>
+          <Card className="bg-[var(--surface-2)]">
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Total teams</p>
+            <div className="mt-2 text-2xl font-semibold text-[var(--text)]">{stats.totalTeams}</div>
           </Card>
-          <Card>
-            <div className="text-3xl font-bold text-[var(--text)]">{stats.totalApps}</div>
-            <div className="text-sm text-[var(--muted)]">Total Apps</div>
+          <Card className="bg-[var(--surface-2)]">
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Total apps</p>
+            <div className="mt-2 text-2xl font-semibold text-[var(--text)]">{stats.totalApps}</div>
           </Card>
         </div>
       )}
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Email Provider</h2>
+      <Card className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Delivery</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Email provider</h2>
+        </div>
 
         <div className="mb-4 flex items-center gap-3">
           <label className="text-sm font-medium text-[var(--text)]">Active Provider</label>
@@ -378,8 +385,11 @@ export default function AdminSettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">System Settings</h2>
+      <Card className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Policies</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">System settings</h2>
+        </div>
         <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
           <div>
             <div className="font-medium text-[var(--text)]">Open Registration</div>
@@ -401,8 +411,14 @@ export default function AdminSettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Users ({users.length})</h2>
+      <Card className="space-y-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Operators</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Users</h2>
+          </div>
+          <span className="text-sm font-medium text-[var(--muted)]">{users.length} records</span>
+        </div>
         <div className="space-y-2">
           {users.map((user) => (
             <div key={user.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
@@ -428,8 +444,14 @@ export default function AdminSettingsPage() {
         </div>
       </Card>
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Teams ({teams.length})</h2>
+      <Card className="space-y-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Workspaces</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Teams</h2>
+          </div>
+          <span className="text-sm font-medium text-[var(--muted)]">{teams.length} records</span>
+        </div>
         <div className="space-y-2">
           {teams.map((team) => (
             <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">

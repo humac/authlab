@@ -13,6 +13,13 @@ describe("SAML callback slug route", () => {
       rawXml: "<Assertion />",
     }));
     const saveAuthResultSession = t.mock.fn(async () => {});
+    const createAuthRun = t.mock.fn(async () => ({
+      id: "run-1",
+    }));
+    const completeAuthRun = t.mock.fn(async () => ({
+      id: "run-1",
+      authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
+    }));
 
     class MockSAMLHandler {
       async handleCallback(...args: [string, string]) {
@@ -40,6 +47,14 @@ describe("SAML callback slug route", () => {
       namedExports: {
         getAppSession: t.mock.fn(async () => ({})),
         saveAuthResultSession,
+      },
+    });
+    t.mock.module("@/repositories/auth-run.repo", {
+      namedExports: {
+        createAuthRun,
+        getAuthRunById: t.mock.fn(async () => null),
+        completeAuthRun,
+        markAuthRunFailed: t.mock.fn(async () => undefined),
       },
     });
 
@@ -70,6 +85,8 @@ describe("SAML callback slug route", () => {
     assert.equal(getAppInstanceBySlug.mock.callCount(), 1);
     assert.equal(handleCallback.mock.callCount(), 1);
     assert.equal(saveAuthResultSession.mock.callCount(), 1);
+    assert.equal(createAuthRun.mock.callCount(), 1);
+    assert.equal(completeAuthRun.mock.callCount(), 1);
   });
 
   it("still rejects invalid RelayState when RelayState is provided", async (t) => {
@@ -95,6 +112,14 @@ describe("SAML callback slug route", () => {
       namedExports: {
         getAppSession: t.mock.fn(async () => ({})),
         saveAuthResultSession: t.mock.fn(async () => {}),
+      },
+    });
+    t.mock.module("@/repositories/auth-run.repo", {
+      namedExports: {
+        createAuthRun: t.mock.fn(async () => ({ id: "run-1" })),
+        getAuthRunById: t.mock.fn(async () => null),
+        completeAuthRun: t.mock.fn(async () => ({ id: "run-1" })),
+        markAuthRunFailed: t.mock.fn(async () => undefined),
       },
     });
 
