@@ -343,7 +343,7 @@ export default function TeamsPage() {
           const isEditing = editingTeamId === team.id;
 
           return (
-            <Card key={team.id}>
+            <Card key={team.id} data-testid={`team-card-${team.slug}`}>
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   {isEditing ? (

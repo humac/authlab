@@ -17,8 +17,10 @@ Runs on every pull request and merge queue event:
 - `npm run typecheck`
 - `npm run test:unit`
 - `npm run test:integration`
+- `npm run test:security`
 - `npm run prisma:validate`
 - `npm run build:ci`
+- Playwright E2E coverage for the auth and dashboard journeys in `e2e-test-report.md`
 - Dependency diff scanning with `actions/dependency-review-action`
 - Production release-readiness verification for trusted PRs and merge queue runs:
   - validate `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`
@@ -43,6 +45,19 @@ Runs on pushes to `main` and manual dispatch:
 
 This separates release verification from the irreversible parts of release execution. The schema is no longer mutated before the build is proven valid.
 
+### Nightly performance baseline
+
+Workflow: `.github/workflows/nightly-performance.yml`
+
+Runs nightly on schedule and on manual dispatch:
+
+- `npm ci`
+- `npm run test:perf`
+- Publishes `test-results/performance/auth-latency-baseline.md`
+- Publishes `test-results/performance/auth-latency-baseline.json`
+
+This is intentionally separate from the merge gate. It tracks auth-path latency drift without making pull requests flaky on runner noise.
+
 ## Branch Protection
 
 To make the workflows enforceable, configure GitHub branch protection for `main`:
@@ -50,6 +65,7 @@ To make the workflows enforceable, configure GitHub branch protection for `main`
 - Require pull requests before merge
 - Require status checks:
   - `Quality Gate`
+  - `E2E`
   - `Release Readiness`
   - `Dependency Review`
 - Block direct pushes to `main`
@@ -65,6 +81,9 @@ If you use GitHub Environments for production, add required reviewers there as a
 - Type safety: TypeScript compiler
 - Unit tests: native Node test runner with 107 passing tests across 26 suites covering auth/security helpers, session helpers, passkey helpers, metadata parsing, repository helpers, and validator branches
 - Integration tests: disposable SQLite-backed route and repository flows for auth token lifecycle, registration, invite acceptance, join requests, OIDC callbacks, SAML callbacks, MFA TOTP setup/disable, passkey registration/login management, password reset, and core admin routes
+- Security regression tests: disposable SQLite-backed auth abuse coverage for generic registration/login/recovery responses, brute-force rate limiting, MFA lockout, and expired passkey challenge handling
+- Nightly performance baselines: in-process route benchmarks for register, password login, invalid-password login, password reset request, and verification resend flows with avg/p95 budgets and artifact reports
+- End-to-end tests: Playwright browser journeys for registration, email verification, login, MFA setup/disable, passkey enrollment/login/removal, password reset, invite acceptance, team join requests, profile management, app lifecycle, admin user management, admin access control, and responsive smoke checks across mobile/tablet/desktop
 - Schema validation: Prisma
 - Build verification: Next.js webpack production build
 - Dependency risk review: GitHub dependency review
@@ -72,15 +91,5 @@ If you use GitHub Environments for production, add required reviewers there as a
 
 ### Not yet automated in this repository
 
-- End-to-end browser tests for registration, verification, login, MFA, passkeys, password reset, invites, and admin settings
-- Security regression tests for auth abuse cases
-- Performance smoke tests for critical auth paths
-
-## Next Additions
-
-Add the following in order, and wire each suite into `ci.yml` as it becomes real:
-
-1. Add `test:e2e` with Playwright for the auth and dashboard journeys already documented in `e2e-test-report.md`
-2. Add nightly security/performance jobs for abuse cases and latency baselines
-
-Each new suite should become a required status check before merge once it is stable and non-flaky.
+- High-concurrency load testing for auth flows under realistic parallel traffic
+- Long-term trend alerting against persisted nightly latency history

@@ -115,5 +115,5 @@ export async function POST(request: Request) {
     // Intentionally suppress errors to keep response generic.
   }
 
-  return NextResponse.json(GENERIC_RESPONSE, { status: 201 });
+  return NextResponse.json(GENERIC_RESPONSE);
 }

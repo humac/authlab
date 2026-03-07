@@ -8,15 +8,16 @@ describe("SAML callback slug route", () => {
     const getAppInstanceBySlug = t.mock.fn(async () => ({
       slug: "lab-okta-govon-saml",
     }));
-    const handleCallback = t.mock.fn(async (_samlResponse: string, _callbackUrl: string) => ({
+    const handleCallback = t.mock.fn(async () => ({
       claims: { sub: "user-1" },
       rawXml: "<Assertion />",
     }));
     const saveAuthResultSession = t.mock.fn(async () => {});
 
     class MockSAMLHandler {
-      async handleCallback(samlResponse: string, callbackUrl: string) {
-        return handleCallback(samlResponse, callbackUrl);
+      async handleCallback(...args: [string, string]) {
+        void args;
+        return handleCallback();
       }
     }
 

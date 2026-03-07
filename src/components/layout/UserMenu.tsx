@@ -39,6 +39,7 @@ export function UserMenu() {
     <div ref={ref} className="relative border-t border-[var(--border)] px-3 py-3">
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Open user menu"
         className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-2)]"
       >
         <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--primary)_16%,transparent)] text-xs font-bold text-[var(--primary)]">

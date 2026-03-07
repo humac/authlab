@@ -103,9 +103,22 @@ Run both local test suites before creating a commit:
 ```bash
 npm run test:unit
 npm run test:integration
+npm run test:security
 ```
 
 If your work changes repo workflow, testing strategy, or agent guidance, update `AGENTS.md` and `CLAUDE.md` in the same branch before committing.
+
+Browser E2E coverage is available separately with:
+
+```bash
+npm run test:e2e
+```
+
+Nightly auth-path latency baselines use:
+
+```bash
+npm run test:perf
+```
 
 ### 7. Create a test app instance
 
@@ -223,6 +236,7 @@ This repo now includes:
 
 1. `.github/workflows/ci.yml` for pull request and merge queue validation
 2. `.github/workflows/deploy-production.yml` for pre-deploy verification, Turso migrations, and production release
+3. `.github/workflows/nightly-performance.yml` for nightly auth-path latency baselines and artifact reporting
 
 The pull request gate runs:
 
@@ -231,8 +245,10 @@ The pull request gate runs:
 3. `npm run typecheck`
 4. `npm run test:unit`
 5. `npm run test:integration`
-6. `npm run prisma:validate`
-7. `npm run build:ci`
+6. `npm run test:security`
+7. `npm run prisma:validate`
+8. `npm run build:ci`
+9. `npm run test:e2e`
 
 The deploy workflow now:
 

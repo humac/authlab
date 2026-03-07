@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
@@ -27,6 +27,7 @@ export function Modal({
   tone = "default",
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -48,12 +49,15 @@ export function Modal({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`w-full ${sizes[size]} overflow-hidden rounded-2xl border border-[var(--border)] ${
           tone === "subtle" ? "bg-[var(--surface-2)]" : "bg-[var(--surface)]"
         } shadow-[var(--shadow-md)] animate-enter`}
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
-          <h3 className="text-lg font-semibold text-[var(--text)]">{title}</h3>
+          <h3 id={titleId} className="text-lg font-semibold text-[var(--text)]">{title}</h3>
           <button
             onClick={onClose}
             className="focus-ring rounded-lg p-1 text-[var(--muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"

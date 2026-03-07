@@ -13,6 +13,17 @@ Branch under test: `feat/profile-menu-avatar`
 - Issues fixed during run: 0
 - Remaining issues: 3
 
+## Automation Status
+
+The original manual/browser-assisted run documented in this report covered the first five dashboard journeys above. The repository Playwright suite now automates a broader set of flows in `test/e2e/auth-and-dashboard.spec.ts`, including:
+
+- MFA (TOTP) setup and disable
+- Passkey enrollment, login, and removal
+- Password reset request and completion
+- Invite acceptance after login redirect
+- Admin user creation, update, and deletion
+- Responsive smoke checks across mobile, tablet, and desktop
+
 ## Environment and Setup
 
 - Platform check: `Darwin` (supported)
