@@ -259,7 +259,11 @@ export default function AdminUsersPage() {
         {assignableTeams.map((team) => {
           const selectedRole = selection[team.id];
           return (
-            <div key={team.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+            <div
+              key={team.id}
+              data-testid={`team-assignment-${team.id}`}
+              className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+            >
               <div>
                 <p className="text-sm font-medium text-[var(--text)]">{team.name}</p>
                 <p className="font-mono text-xs text-[var(--muted)]">/{team.slug}</p>
@@ -360,7 +364,11 @@ export default function AdminUsersPage() {
         <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Users ({users.length})</h2>
         <div className="space-y-2">
           {users.map((user) => (
-            <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+            <div
+              key={user.id}
+              data-testid={`admin-user-row-${user.id}`}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
+            >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-[var(--text)]">{user.name}</span>

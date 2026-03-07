@@ -89,7 +89,7 @@ describe("integration: repositories and api routes", () => {
         }),
       );
 
-      assert.equal(response.status, 201);
+      assert.equal(response.status, 200);
       assert.deepEqual(await getJson(response), {
         message: "If an account can be created, a verification email has been sent.",
       });

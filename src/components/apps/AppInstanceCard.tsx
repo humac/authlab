@@ -82,7 +82,11 @@ export function AppInstanceCard({ app, onDelete, onTransfer }: AppInstanceCardPr
 
   return (
     <>
-      <Card interactive className="flex flex-col justify-between">
+      <Card
+        interactive
+        className="flex flex-col justify-between"
+        data-testid={`app-card-${app.slug}`}
+      >
         <div>
           <div className="mb-4 flex items-start justify-between">
             <div>
@@ -119,7 +123,12 @@ export function AppInstanceCard({ app, onDelete, onTransfer }: AppInstanceCardPr
               </svg>
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setShowDeleteModal(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Delete ${app.name}`}
+            onClick={() => setShowDeleteModal(true)}
+          >
             <svg className="h-4 w-4 text-[var(--danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>

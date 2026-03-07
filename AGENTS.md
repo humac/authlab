@@ -120,6 +120,9 @@
 - Typecheck: `npx tsc --noEmit`
 - Unit tests: `npm run test:unit`
 - Integration tests: `npm run test:integration`
+- Security regression tests: `npm run test:security`
+- Performance baselines: `npm run test:perf`
+- E2E tests: `npm run test:e2e`
 - CI-quality build: `npm run build:ci`
 - Full local CI parity: `npm run test:ci`
 - Production build (stable path): `npm run build -- --webpack`
@@ -129,10 +132,12 @@
 - Before creating a commit, update `AGENTS.md` and `CLAUDE.md` if the repo workflow, testing strategy, or agent guidance changed during the work
 - Before creating a commit, all coding agents must run local unit tests: `npm run test:unit`
 - Before creating a commit, all coding agents must run local integration tests: `npm run test:integration`
-- If unit or integration tests fail, do not commit until failures are fixed or explicitly acknowledged by the user
+- Before creating a commit, all coding agents must run local security regression tests: `npm run test:security`
+- If unit, integration, or security regression tests fail, do not commit until failures are fixed or explicitly acknowledged by the user
 
 ### CI/CD Release Gates
-- PR and merge queue checks live in `.github/workflows/ci.yml` (`Quality Gate`, `Release Readiness`, and conditional `Dependency Review`)
+- PR and merge queue checks live in `.github/workflows/ci.yml` (`Quality Gate`, `E2E`, `Release Readiness`, and conditional `Dependency Review`)
+- Nightly auth latency baselines live in `.github/workflows/nightly-performance.yml` and publish `test-results/performance/auth-latency-baseline.{md,json}` as artifacts
 - `Release Readiness` validates Vercel credentials, pulls production env vars, validates required env keys, and runs `vercel build --prod`
 - Production deploys in `.github/workflows/deploy-production.yml` rebuild artifacts in the deploy job before `vercel deploy --prebuilt`
 

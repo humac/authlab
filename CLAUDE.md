@@ -33,6 +33,9 @@ npm run dev
 npm run lint
 npm run test:unit
 npm run test:integration
+npm run test:security
+npm run test:perf
+npm run test:e2e
 npm run build:ci
 npm run test:ci
 npx tsc --noEmit
@@ -125,13 +128,17 @@ npm run build -- --webpack
 - All coding agents must update `AGENTS.md` and `CLAUDE.md` before committing if repo workflow, testing strategy, or agent guidance changed during the task.
 - All coding agents must run local unit tests before committing changes: `npm run test:unit`.
 - All coding agents must run local integration tests before committing changes: `npm run test:integration`.
+- All coding agents must run local security regression tests before committing changes: `npm run test:security`.
 
 ## CI/CD Notes
 
 - `.github/workflows/ci.yml` contains:
-  - `Quality Gate`: lint, typecheck, unit tests, Prisma validate, CI build
+  - `Quality Gate`: lint, typecheck, unit tests, integration tests, security regression tests, Prisma validate, CI build
+  - `E2E`: Playwright auth and dashboard journeys against a disposable SQLite database
   - `Release Readiness`: trusted PR/merge queue checks for Vercel credentials/env and `vercel build --prod`
   - `Dependency Review`: runs only when GitHub Dependency Graph is enabled
+- `.github/workflows/nightly-performance.yml` contains:
+  - `Auth Latency Baseline`: nightly and manual in-process benchmarks for register/login/reset/resend auth paths with markdown + JSON artifacts
 - `.github/workflows/deploy-production.yml` contains:
   - `verify-release`: re-validates quality, Vercel credentials, production env vars, and production artifact build
   - `deploy`: rebuilds Vercel artifacts, applies Turso migrations, then deploys with `vercel deploy --prebuilt --prod`

@@ -446,7 +446,7 @@ export default function SettingsPage() {
 
       {!forcePasswordChange && (
         <>
-          <Card>
+          <Card data-testid="mfa-card">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[var(--text)]">MFA (TOTP)</h2>
               <Badge variant={mfaEnabled ? "green" : "gray"}>{mfaEnabled ? "Enabled" : "Disabled"}</Badge>
@@ -506,7 +506,7 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          <Card>
+          <Card data-testid="passkeys-card">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[var(--text)]">Passkeys</h2>
               <Button type="button" size="sm" onClick={handleAddPasskey} loading={loading}>
@@ -521,7 +521,11 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-2">
                 {passkeys.map((passkey) => (
-                  <div key={passkey.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+                  <div
+                    key={passkey.id}
+                    data-testid={`passkey-row-${passkey.id}`}
+                    className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5"
+                  >
                     <div>
                       <p className="text-sm font-medium text-[var(--text)]">Credential {passkey.credentialId.slice(0, 12)}...</p>
                       <p className="text-xs text-[var(--muted)]">
