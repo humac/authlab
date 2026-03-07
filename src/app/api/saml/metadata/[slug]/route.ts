@@ -42,6 +42,7 @@ export async function GET(
             issuer: app.issuer!,
             callbackUrl,
             signMetadata: true,
+            signatureAlgorithm: "sha256",
             privateKey: normalizePemFromEnv(privateKey),
             publicCerts: normalizePemFromEnv(publicCert),
           });
