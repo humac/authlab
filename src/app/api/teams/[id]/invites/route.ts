@@ -23,7 +23,8 @@ export async function GET(
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
-      throw e;
+      console.error("GET /api/teams/[id]/invites failed:", e);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
@@ -48,7 +49,8 @@ export async function POST(
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
-      throw e;
+      console.error("POST /api/teams/[id]/invites failed:", e);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 

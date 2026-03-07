@@ -109,7 +109,8 @@ export async function PUT(
         { status: 409 },
       );
     }
-    throw error;
+    console.error("PUT /api/admin/users/[id] failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

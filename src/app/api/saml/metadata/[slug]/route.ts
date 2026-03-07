@@ -64,6 +64,7 @@ export async function GET(
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    throw error;
+    console.error("GET /api/saml/metadata/[slug] failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

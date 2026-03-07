@@ -27,7 +27,8 @@ async function hasManagementAccess(teamId: string) {
     if (error instanceof AuthError) {
       return { ok: false, status: error.status, error: error.message } as const;
     }
-    throw error;
+    console.error("Team management access check failed:", error);
+    return { ok: false, status: 500, error: "Internal server error" } as const;
   }
 }
 
@@ -49,7 +50,8 @@ export async function GET(
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
-      throw e;
+      console.error("GET /api/teams/[id] failed:", e);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 

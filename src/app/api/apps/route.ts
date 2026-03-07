@@ -55,6 +55,7 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    throw error;
+    console.error("POST /api/apps failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

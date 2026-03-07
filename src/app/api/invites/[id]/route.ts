@@ -22,7 +22,8 @@ export async function DELETE(
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
     }
-    throw e;
+    console.error("DELETE /api/invites/[id] failed:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   await deleteInvite(id);

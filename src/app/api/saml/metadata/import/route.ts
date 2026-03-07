@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    throw error;
+    console.error("POST /api/saml/metadata/import failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

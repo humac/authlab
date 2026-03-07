@@ -26,7 +26,8 @@ export async function GET(
       if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
-      throw error;
+      console.error("GET /api/teams/[id]/join-requests failed:", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
