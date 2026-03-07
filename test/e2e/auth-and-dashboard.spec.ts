@@ -135,9 +135,15 @@ async function setupVirtualAuthenticator(page: Page) {
   };
 }
 
+let e2eClientIpCounter = 1;
+
 test.describe("e2e: auth and dashboard journeys", () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     await resetDatabase();
+    await page.context().setExtraHTTPHeaders({
+      "x-forwarded-for": `10.0.0.${e2eClientIpCounter}`,
+    });
+    e2eClientIpCounter += 1;
   });
 
   test("registers, verifies email, and signs in", async ({ page }) => {
