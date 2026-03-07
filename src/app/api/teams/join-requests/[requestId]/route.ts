@@ -29,7 +29,8 @@ export async function PUT(
       if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
-      throw error;
+      console.error("PUT /api/teams/join-requests/[requestId] failed:", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 

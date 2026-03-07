@@ -25,7 +25,8 @@ export async function PUT(
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
-      throw e;
+      console.error("PUT /api/teams/[id]/members/[memberId] failed:", e);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
@@ -71,7 +72,8 @@ export async function DELETE(
       if (e instanceof AuthError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
-      throw e;
+      console.error("DELETE /api/teams/[id]/members/[memberId] failed:", e);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 

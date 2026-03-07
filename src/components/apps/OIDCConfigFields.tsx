@@ -18,6 +18,9 @@ export function OIDCConfigFields({
   onChange,
   errors = {},
 }: OIDCConfigFieldsProps) {
+  const isInsecure =
+    values.issuerUrl.startsWith("http://");
+
   return (
     <div className="space-y-4">
       <Input
@@ -28,6 +31,14 @@ export function OIDCConfigFields({
         error={errors.issuerUrl}
         helperText="The OpenID Connect discovery endpoint base URL"
       />
+      {isInsecure && (
+        <div className="alert-warning rounded-lg px-3 py-2">
+          <p className="text-xs font-medium">
+            Insecure issuer URL: using plain HTTP exposes client credentials and
+            tokens to network interception. Only use HTTP for local development.
+          </p>
+        </div>
+      )}
       <Input
         label="Client ID"
         placeholder="your-client-id"

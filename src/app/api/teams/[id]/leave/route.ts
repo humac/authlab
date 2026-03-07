@@ -22,7 +22,8 @@ export async function POST(
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    throw error;
+    console.error("POST /api/teams/[id]/leave failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 
   const team = await getTeamById(id);

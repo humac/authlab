@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "Unable to create user due to duplicate record" }, { status: 409 });
     }
-    throw error;
+    console.error("POST /api/admin/users failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

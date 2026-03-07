@@ -69,7 +69,8 @@ export async function PUT(
     if (error instanceof Error && error.message.includes("not found")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    throw error;
+    console.error("PUT /api/apps/[id] failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -94,6 +95,7 @@ export async function DELETE(
     if (error instanceof Error && error.message.includes("not found")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    throw error;
+    console.error("DELETE /api/apps/[id] failed:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
