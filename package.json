@@ -19,6 +19,13 @@
     "prisma:validate": "prisma validate",
     "test:ci": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run test:security && npm run test:e2e && npm run prisma:validate && npm run build:ci"
   },
+  "overrides": {
+    "@prisma/dev": {
+      "hono": "4.12.5",
+      "@hono/node-server": "1.19.11",
+      "@mrleebo/prisma-ast": "0.14.0"
+    }
+  },
   "dependencies": {
     "@libsql/client": "^0.17.0",
     "@node-saml/node-saml": "^5.1.0",
