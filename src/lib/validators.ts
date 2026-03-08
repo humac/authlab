@@ -29,14 +29,20 @@ const oidcFields = z.object({
 
 const samlFields = z.object({
   entryPoint: z.url("Invalid entry point URL"),
+  samlLogoutUrl: z.url("Invalid single logout URL").optional().nullable(),
   issuer: z.string().min(1, "Issuer is required"),
   idpCert: z.string().min(1, "IdP Certificate is required"),
   nameIdFormat: z.string().optional().nullable(),
+  requestedAuthnContext: z.string().max(300).optional().nullable(),
   forceAuthnDefault: z.boolean().optional(),
   isPassiveDefault: z.boolean().optional(),
+  samlSignatureAlgorithm: z.enum(["SHA1", "SHA256"]).optional(),
+  clockSkewToleranceSeconds: z.number().int().min(0).max(300).optional(),
   signAuthnRequests: z.boolean().optional(),
   spSigningPrivateKey: z.string().optional().nullable(),
   spSigningCert: z.string().optional().nullable(),
+  spEncryptionPrivateKey: z.string().optional().nullable(),
+  spEncryptionCert: z.string().optional().nullable(),
 });
 
 export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
@@ -45,14 +51,20 @@ export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
     .merge(oidcFields)
     .extend({
       entryPoint: z.string().optional().nullable(),
+      samlLogoutUrl: z.string().optional().nullable(),
       issuer: z.string().optional().nullable(),
       idpCert: z.string().optional().nullable(),
       nameIdFormat: z.string().optional().nullable(),
+      requestedAuthnContext: z.string().max(300).optional().nullable(),
       forceAuthnDefault: z.boolean().optional(),
       isPassiveDefault: z.boolean().optional(),
+      samlSignatureAlgorithm: z.enum(["SHA1", "SHA256"]).optional(),
+      clockSkewToleranceSeconds: z.number().int().min(0).max(300).optional(),
       signAuthnRequests: z.boolean().optional(),
       spSigningPrivateKey: z.string().optional().nullable(),
       spSigningCert: z.string().optional().nullable(),
+      spEncryptionPrivateKey: z.string().optional().nullable(),
+      spEncryptionCert: z.string().optional().nullable(),
     }),
   baseSchema
     .extend({ protocol: z.literal("SAML") })
@@ -81,14 +93,20 @@ export const UpdateAppInstanceSchema = z.object({
   customAuthParams: z.array(KeyValueParamSchema).optional(),
   pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),
   entryPoint: z.string().url().optional().nullable(),
+  samlLogoutUrl: z.string().url().optional().nullable(),
   issuer: z.string().optional().nullable(),
   idpCert: z.string().optional().nullable(),
   nameIdFormat: z.string().optional().nullable(),
+  requestedAuthnContext: z.string().max(300).optional().nullable(),
   forceAuthnDefault: z.boolean().optional(),
   isPassiveDefault: z.boolean().optional(),
+  samlSignatureAlgorithm: z.enum(["SHA1", "SHA256"]).optional(),
+  clockSkewToleranceSeconds: z.number().int().min(0).max(300).optional(),
   signAuthnRequests: z.boolean().optional(),
   spSigningPrivateKey: z.string().optional().nullable(),
   spSigningCert: z.string().optional().nullable(),
+  spEncryptionPrivateKey: z.string().optional().nullable(),
+  spEncryptionCert: z.string().optional().nullable(),
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
 });
 

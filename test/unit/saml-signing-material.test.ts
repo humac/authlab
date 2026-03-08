@@ -24,4 +24,16 @@ describe("SAML signing material generation", () => {
     assert.equal(parsedCert.subject, material.info.subject);
     assert.equal(new Date(parsedCert.validTo).toISOString(), material.info.validTo);
   });
+
+  it("supports encryption usage for encrypted-assertion testing", async () => {
+    const material = await generateSelfSignedSamlSigningMaterial({
+      name: "Encrypted Assertion SP",
+      slug: "encrypted-assertion-sp",
+      usage: "encryption",
+    });
+
+    assert.equal(material.info.usage, "encryption");
+    assert.match(material.certificatePem, /BEGIN CERTIFICATE/);
+    assert.match(material.privateKeyPem, /BEGIN PRIVATE KEY/);
+  });
 });

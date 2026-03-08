@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security and Phase 1/2 enterprise protocol tooling:
+AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security and Phase 1/2 enterprise protocol tooling plus Phase 3 enterprise SAML coverage:
 - email verification
 - password reset with one-time tokens
 - passkeys (WebAuthn)
@@ -12,6 +12,10 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - OIDC lifecycle actions: refresh, introspection, revocation, client credentials
 - OIDC validation diagnostics: signature, `at_hash`, `c_hash`, `acr`, `amr`
 - per-app SAML signing material with self-signed test keypair generation
+- SAML structured assertion diagnostics
+- per-app SAML encrypted assertion support
+- SAML Single Logout (SP-initiated and IdP-initiated callback handling)
+- SAML request controls: AuthnContext, signature algorithm, clock skew, logout URL
 
 ## Tech Stack
 
@@ -55,8 +59,10 @@ npm run build -- --webpack
 - `src/app/api/auth/token/*` — OIDC token lifecycle routes
 - `src/app/api/auth/userinfo/[slug]/route.ts` — on-demand UserInfo retrieval
 - `src/app/api/auth/logout/oidc/*` — RP-initiated OIDC logout
+- `src/app/api/auth/logout/saml/*` — SAML single logout start and callback handling
 - `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
 - `src/lib/oidc-token-validation.ts` — OIDC signature and bound-hash validation helpers
+- `src/lib/saml-logout.ts` — SAML logout profile derivation and matching helpers
 - `src/app/api/user/*` — account security APIs:
   - login + MFA
   - register + verify email
@@ -107,7 +113,7 @@ npm run build -- --webpack
 - `prisma/schema.prisma` now includes:
   - extended `User` security fields
   - `Credential`, `AuthToken`, `UserProfileImage`
-  - `AppInstance` protocol settings for Phase 1/2 OIDC and SAML controls
+  - `AppInstance` protocol settings for Phase 1/2 OIDC and Phase 3 SAML controls
   - `AuthRun` and `AuthRunEvent` for persisted protocol sessions and lifecycle history
 - Use local SQLite for CLI through `prisma.config.ts`
 - For Turso changes, generate SQL diff then apply via `turso db shell`
@@ -115,6 +121,9 @@ npm run build -- --webpack
   - `prisma/turso-migrations/20260306_hardened_auth_and_profile.sql`
   - `prisma/turso-migrations/20260307_phase1_authrun_and_protocol_settings.sql`
   - `prisma/turso-migrations/20260307_phase2_oidc_token_lifecycle.sql`
+  - `prisma/turso-migrations/20260308_phase3_saml_request_controls.sql`
+  - `prisma/turso-migrations/20260308_phase3_saml_encryption_keys.sql`
+  - `prisma/turso-migrations/20260308_phase3_saml_slo.sql`
 
 ## Environment Variables
 
@@ -136,6 +145,7 @@ npm run build -- --webpack
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.
 - Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
 - SAML signed metadata/AuthN requests are per-app, not global-env driven.
+- SAML metadata now exposes app-level decryption and SLO callbacks when configured.
 - For staged deployment, cut a `release/<yyyy-mm-dd>-<scope>` branch and deploy from that branch rather than merging early into `main`.
 
 ## Agent Commit Rule

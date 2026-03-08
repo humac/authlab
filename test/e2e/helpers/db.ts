@@ -39,9 +39,15 @@ export type E2eAppRecord = {
   slug: string;
   clientSecret: string | null;
   pkceMode: "S256" | "PLAIN" | "NONE";
+  samlLogoutUrl: string | null;
+  requestedAuthnContext: string | null;
+  samlSignatureAlgorithm: "SHA1" | "SHA256";
+  clockSkewToleranceSeconds: number;
   signAuthnRequests: boolean;
   hasSpSigningPrivateKey: boolean;
   hasSpSigningCert: boolean;
+  hasSpEncryptionPrivateKey: boolean;
+  hasSpEncryptionCert: boolean;
 };
 
 export type E2eAuthRunRecord = {
@@ -258,8 +264,12 @@ export async function createSamlApp(data: {
   name?: string;
   slug?: string;
   entryPoint?: string;
+  samlLogoutUrl?: string | null;
   issuer?: string;
   idpCert?: string;
+  requestedAuthnContext?: string | null;
+  samlSignatureAlgorithm?: "SHA1" | "SHA256";
+  clockSkewToleranceSeconds?: number;
 }) {
   const app = {
     id: randomUUID(),
@@ -268,20 +278,25 @@ export async function createSamlApp(data: {
     protocol: "SAML" as const,
     teamId: data.teamId,
     entryPoint: data.entryPoint ?? "https://idp.example.com/sso/saml",
+    samlLogoutUrl: data.samlLogoutUrl ?? null,
     issuer: data.issuer ?? "https://idp.example.com/metadata",
     idpCert:
       data.idpCert ??
       "-----BEGIN CERTIFICATE-----\nMIIBwjCCAWugAwIBAgIUDUMMYTESTCERTIFICATEONLY1234567890\n-----END CERTIFICATE-----",
+    requestedAuthnContext: data.requestedAuthnContext ?? null,
+    samlSignatureAlgorithm: data.samlSignatureAlgorithm ?? "SHA256",
+    clockSkewToleranceSeconds: data.clockSkewToleranceSeconds ?? 0,
   };
   const timestamp = nowIso();
 
   db.prepare(
     `INSERT INTO "AppInstance" (
       id, name, slug, protocol, teamId, issuerUrl, clientId, clientSecret, scopes,
-      customAuthParamsJson, pkceMode, entryPoint, issuer, idpCert, nameIdFormat,
-      forceAuthnDefault, isPassiveDefault, signAuthnRequests, spSigningPrivateKey,
+      customAuthParamsJson, pkceMode, entryPoint, samlLogoutUrl, issuer, idpCert, nameIdFormat,
+      requestedAuthnContext, forceAuthnDefault, isPassiveDefault, samlSignatureAlgorithm,
+      clockSkewToleranceSeconds, signAuthnRequests, spSigningPrivateKey,
       spSigningCert, buttonColor, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     app.id,
     app.name,
@@ -295,11 +310,15 @@ export async function createSamlApp(data: {
     null,
     "S256",
     app.entryPoint,
+    app.samlLogoutUrl,
     app.issuer,
     encrypt(app.idpCert),
     null,
+    app.requestedAuthnContext,
     0,
     0,
+    app.samlSignatureAlgorithm,
+    app.clockSkewToleranceSeconds,
     0,
     null,
     null,
@@ -323,6 +342,7 @@ export async function createAuthRunRecord(data: {
   refreshToken?: string | null;
   rawTokenResponse?: string | null;
   rawSamlResponseXml?: string | null;
+  outboundAuthParams?: Record<string, string>;
   accessTokenExpiresAt?: string | null;
   lastIntrospection?: Record<string, unknown> | null;
   lastRevocationAt?: string | null;
@@ -353,7 +373,7 @@ export async function createAuthRunRecord(data: {
     data.nonce ?? null,
     data.nonce ? "valid" : null,
     JSON.stringify({}),
-    JSON.stringify({}),
+    JSON.stringify(data.outboundAuthParams ?? {}),
     JSON.stringify(data.claims ?? {}),
     data.idToken ?? null,
     data.accessToken ? encrypt(data.accessToken) : null,
@@ -596,9 +616,15 @@ export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> 
     slug: string;
     clientSecret: string | null;
     pkceMode: "S256" | "PLAIN" | "NONE";
+    samlLogoutUrl: string | null;
+    requestedAuthnContext: string | null;
+    samlSignatureAlgorithm: "SHA1" | "SHA256";
+    clockSkewToleranceSeconds: number;
     signAuthnRequests: number;
     hasSpSigningPrivateKey: number;
     hasSpSigningCert: number;
+    hasSpEncryptionPrivateKey: number;
+    hasSpEncryptionCert: number;
   };
 
   const row = db
@@ -609,9 +635,15 @@ export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> 
          slug,
          clientSecret,
          pkceMode,
+         samlLogoutUrl,
+         requestedAuthnContext,
+         samlSignatureAlgorithm,
+         clockSkewToleranceSeconds,
          signAuthnRequests,
          CASE WHEN spSigningPrivateKey IS NULL THEN 0 ELSE 1 END AS hasSpSigningPrivateKey,
-         CASE WHEN spSigningCert IS NULL THEN 0 ELSE 1 END AS hasSpSigningCert
+         CASE WHEN spSigningCert IS NULL THEN 0 ELSE 1 END AS hasSpSigningCert,
+         CASE WHEN spEncryptionPrivateKey IS NULL THEN 0 ELSE 1 END AS hasSpEncryptionPrivateKey,
+         CASE WHEN spEncryptionCert IS NULL THEN 0 ELSE 1 END AS hasSpEncryptionCert
        FROM "AppInstance"
        WHERE slug = ?`,
     )
@@ -626,6 +658,8 @@ export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> 
     signAuthnRequests: toBool(row.signAuthnRequests),
     hasSpSigningPrivateKey: toBool(row.hasSpSigningPrivateKey),
     hasSpSigningCert: toBool(row.hasSpSigningCert),
+    hasSpEncryptionPrivateKey: toBool(row.hasSpEncryptionPrivateKey),
+    hasSpEncryptionCert: toBool(row.hasSpEncryptionCert),
   };
 }
 

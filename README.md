@@ -11,7 +11,7 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 - **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, and client-credentials testing
 - **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, decoded claims, and raw JSON/XML views
 - **Per-App SAML Signing** — Upload or generate self-signed SP signing material per app instance for signed metadata and AuthN requests
-- **Enterprise SAML Controls** — NameID format, ForceAuthn, and IsPassive controls per app instance
+- **Enterprise SAML Controls** — NameID format, ForceAuthn, IsPassive, AuthnContext, signature algorithm, clock skew, encrypted assertions, and SAML SLO per app instance
 - **Callback Routing** — App-specific callback URL for both OIDC and SAML; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
@@ -152,6 +152,7 @@ For each SAML app, AuthLab exposes:
 - Signed metadata: `http://localhost:3000/api/saml/metadata/{slug}?signed=true`
 
 Signed metadata and signed AuthN requests now use the app instance's own stored SP signing material.
+If configured, metadata also publishes the app-specific decryption certificate and SAML SLO callback URL.
 
 You can provide signing material in the app create/edit flow by:
 

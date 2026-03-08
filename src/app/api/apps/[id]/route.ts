@@ -73,6 +73,14 @@ export async function PUT(
         payload.spSigningPrivateKey,
       );
     }
+    if (payload.spEncryptionCert) {
+      payload.spEncryptionCert = validatePemCertificate(payload.spEncryptionCert);
+    }
+    if (payload.spEncryptionPrivateKey) {
+      payload.spEncryptionPrivateKey = validatePemPrivateKey(
+        payload.spEncryptionPrivateKey,
+      );
+    }
     if (
       payload.signAuthnRequests &&
       !result.app.hasSpSigningPrivateKey &&
@@ -90,6 +98,26 @@ export async function PUT(
     ) {
       return NextResponse.json(
         { error: "Signed SAML requests require a stored signing certificate" },
+        { status: 400 },
+      );
+    }
+    if (
+      payload.spEncryptionPrivateKey &&
+      !result.app.hasSpEncryptionCert &&
+      !payload.spEncryptionCert
+    ) {
+      return NextResponse.json(
+        { error: "Encrypted SAML assertions require a stored encryption certificate" },
+        { status: 400 },
+      );
+    }
+    if (
+      payload.spEncryptionCert &&
+      !result.app.hasSpEncryptionPrivateKey &&
+      !payload.spEncryptionPrivateKey
+    ) {
+      return NextResponse.json(
+        { error: "Encrypted SAML assertions require a stored encryption private key" },
         { status: 400 },
       );
     }

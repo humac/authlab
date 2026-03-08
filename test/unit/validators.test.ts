@@ -64,6 +64,38 @@ describe("validators", () => {
     assert.ok(parsed.error.issues.some((issue) => issue.path.includes("idpCert")));
   });
 
+  it("accepts advanced SAML request controls and rejects excessive clock skew", () => {
+    const parsed = CreateAppInstanceSchema.safeParse({
+      name: "Advanced SAML App",
+      slug: "advanced-saml-app",
+      protocol: "SAML",
+      entryPoint: "https://idp.example.com/sso/saml",
+      issuer: "https://authlab.example.com/sp",
+      idpCert: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+      requestedAuthnContext:
+        "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+      samlSignatureAlgorithm: "SHA256",
+      clockSkewToleranceSeconds: 300,
+    });
+
+    assert.equal(parsed.success, true);
+
+    const invalid = CreateAppInstanceSchema.safeParse({
+      name: "Broken SAML App",
+      slug: "broken-saml-skew",
+      protocol: "SAML",
+      entryPoint: "https://idp.example.com/sso/saml",
+      issuer: "https://authlab.example.com/sp",
+      idpCert: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+      clockSkewToleranceSeconds: 301,
+    });
+
+    assert.equal(invalid.success, false);
+    assert.ok(
+      invalid.error.issues.some((issue) => issue.path.includes("clockSkewToleranceSeconds")),
+    );
+  });
+
   it("requires the current password before allowing a password change", () => {
     const parsed = UpdateUserSchema.safeParse({
       name: "New Name",

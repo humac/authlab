@@ -9,24 +9,33 @@ import { Select } from "@/components/ui/Select";
 interface SAMLConfigFieldsProps {
   values: {
     entryPoint: string;
+    samlLogoutUrl: string;
     issuer: string;
     idpCert: string;
     nameIdFormat: string;
+    requestedAuthnContext: string;
     forceAuthnDefault: boolean;
     isPassiveDefault: boolean;
+    samlSignatureAlgorithm: "SHA1" | "SHA256";
+    clockSkewToleranceSeconds: string;
     signAuthnRequests: boolean;
     spSigningPrivateKey: string;
     spSigningCert: string;
+    spEncryptionPrivateKey: string;
+    spEncryptionCert: string;
   };
   onChange: (field: string, value: string) => void;
   errors?: Record<string, string>;
   idpCertPlaceholder?: string;
   signingKeyPlaceholder?: string;
   signingCertPlaceholder?: string;
+  encryptionKeyPlaceholder?: string;
+  encryptionCertPlaceholder?: string;
   generationContext?: {
     name?: string;
     slug?: string;
     hasStoredSigningMaterial?: boolean;
+    hasStoredEncryptionMaterial?: boolean;
   };
 }
 
@@ -39,6 +48,7 @@ interface ParsedMetadata {
 }
 
 interface GeneratedSigningInfo {
+  usage?: "signing" | "encryption";
   commonName: string;
   subject: string;
   validFrom: string;
@@ -53,6 +63,8 @@ export function SAMLConfigFields({
   idpCertPlaceholder = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
   signingKeyPlaceholder = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
   signingCertPlaceholder = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+  encryptionKeyPlaceholder = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+  encryptionCertPlaceholder = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
   generationContext,
 }: SAMLConfigFieldsProps) {
   const [source, setSource] = useState<"xml" | "url">("xml");
@@ -66,6 +78,10 @@ export function SAMLConfigFields({
   const [generatingSigningMaterial, setGeneratingSigningMaterial] = useState(false);
   const [generationError, setGenerationError] = useState("");
   const [generatedInfo, setGeneratedInfo] = useState<GeneratedSigningInfo | null>(null);
+  const [generatingEncryptionMaterial, setGeneratingEncryptionMaterial] = useState(false);
+  const [encryptionGenerationError, setEncryptionGenerationError] = useState("");
+  const [generatedEncryptionInfo, setGeneratedEncryptionInfo] =
+    useState<GeneratedSigningInfo | null>(null);
 
   const handleFileUpload = async (file: File | null) => {
     if (!file) return;
@@ -143,6 +159,7 @@ export function SAMLConfigFields({
         body: JSON.stringify({
           name: generationContext?.name,
           slug: generationContext?.slug,
+          usage: "signing",
         }),
       });
 
@@ -160,6 +177,52 @@ export function SAMLConfigFields({
       setGenerationError("Failed to generate test signing material.");
     } finally {
       setGeneratingSigningMaterial(false);
+    }
+  };
+
+  const handleGenerateEncryptionMaterial = async () => {
+    const hasExistingMaterial =
+      generationContext?.hasStoredEncryptionMaterial ||
+      values.spEncryptionPrivateKey.trim().length > 0 ||
+      values.spEncryptionCert.trim().length > 0;
+
+    if (
+      hasExistingMaterial &&
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Generating a new test keypair will replace the current encryption material in this form. Continue?",
+      )
+    ) {
+      return;
+    }
+
+    setGeneratingEncryptionMaterial(true);
+    setEncryptionGenerationError("");
+
+    try {
+      const response = await fetch("/api/saml/signing-material", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generationContext?.name,
+          slug: generationContext?.slug,
+          usage: "encryption",
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        setEncryptionGenerationError(data?.error || "Failed to generate test encryption material.");
+        return;
+      }
+
+      onChange("spEncryptionPrivateKey", String(data.privateKeyPem || ""));
+      onChange("spEncryptionCert", String(data.certificatePem || ""));
+      setGeneratedEncryptionInfo(data.info as GeneratedSigningInfo);
+    } catch {
+      setEncryptionGenerationError("Failed to generate test encryption material.");
+    } finally {
+      setGeneratingEncryptionMaterial(false);
     }
   };
 
@@ -300,6 +363,15 @@ export function SAMLConfigFields({
         helperText="Identity Provider Single Sign-On URL"
       />
       <Input
+        label="Single Logout URL"
+        placeholder="https://idp.example.com/logout/saml"
+        value={values.samlLogoutUrl}
+        onChange={(e) => onChange("samlLogoutUrl", e.target.value)}
+        error={errors.samlLogoutUrl}
+        helperText="Optional. Configure this to enable SP-initiated SAML single logout."
+        uiSize="sm"
+      />
+      <Input
         label="Issuer (SP Entity ID)"
         placeholder="https://your-app.com"
         value={values.issuer}
@@ -343,6 +415,14 @@ export function SAMLConfigFields({
               { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName", label: "X509 Subject Name" },
             ]}
           />
+          <Input
+            label="Requested AuthnContextClassRef"
+            placeholder="urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"
+            value={values.requestedAuthnContext}
+            onChange={(e) => onChange("requestedAuthnContext", e.target.value)}
+            helperText="Leave blank to omit RequestedAuthnContext from the AuthnRequest."
+            uiSize="sm"
+          />
           <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
               Request behavior
@@ -371,6 +451,37 @@ export function SAMLConfigFields({
                 onChange={(e) => onChange("signAuthnRequests", String(e.target.checked))}
               />
             </label>
+          </div>
+          <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Validation and signing
+            </p>
+            <Select
+              label="Signature algorithm"
+              value={values.samlSignatureAlgorithm}
+              onChange={(e) => onChange("samlSignatureAlgorithm", e.target.value)}
+              options={[
+                { value: "SHA256", label: "SHA-256" },
+                { value: "SHA1", label: "SHA-1 (legacy)" },
+              ]}
+            />
+            <Input
+              label="Clock skew tolerance (seconds)"
+              type="number"
+              min="0"
+              max="300"
+              value={values.clockSkewToleranceSeconds}
+              onChange={(e) => onChange("clockSkewToleranceSeconds", e.target.value)}
+              helperText="Applied when validating NotBefore and NotOnOrAfter conditions. Recommended range: 0-300 seconds."
+              uiSize="sm"
+            />
+            {values.samlSignatureAlgorithm === "SHA1" && (
+              <div className="alert-warning rounded-lg px-3 py-2">
+                <p className="text-xs font-medium">
+                  SHA-1 is for legacy IdP compatibility only and should not be used unless the IdP requires it.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -476,6 +587,112 @@ export function SAMLConfigFields({
             {!errors.spSigningCert && (
               <p className="text-sm text-[var(--muted)]">
                 Share this certificate or refreshed SP metadata with the IdP after regeneration.
+              </p>
+            )}
+          </div>
+
+          <div className="lg:col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Assertion decryption keypair
+                </p>
+                <p className="text-sm text-[var(--text)]">
+                  Generate a certificate the IdP can use to encrypt assertions for this service provider.
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  Publish this certificate in SP metadata. The private key is retained write-only after save.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={generationContext?.hasStoredEncryptionMaterial ? "secondary" : "primary"}
+                size="sm"
+                loading={generatingEncryptionMaterial}
+                onClick={handleGenerateEncryptionMaterial}
+              >
+                {generationContext?.hasStoredEncryptionMaterial ||
+                values.spEncryptionPrivateKey.trim() ||
+                values.spEncryptionCert.trim()
+                  ? "Regenerate Encryption Keypair"
+                  : "Generate Encryption Keypair"}
+              </Button>
+            </div>
+
+            {encryptionGenerationError && (
+              <p className="mt-3 text-sm text-red-500">{encryptionGenerationError}</p>
+            )}
+
+            {generatedEncryptionInfo && (
+              <dl className="mt-3 grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-sm md:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Subject
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-[var(--text)]">
+                    {generatedEncryptionInfo.subject}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Valid Until
+                  </dt>
+                  <dd className="mt-1 text-[var(--text)]">
+                    {new Date(generatedEncryptionInfo.validTo).toLocaleString()}
+                  </dd>
+                </div>
+                <div className="md:col-span-2">
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    SHA-256 Fingerprint
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-[var(--text)]">
+                    {generatedEncryptionInfo.fingerprint256}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="saml-sp-encryption-private-key" className="block text-sm font-medium text-[var(--text)]">
+              SP Encryption Private Key
+            </label>
+            <textarea
+              id="saml-sp-encryption-private-key"
+              className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.spEncryptionPrivateKey ? "border-red-400" : "border-[var(--border)]"}`}
+              rows={6}
+              placeholder={encryptionKeyPlaceholder}
+              value={values.spEncryptionPrivateKey}
+              onChange={(e) => onChange("spEncryptionPrivateKey", e.target.value)}
+            />
+            {errors.spEncryptionPrivateKey && (
+              <p className="text-sm text-red-500">{errors.spEncryptionPrivateKey}</p>
+            )}
+            {!errors.spEncryptionPrivateKey && (
+              <p className="text-sm text-[var(--muted)]">
+                Used to decrypt encrypted assertions returned by the IdP.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="saml-sp-encryption-cert" className="block text-sm font-medium text-[var(--text)]">
+              SP Encryption Certificate
+            </label>
+            <textarea
+              id="saml-sp-encryption-cert"
+              className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.spEncryptionCert ? "border-red-400" : "border-[var(--border)]"}`}
+              rows={6}
+              placeholder={encryptionCertPlaceholder}
+              value={values.spEncryptionCert}
+              onChange={(e) => onChange("spEncryptionCert", e.target.value)}
+            />
+            {errors.spEncryptionCert && (
+              <p className="text-sm text-red-500">{errors.spEncryptionCert}</p>
+            )}
+            {!errors.spEncryptionCert && (
+              <p className="text-sm text-[var(--muted)]">
+                Included in SP metadata so the IdP can encrypt assertions for this app.
               </p>
             )}
           </div>
