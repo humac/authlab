@@ -30,14 +30,20 @@ interface FormData {
   customAuthParams: KeyValueParam[];
   pkceMode: "S256" | "PLAIN" | "NONE";
   entryPoint: string;
+  samlLogoutUrl: string;
   issuer: string;
   idpCert: string;
   nameIdFormat: string;
+  requestedAuthnContext: string;
   forceAuthnDefault: boolean;
   isPassiveDefault: boolean;
+  samlSignatureAlgorithm: "SHA1" | "SHA256";
+  clockSkewToleranceSeconds: string;
   signAuthnRequests: boolean;
   spSigningPrivateKey: string;
   spSigningCert: string;
+  spEncryptionPrivateKey: string;
+  spEncryptionCert: string;
 }
 
 const initialFormData: FormData = {
@@ -52,14 +58,20 @@ const initialFormData: FormData = {
   customAuthParams: [{ key: "", value: "" }],
   pkceMode: "S256",
   entryPoint: "",
+  samlLogoutUrl: "",
   issuer: "",
   idpCert: "",
   nameIdFormat: "",
+  requestedAuthnContext: "",
   forceAuthnDefault: false,
   isPassiveDefault: false,
+  samlSignatureAlgorithm: "SHA256",
+  clockSkewToleranceSeconds: "0",
   signAuthnRequests: false,
   spSigningPrivateKey: "",
   spSigningCert: "",
+  spEncryptionPrivateKey: "",
+  spEncryptionCert: "",
 };
 
 export function CreationStepper() {
@@ -158,14 +170,20 @@ export function CreationStepper() {
         body.pkceMode = formData.pkceMode;
       } else {
         body.entryPoint = formData.entryPoint;
+        body.samlLogoutUrl = formData.samlLogoutUrl || null;
         body.issuer = formData.issuer;
         body.idpCert = formData.idpCert;
         body.nameIdFormat = formData.nameIdFormat || null;
+        body.requestedAuthnContext = formData.requestedAuthnContext || null;
         body.forceAuthnDefault = formData.forceAuthnDefault;
         body.isPassiveDefault = formData.isPassiveDefault;
+        body.samlSignatureAlgorithm = formData.samlSignatureAlgorithm;
+        body.clockSkewToleranceSeconds = Number.parseInt(formData.clockSkewToleranceSeconds || "0", 10) || 0;
         body.signAuthnRequests = formData.signAuthnRequests;
         body.spSigningPrivateKey = formData.spSigningPrivateKey || null;
         body.spSigningCert = formData.spSigningCert || null;
+        body.spEncryptionPrivateKey = formData.spEncryptionPrivateKey || null;
+        body.spEncryptionCert = formData.spEncryptionCert || null;
       }
 
       const res = await fetch("/api/apps", {
@@ -341,14 +359,20 @@ export function CreationStepper() {
             <SAMLConfigFields
               values={{
                 entryPoint: formData.entryPoint,
+                samlLogoutUrl: formData.samlLogoutUrl,
                 issuer: formData.issuer,
                 idpCert: formData.idpCert,
                 nameIdFormat: formData.nameIdFormat,
+                requestedAuthnContext: formData.requestedAuthnContext,
                 forceAuthnDefault: formData.forceAuthnDefault,
                 isPassiveDefault: formData.isPassiveDefault,
+                samlSignatureAlgorithm: formData.samlSignatureAlgorithm,
+                clockSkewToleranceSeconds: formData.clockSkewToleranceSeconds,
                 signAuthnRequests: formData.signAuthnRequests,
                 spSigningPrivateKey: formData.spSigningPrivateKey,
                 spSigningCert: formData.spSigningCert,
+                spEncryptionPrivateKey: formData.spEncryptionPrivateKey,
+                spEncryptionCert: formData.spEncryptionCert,
               }}
               generationContext={{
                 name: formData.name,

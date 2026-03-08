@@ -396,11 +396,22 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByLabel("SSO Entry Point URL").fill("https://idp.example.com/sso/saml");
     await page.getByLabel("Issuer (SP Entity ID)").fill("https://authlab.example.com/sp");
     await page.getByText("Advanced SAML defaults").click();
+    await page
+      .getByLabel("Requested AuthnContextClassRef")
+      .fill("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
+    await page.getByLabel("Signature algorithm").selectOption("SHA1");
+    await page.getByLabel("Clock skew tolerance (seconds)").fill("120");
     await page.getByRole("button", { name: "Generate Test Keypair" }).click();
     await expect(page.getByText("SHA-256 Fingerprint")).toBeVisible();
+    await page.getByRole("button", { name: "Generate Encryption Keypair" }).click();
 
-    const generatedCert = await page.getByLabel("SP Signing Certificate").inputValue();
-    expect(generatedCert).toContain("BEGIN CERTIFICATE");
+    const signingCertField = page.getByLabel("SP Signing Certificate");
+    const encryptionCertField = page.getByLabel("SP Encryption Certificate");
+
+    await expect(signingCertField).toHaveValue(/BEGIN CERTIFICATE/);
+    await expect(encryptionCertField).toHaveValue(/BEGIN CERTIFICATE/);
+
+    const generatedCert = await signingCertField.inputValue();
 
     await page.getByLabel("IdP Certificate (PEM)").fill(generatedCert);
     await page.getByRole("button", { name: "Continue" }).click();
@@ -413,6 +424,13 @@ test.describe("e2e: auth and dashboard journeys", () => {
     expect(createdApp?.signAuthnRequests).toBe(true);
     expect(createdApp?.hasSpSigningPrivateKey).toBe(true);
     expect(createdApp?.hasSpSigningCert).toBe(true);
+    expect(createdApp?.hasSpEncryptionPrivateKey).toBe(true);
+    expect(createdApp?.hasSpEncryptionCert).toBe(true);
+    expect(createdApp?.requestedAuthnContext).toBe(
+      "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+    );
+    expect(createdApp?.samlSignatureAlgorithm).toBe("SHA1");
+    expect(createdApp?.clockSkewToleranceSeconds).toBe(120);
   });
 
   test("blocks non-admin access to admin pages", async ({ page }) => {
@@ -761,17 +779,65 @@ test.describe("e2e: auth and dashboard journeys", () => {
       teamId: seeded.team.id,
       name: "SAML Inspector App",
       slug: `saml-inspector-${randomUUID().slice(0, 8)}`,
+      samlLogoutUrl: "https://idp.example.com/logout/saml",
     });
     const run = await createAuthRunRecord({
       appInstanceId: app.id,
       protocol: "SAML",
+      outboundAuthParams: {
+        forceAuthn: "true",
+        isPassive: "false",
+        nameIdFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+        requestedAuthnContext:
+          "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+        samlSignatureAlgorithm: "SHA256",
+        clockSkewToleranceSeconds: "120",
+      },
       claims: {
         NameID: seeded.user.email,
         NameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
         department: "Engineering",
       },
-      rawSamlResponseXml:
-        "<samlp:Response><Assertion><Subject><NameID>user@example.com</NameID></Subject></Assertion></samlp:Response>",
+      rawSamlResponseXml: `<?xml version="1.0" encoding="UTF-8"?>
+<samlp:Response
+  xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+  xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+  IssueInstant="2026-03-08T13:00:00Z"
+  Destination="https://authlab.example.com/api/auth/callback/saml/sample-app"
+  InResponseTo="_request123">
+  <saml:Issuer>https://idp.example.com/metadata</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
+  </samlp:Status>
+  <saml:Assertion IssueInstant="2026-03-08T13:00:01Z">
+    <saml:Issuer>https://idp.example.com/metadata</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">${seeded.user.email}</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData
+          NotOnOrAfter="2030-03-08T13:05:00Z"
+          Recipient="https://authlab.example.com/api/auth/callback/saml/sample-app" />
+      </saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="2026-03-08T12:55:00Z" NotOnOrAfter="2030-03-08T13:10:00Z">
+      <saml:AudienceRestriction>
+        <saml:Audience>https://authlab.example.com/sp</saml:Audience>
+      </saml:AudienceRestriction>
+    </saml:Conditions>
+    <saml:AuthnStatement
+      AuthnInstant="2026-03-08T13:00:01Z"
+      SessionIndex="_session123">
+      <saml:AuthnContext>
+        <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef>
+      </saml:AuthnContext>
+    </saml:AuthnStatement>
+    <saml:AttributeStatement>
+      <saml:Attribute Name="department" FriendlyName="Department">
+        <saml:AttributeValue>Engineering</saml:AttributeValue>
+      </saml:Attribute>
+    </saml:AttributeStatement>
+  </saml:Assertion>
+</samlp:Response>`,
     });
 
     await authenticateAppRun(page, {
@@ -783,14 +849,20 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     await page.goto(`/test/${app.slug}/inspector`);
 
-    await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
-    await expect(page.getByText("SAML session overview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Assertion" })).toBeVisible();
+    await expect(page.getByText("Structured SAML assertion")).toBeVisible();
     await expect(page.getByRole("button", { name: "Lifecycle" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "UserInfo" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Discovery" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Validation" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "JWT Decoder" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Raw XML" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "SAML SLO" })).toBeVisible();
+    await expect(page.getByText("Assertion envelope")).toBeVisible();
+    await expect(page.getByText("Requested policy")).toBeVisible();
+    await expect(page.getByText("Authentication statement")).toBeVisible();
+    await expect(page.getByText("Attribute statement")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Department", exact: true })).toBeVisible();
   });
 
   test("creates, updates, and deletes users from admin management", async ({ page }) => {

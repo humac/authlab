@@ -12,6 +12,7 @@ interface SessionInfoProps {
   runId: string;
   nonceStatus?: string | null;
   hasRpLogout?: boolean;
+  hasSamlLogout?: boolean;
 }
 
 export function SessionInfo({
@@ -21,6 +22,7 @@ export function SessionInfo({
   runId,
   nonceStatus,
   hasRpLogout = false,
+  hasSamlLogout = false,
 }: SessionInfoProps) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -61,6 +63,13 @@ export function SessionInfo({
           <a href={`/api/auth/logout/oidc/${slug}`}>
             <Button variant="secondary" size="sm">
               RP Logout
+            </Button>
+          </a>
+        )}
+        {hasSamlLogout && protocol === "SAML" && (
+          <a href={`/api/auth/logout/saml/${slug}`}>
+            <Button variant="secondary" size="sm">
+              SAML SLO
             </Button>
           </a>
         )}

@@ -62,6 +62,9 @@ function decryptRecord(record: AppInstanceRecord): DecryptedAppInstance {
     spSigningPrivateKey: record.spSigningPrivateKey
       ? decrypt(record.spSigningPrivateKey)
       : null,
+    spEncryptionPrivateKey: record.spEncryptionPrivateKey
+      ? decrypt(record.spEncryptionPrivateKey)
+      : null,
     customAuthParams: parseCustomAuthParams(record.customAuthParamsJson),
   };
 }
@@ -71,6 +74,7 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     clientSecret,
     idpCert,
     spSigningPrivateKey,
+    spEncryptionPrivateKey,
     customAuthParamsJson,
     ...rest
   } = record;
@@ -80,6 +84,8 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     hasIdpCert: !!idpCert,
     hasSpSigningPrivateKey: !!spSigningPrivateKey,
     hasSpSigningCert: !!record.spSigningCert,
+    hasSpEncryptionPrivateKey: !!spEncryptionPrivateKey,
+    hasSpEncryptionCert: !!record.spEncryptionCert,
     customAuthParams: parseCustomAuthParams(customAuthParamsJson),
   };
 }
@@ -91,6 +97,7 @@ export async function createAppInstance(
   const {
     customAuthParams,
     spSigningPrivateKey,
+    spEncryptionPrivateKey,
     ...rest
   } = data;
   const record = await prisma.appInstance.create({
@@ -102,6 +109,9 @@ export async function createAppInstance(
       pkceMode: data.pkceMode ?? "S256",
       spSigningPrivateKey: spSigningPrivateKey
         ? encrypt(spSigningPrivateKey)
+        : null,
+      spEncryptionPrivateKey: spEncryptionPrivateKey
+        ? encrypt(spEncryptionPrivateKey)
         : null,
     },
   });
@@ -173,6 +183,11 @@ export async function updateAppInstance(
   if (data.spSigningPrivateKey !== undefined) {
     updateData.spSigningPrivateKey = data.spSigningPrivateKey
       ? encrypt(data.spSigningPrivateKey)
+      : null;
+  }
+  if (data.spEncryptionPrivateKey !== undefined) {
+    updateData.spEncryptionPrivateKey = data.spEncryptionPrivateKey
+      ? encrypt(data.spEncryptionPrivateKey)
       : null;
   }
   const record = await prisma.appInstance.update({
@@ -268,14 +283,20 @@ export async function copyAppInstanceToTeam(
     customAuthParams: source.customAuthParams,
     pkceMode: source.pkceMode,
     entryPoint: source.entryPoint,
+    samlLogoutUrl: source.samlLogoutUrl,
     issuer: source.issuer,
     idpCert: source.idpCert,
     nameIdFormat: source.nameIdFormat,
+    requestedAuthnContext: source.requestedAuthnContext,
     forceAuthnDefault: source.forceAuthnDefault,
     isPassiveDefault: source.isPassiveDefault,
+    samlSignatureAlgorithm: source.samlSignatureAlgorithm,
+    clockSkewToleranceSeconds: source.clockSkewToleranceSeconds,
     signAuthnRequests: source.signAuthnRequests,
     spSigningPrivateKey: source.spSigningPrivateKey,
     spSigningCert: source.spSigningCert,
+    spEncryptionPrivateKey: source.spEncryptionPrivateKey,
+    spEncryptionCert: source.spEncryptionCert,
     buttonColor: source.buttonColor,
   });
 }

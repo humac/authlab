@@ -12,10 +12,15 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const name = typeof body?.name === "string" ? body.name : undefined;
     const slug = typeof body?.slug === "string" ? body.slug : undefined;
+    const usage =
+      body?.usage === "encryption" || body?.usage === "signing"
+        ? body.usage
+        : "signing";
 
     const signingMaterial = await generateSelfSignedSamlSigningMaterial({
       name,
       slug,
+      usage,
     });
 
     return NextResponse.json(signingMaterial, { status: 201 });

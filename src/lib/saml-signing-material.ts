@@ -15,6 +15,7 @@ export interface GeneratedSamlSigningMaterial {
   privateKeyPem: string;
   certificatePem: string;
   info: {
+    usage: "signing" | "encryption";
     commonName: string;
     subject: string;
     validFrom: string;
@@ -26,6 +27,7 @@ export interface GeneratedSamlSigningMaterial {
 interface GenerateSamlSigningMaterialOptions {
   name?: string | null;
   slug?: string | null;
+  usage?: "signing" | "encryption";
 }
 
 function wrapPem(label: string, base64: string): string {
@@ -50,6 +52,7 @@ function createSerialNumber(): string {
 export async function generateSelfSignedSamlSigningMaterial(
   options: GenerateSamlSigningMaterialOptions = {},
 ): Promise<GeneratedSamlSigningMaterial> {
+  const usage = options.usage ?? "signing";
   const commonName = buildCommonName(options);
   const signingAlgorithm = {
     name: "RSASSA-PKCS1-v1_5",
@@ -75,7 +78,12 @@ export async function generateSelfSignedSamlSigningMaterial(
     signingAlgorithm,
     extensions: [
       new BasicConstraintsExtension(false, undefined, true),
-      new KeyUsagesExtension(KeyUsageFlags.digitalSignature, true),
+      new KeyUsagesExtension(
+        usage === "encryption"
+          ? KeyUsageFlags.keyEncipherment | KeyUsageFlags.dataEncipherment
+          : KeyUsageFlags.digitalSignature,
+        true,
+      ),
       await SubjectKeyIdentifierExtension.create(keys.publicKey),
     ],
   });
@@ -92,6 +100,7 @@ export async function generateSelfSignedSamlSigningMaterial(
     privateKeyPem,
     certificatePem,
     info: {
+      usage,
       commonName,
       subject: parsedCertificate.subject,
       validFrom: new Date(parsedCertificate.validFrom).toISOString(),

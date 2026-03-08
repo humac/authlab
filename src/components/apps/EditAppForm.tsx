@@ -27,14 +27,20 @@ export function EditAppForm({ app }: EditAppFormProps) {
     customAuthParams: app.customAuthParams,
     pkceMode: app.pkceMode,
     entryPoint: app.entryPoint || "",
+    samlLogoutUrl: app.samlLogoutUrl || "",
     issuer: app.issuer || "",
     idpCert: "",
     nameIdFormat: app.nameIdFormat || "",
+    requestedAuthnContext: app.requestedAuthnContext || "",
     forceAuthnDefault: app.forceAuthnDefault,
     isPassiveDefault: app.isPassiveDefault,
+    samlSignatureAlgorithm: app.samlSignatureAlgorithm,
+    clockSkewToleranceSeconds: String(app.clockSkewToleranceSeconds),
     signAuthnRequests: app.signAuthnRequests,
     spSigningPrivateKey: "",
     spSigningCert: "",
+    spEncryptionPrivateKey: "",
+    spEncryptionCert: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -63,17 +69,28 @@ export function EditAppForm({ app }: EditAppFormProps) {
       body.pkceMode = formData.pkceMode;
     } else {
       body.entryPoint = formData.entryPoint;
+      body.samlLogoutUrl = formData.samlLogoutUrl || null;
       body.issuer = formData.issuer;
       if (formData.idpCert) body.idpCert = formData.idpCert;
       body.nameIdFormat = formData.nameIdFormat || null;
+      body.requestedAuthnContext = formData.requestedAuthnContext || null;
       body.forceAuthnDefault = formData.forceAuthnDefault;
       body.isPassiveDefault = formData.isPassiveDefault;
+      body.samlSignatureAlgorithm = formData.samlSignatureAlgorithm;
+      body.clockSkewToleranceSeconds =
+        Number.parseInt(formData.clockSkewToleranceSeconds || "0", 10) || 0;
       body.signAuthnRequests = formData.signAuthnRequests;
       if (formData.spSigningPrivateKey) {
         body.spSigningPrivateKey = formData.spSigningPrivateKey;
       }
       if (formData.spSigningCert) {
         body.spSigningCert = formData.spSigningCert;
+      }
+      if (formData.spEncryptionPrivateKey) {
+        body.spEncryptionPrivateKey = formData.spEncryptionPrivateKey;
+      }
+      if (formData.spEncryptionCert) {
+        body.spEncryptionCert = formData.spEncryptionCert;
       }
     }
 
@@ -134,19 +151,27 @@ export function EditAppForm({ app }: EditAppFormProps) {
           <SAMLConfigFields
             values={{
               entryPoint: formData.entryPoint,
+              samlLogoutUrl: formData.samlLogoutUrl,
               issuer: formData.issuer,
               idpCert: formData.idpCert,
               nameIdFormat: formData.nameIdFormat,
+              requestedAuthnContext: formData.requestedAuthnContext,
               forceAuthnDefault: formData.forceAuthnDefault,
               isPassiveDefault: formData.isPassiveDefault,
+              samlSignatureAlgorithm: formData.samlSignatureAlgorithm,
+              clockSkewToleranceSeconds: formData.clockSkewToleranceSeconds,
               signAuthnRequests: formData.signAuthnRequests,
               spSigningPrivateKey: formData.spSigningPrivateKey,
               spSigningCert: formData.spSigningCert,
+              spEncryptionPrivateKey: formData.spEncryptionPrivateKey,
+              spEncryptionCert: formData.spEncryptionCert,
             }}
             generationContext={{
               name: formData.name,
               slug: formData.slug,
               hasStoredSigningMaterial: app.hasSpSigningPrivateKey || app.hasSpSigningCert,
+              hasStoredEncryptionMaterial:
+                app.hasSpEncryptionPrivateKey || app.hasSpEncryptionCert,
             }}
             onChange={(field, value) => {
               if (
@@ -172,6 +197,16 @@ export function EditAppForm({ app }: EditAppFormProps) {
             signingCertPlaceholder={
               app.hasSpSigningCert
                 ? "Leave blank to keep existing signing certificate"
+                : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+            }
+            encryptionKeyPlaceholder={
+              app.hasSpEncryptionPrivateKey
+                ? "Leave blank to keep existing encryption private key"
+                : "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+            }
+            encryptionCertPlaceholder={
+              app.hasSpEncryptionCert
+                ? "Leave blank to keep existing encryption certificate"
                 : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
             }
           />

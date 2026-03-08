@@ -51,9 +51,26 @@ export async function POST(request: Request) {
           payload.spSigningPrivateKey,
         );
       }
+      if (payload.spEncryptionCert) {
+        payload.spEncryptionCert = validatePemCertificate(payload.spEncryptionCert);
+      }
+      if (payload.spEncryptionPrivateKey) {
+        payload.spEncryptionPrivateKey = validatePemPrivateKey(
+          payload.spEncryptionPrivateKey,
+        );
+      }
       if (payload.signAuthnRequests && (!payload.spSigningCert || !payload.spSigningPrivateKey)) {
         return NextResponse.json(
           { error: "Signed SAML requests require both a signing certificate and private key" },
+          { status: 400 },
+        );
+      }
+      if (
+        (payload.spEncryptionCert && !payload.spEncryptionPrivateKey) ||
+        (payload.spEncryptionPrivateKey && !payload.spEncryptionCert)
+      ) {
+        return NextResponse.json(
+          { error: "Encrypted SAML assertions require both an encryption certificate and private key" },
           { status: 400 },
         );
       }

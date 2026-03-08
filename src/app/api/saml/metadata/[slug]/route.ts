@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { generateServiceProviderMetadata } from "@node-saml/node-saml";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 
+function mapSignatureAlgorithm(value: "SHA1" | "SHA256"): "sha1" | "sha256" {
+  return value === "SHA1" ? "sha1" : "sha256";
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -23,8 +27,10 @@ export async function GET(
   const signed = new URL(request.url).searchParams.get("signed") === "true";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const callbackUrl = `${appUrl}/api/auth/callback/saml/${slug}`;
+  const logoutCallbackUrl = `${appUrl}/api/auth/logout/saml/${slug}/callback`;
 
   try {
+    const decryptionCert = app.spEncryptionCert?.trim() || null;
     const metadata = signed
       ? (() => {
           const privateKey = app.spSigningPrivateKey;
@@ -37,9 +43,11 @@ export async function GET(
           return generateServiceProviderMetadata({
             issuer: app.issuer!,
             callbackUrl,
+            logoutCallbackUrl,
             signMetadata: true,
             identifierFormat: app.nameIdFormat || undefined,
-            signatureAlgorithm: "sha256",
+            signatureAlgorithm: mapSignatureAlgorithm(app.samlSignatureAlgorithm),
+            decryptionCert,
             privateKey: privateKey.trim(),
             publicCerts: publicCert.trim(),
           });
@@ -47,7 +55,9 @@ export async function GET(
       : generateServiceProviderMetadata({
           issuer: app.issuer!,
           callbackUrl,
+          logoutCallbackUrl,
           identifierFormat: app.nameIdFormat || undefined,
+          decryptionCert,
         });
 
     const filename = `${slug}-sp-metadata${signed ? "-signed" : ""}.xml`;

@@ -30,6 +30,7 @@ export default async function TestPage({
   const clientCredentialsUrl = `${appUrl}/api/auth/token/client-credentials/${app.slug}`;
   const oidcCallbackUrl = `${appUrl}/api/auth/callback/oidc/${app.slug}`;
   const samlCallbackUrl = `${appUrl}/api/auth/callback/saml/${app.slug}`;
+  const samlLogoutCallbackUrl = `${appUrl}/api/auth/logout/saml/${app.slug}/callback`;
   const unsignedMetadataUrl =
     app.protocol === "SAML" ? `${appUrl}/api/saml/metadata/${app.slug}` : null;
   const signedMetadataUrl =
@@ -53,6 +54,7 @@ export default async function TestPage({
     ["Inspector URL", testInspectorUrl],
     ...(unsignedMetadataUrl ? [["SP Metadata URL", unsignedMetadataUrl]] : []),
     ...(signedMetadataUrl ? [["Signed Metadata URL", signedMetadataUrl]] : []),
+    ...(app.protocol === "SAML" ? [["SAML SLO Callback URL", samlLogoutCallbackUrl]] : []),
   ];
 
   return (
@@ -99,6 +101,10 @@ export default async function TestPage({
             pkceMode={app.protocol === "OIDC" ? app.pkceMode : undefined}
             forceAuthnDefault={app.forceAuthnDefault}
             isPassiveDefault={app.isPassiveDefault}
+            requestedAuthnContextDefault={app.requestedAuthnContext}
+            samlSignatureAlgorithm={app.protocol === "SAML" ? app.samlSignatureAlgorithm : undefined}
+            clockSkewToleranceSeconds={app.protocol === "SAML" ? app.clockSkewToleranceSeconds : undefined}
+            samlLogoutUrl={app.protocol === "SAML" ? app.samlLogoutUrl : undefined}
           />
         </Card>
 
