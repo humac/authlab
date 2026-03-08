@@ -151,14 +151,20 @@ model AppInstance {
 
   // SAML Specific Fields
   entryPoint   String? // Identity Provider Single Sign-On URL
+  samlLogoutUrl String? // Identity Provider Single Logout URL
   issuer       String? // Service Provider Entity ID
   idpCert      String? // The IDP Public Certificate — encrypted at rest
   nameIdFormat String?
+  requestedAuthnContext String?
   forceAuthnDefault Boolean @default(false)
   isPassiveDefault Boolean @default(false)
+  samlSignatureAlgorithm SamlSignatureAlgorithm @default(SHA256)
+  clockSkewToleranceSeconds Int @default(0)
   signAuthnRequests Boolean @default(false)
   spSigningPrivateKey String? // Encrypted at rest (AES-256-GCM)
   spSigningCert String?
+  spEncryptionPrivateKey String? // Encrypted at rest (AES-256-GCM)
+  spEncryptionCert String?
 
   // UI Customization
   buttonColor  String? @default("#3B71CA")
@@ -227,6 +233,11 @@ enum PkceMode {
   S256
   PLAIN
   NONE
+}
+
+enum SamlSignatureAlgorithm {
+  SHA1
+  SHA256
 }
 
 enum TeamRole {

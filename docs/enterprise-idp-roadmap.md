@@ -251,17 +251,17 @@ Add a visible signal when the IdP triggers the registered front-channel logout U
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
 | AuthN request signing | Phase 1 | High | Required by many enterprise IdPs |
-| Encrypted assertions | Missing | High | Mandatory for many enterprise SAML integrations |
+| Encrypted assertions | Phase 3 | High | Mandatory for many enterprise SAML integrations |
 | NameID format configuration | Phase 1 | High | Critical for interop troubleshooting |
-| Single Logout | Missing | High | Enterprise baseline requirement |
+| Single Logout | Phase 3 | High | Enterprise baseline requirement |
 | Artifact binding | Missing | Medium | Needed in Ping and Shibboleth deployments |
 | ForceAuthn / IsPassive | Phase 1 | High | Needed for silent auth and step-up testing |
-| AuthnContextClassRef requests | Missing | High | Required for authentication policy testing |
+| AuthnContextClassRef requests | Phase 3 | High | Required for authentication policy testing |
 | Scoping / ProxyCount | Missing | Low | Specialized federation case |
 | Attribute query | Missing | Low | Niche but useful in Shibboleth-style deployments |
 | ECP | Missing | Low | Specialized scenario |
 | Signature algorithm selection | Missing | Medium | Needed for legacy interop validation |
-| Clock skew tolerance | Missing | Medium | Useful in labs and staging environments |
+| Clock skew tolerance | Phase 3 | Medium | Useful in labs and staging environments |
 | Conditions / AudienceRestriction display | Missing | Medium | Improves SAML troubleshooting accuracy |
 
 ### Recommendations
@@ -522,6 +522,8 @@ Implemented foundation includes:
 
 ## Phase 3: Enterprise SAML
 
+Status: Implemented on `beta`
+
 ### Scope
 
 - encrypted assertions
@@ -537,7 +539,7 @@ This phase is high value but more operationally complex. It requires stronger cr
 
 ### Phase 3 Outcome
 
-Completing Phase 3 would make AuthLab materially more credible in large SAML-heavy enterprise environments.
+Phase 3 is now the SAML baseline on `beta`: structured assertion diagnostics, encrypted assertions, SAML SLO, requested `AuthnContextClassRef`, signature algorithm selection, and clock skew tolerance are all implemented. That closes the core enterprise SAML gap that remained after Phases 1 and 2.
 
 ## Phase 4: Advanced Flows
 

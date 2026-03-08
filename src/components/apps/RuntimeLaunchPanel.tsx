@@ -17,6 +17,10 @@ interface RuntimeLaunchPanelProps {
   pkceMode?: "S256" | "PLAIN" | "NONE";
   forceAuthnDefault?: boolean;
   isPassiveDefault?: boolean;
+  requestedAuthnContextDefault?: string | null;
+  samlSignatureAlgorithm?: "SHA1" | "SHA256";
+  clockSkewToleranceSeconds?: number;
+  samlLogoutUrl?: string | null;
 }
 
 export function RuntimeLaunchPanel({
@@ -28,6 +32,10 @@ export function RuntimeLaunchPanel({
   pkceMode = "S256",
   forceAuthnDefault = false,
   isPassiveDefault = false,
+  requestedAuthnContextDefault = "",
+  samlSignatureAlgorithm = "SHA256",
+  clockSkewToleranceSeconds = 0,
+  samlLogoutUrl = null,
 }: RuntimeLaunchPanelProps) {
   const router = useRouter();
   const [params, setParams] = useState<KeyValueParam[]>(
@@ -35,6 +43,9 @@ export function RuntimeLaunchPanel({
   );
   const [forceAuthn, setForceAuthn] = useState(forceAuthnDefault);
   const [isPassive, setIsPassive] = useState(isPassiveDefault);
+  const [requestedAuthnContext, setRequestedAuthnContext] = useState(
+    requestedAuthnContextDefault || "",
+  );
   const [clientCredentialScopes, setClientCredentialScopes] = useState(defaultScopes);
   const [clientCredentialsLoading, setClientCredentialsLoading] = useState(false);
   const [clientCredentialsError, setClientCredentialsError] = useState("");
@@ -53,8 +64,9 @@ export function RuntimeLaunchPanel({
     return JSON.stringify({
       forceAuthn: String(forceAuthn),
       isPassive: String(isPassive),
+      requestedAuthnContext,
     });
-  }, [forceAuthn, isPassive, params, protocol]);
+  }, [forceAuthn, isPassive, params, protocol, requestedAuthnContext]);
 
   async function launchClientCredentials() {
     if (!clientCredentialsUrl) {
@@ -169,6 +181,24 @@ export function RuntimeLaunchPanel({
               Override the saved request behavior for this run.
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={samlSignatureAlgorithm === "SHA256" ? "green" : "gray"}>
+              {samlSignatureAlgorithm}
+            </Badge>
+            <Badge variant={clockSkewToleranceSeconds > 0 ? "blue" : "gray"}>
+              Clock skew {clockSkewToleranceSeconds}s
+            </Badge>
+            <Badge variant={samlLogoutUrl ? "green" : "gray"}>
+              {samlLogoutUrl ? "SLO ready" : "No SLO URL"}
+            </Badge>
+          </div>
+          <Input
+            label="Requested AuthnContextClassRef"
+            value={requestedAuthnContext}
+            onChange={(event) => setRequestedAuthnContext(event.target.value)}
+            helperText="Leave blank to omit RequestedAuthnContext for this run."
+            uiSize="sm"
+          />
           <label className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]">
             <span>ForceAuthn</span>
             <input

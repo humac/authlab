@@ -42,6 +42,8 @@
   - JWT signature / `at_hash` / `c_hash` diagnostics in `src/lib/oidc-token-validation.ts`
 - SAML app flow in `src/lib/saml-handler.ts` and callback routes
   - per-app SP signing material in `src/app/api/saml/signing-material/` and `src/lib/saml-signing-material.ts`
+  - SAML SLO in `src/app/api/auth/logout/saml/` and `src/lib/saml-logout.ts`
+  - app-level encrypted assertion support via `spEncryptionPrivateKey` / `spEncryptionCert`
   - SAML callback routes now use `303` redirects after POST so browser navigation lands on inspector with `GET`
   - Pending auth state cookie uses `SameSite=None` in production to support cross-site IdP POST callback RelayState lookups
 - User auth routes in `src/app/api/user/`:

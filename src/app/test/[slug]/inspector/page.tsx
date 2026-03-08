@@ -16,6 +16,8 @@ import { LifecyclePanel } from "@/components/inspector/LifecyclePanel";
 import { OidcTokenValidationPanel } from "@/components/inspector/OidcTokenValidationPanel";
 import { SamlOverviewPanel } from "@/components/inspector/SamlOverviewPanel";
 import { UserInfoPanel } from "@/components/inspector/UserInfoPanel";
+import { parseSamlResponseXml } from "@/lib/saml-response-parser";
+import { getSamlLogoutProfileFromRun } from "@/lib/saml-logout";
 
 export default async function InspectorPage({
   params,
@@ -60,6 +62,14 @@ export default async function InspectorPage({
     typeof authenticatedEvent.metadata.expectedCHash === "string"
       ? authenticatedEvent.metadata.expectedCHash
       : null;
+  const samlAssertion =
+    run.protocol === "SAML" && run.rawSamlResponseXml
+      ? await parseSamlResponseXml(run.rawSamlResponseXml)
+      : null;
+  const hasSamlLogout =
+    run.protocol === "SAML" &&
+    Boolean(app.samlLogoutUrl) &&
+    Boolean(getSamlLogoutProfileFromRun(run));
   const tabs =
     run.protocol === "OIDC"
       ? [
@@ -93,11 +103,13 @@ export default async function InspectorPage({
         ]
       : [
           {
-            label: "Overview",
+            label: "Assertion",
             content: (
               <SamlOverviewPanel
+                assertion={samlAssertion}
                 claims={run.claims}
                 hasRawXml={Boolean(run.rawSamlResponseXml)}
+                outboundAuthParams={run.outboundAuthParams}
               />
             ),
           },
@@ -167,7 +179,7 @@ export default async function InspectorPage({
         description={
           run.protocol === "OIDC"
             ? "Review claims, discovery, raw payloads, and logout diagnostics."
-            : "Review captured SAML claims, assertion payloads, and current protocol diagnostics."
+            : "Review structured assertion diagnostics, claims, and captured SAML payloads."
         }
         actions={
           <>
@@ -186,6 +198,7 @@ export default async function InspectorPage({
         authenticatedAt={run.authenticatedAt?.toISOString() ?? run.createdAt.toISOString()}
         nonceStatus={run.nonceStatus}
         hasRpLogout={hasRpLogout}
+        hasSamlLogout={hasSamlLogout}
       />
 
       <Tabs tabs={tabs} appearance="pill" compact />

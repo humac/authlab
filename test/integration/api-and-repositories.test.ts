@@ -712,6 +712,295 @@ describe("integration: repositories and api routes", () => {
     });
   });
 
+  describe("SAML phase 3 routes", () => {
+    it("starts SP-initiated SAML logout and redirects to the IdP", async (t) => {
+      const setAuthRunLogoutState = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_saml",
+            name: "SAML App",
+            slug: "saml-app",
+            protocol: "SAML",
+            teamId: "team_1",
+            issuerUrl: null,
+            clientId: null,
+            clientSecret: null,
+            scopes: null,
+            customAuthParams: [],
+            pkceMode: "S256",
+            entryPoint: "https://idp.example.com/sso/saml",
+            samlLogoutUrl: "https://idp.example.com/logout/saml",
+            issuer: "https://authlab.example.com/sp",
+            idpCert: "pem",
+            nameIdFormat: null,
+            requestedAuthnContext: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            samlSignatureAlgorithm: "SHA256",
+            clockSkewToleranceSeconds: 0,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            spEncryptionPrivateKey: null,
+            spEncryptionCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-08T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-08T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_saml_1",
+            protocol: "SAML",
+            claims: {
+              nameID: "user@example.com",
+              nameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+              sessionIndex: "_session123",
+            },
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          setAuthRunLogoutState,
+        },
+      });
+      t.mock.module("@/lib/token", {
+        namedExports: {
+          generateOpaqueToken: t.mock.fn(() => "logout-state-123"),
+        },
+      });
+      t.mock.module("@/lib/saml-handler", {
+        namedExports: {
+          SAMLHandler: class {
+            async buildLogoutUrl() {
+              return "https://idp.example.com/logout/saml?RelayState=logout-state-123";
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/saml/[slug]/route.ts")
+      >("../../src/app/api/auth/logout/saml/[slug]/route.ts");
+
+      const response = await route.GET(
+        new Request("http://localhost/api/auth/logout/saml/saml-app"),
+        { params: Promise.resolve({ slug: "saml-app" }) },
+      );
+
+      assert.equal(response.status, 307);
+      assert.equal(
+        response.headers.get("location"),
+        "https://idp.example.com/logout/saml?RelayState=logout-state-123",
+      );
+      assert.equal(setAuthRunLogoutState.mock.callCount(), 1);
+    });
+
+    it("completes SP-initiated SAML logout responses and clears the local session", async (t) => {
+      const markAuthRunLoggedOut = t.mock.fn(async () => undefined);
+      const clearAppSession = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_saml",
+            name: "SAML App",
+            slug: "saml-app",
+            protocol: "SAML",
+            teamId: "team_1",
+            issuerUrl: null,
+            clientId: null,
+            clientSecret: null,
+            scopes: null,
+            customAuthParams: [],
+            pkceMode: "S256",
+            entryPoint: "https://idp.example.com/sso/saml",
+            samlLogoutUrl: "https://idp.example.com/logout/saml",
+            issuer: "https://authlab.example.com/sp",
+            idpCert: "pem",
+            nameIdFormat: null,
+            requestedAuthnContext: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            samlSignatureAlgorithm: "SHA256",
+            clockSkewToleranceSeconds: 0,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            spEncryptionPrivateKey: null,
+            spEncryptionCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-08T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-08T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunByLogoutState: t.mock.fn(async () => ({ id: "run_saml_1" })),
+          markAuthRunLoggedOut,
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          clearAppSession,
+          getActiveAuthRun: t.mock.fn(async () => null),
+        },
+      });
+      t.mock.module("@/lib/saml-handler", {
+        namedExports: {
+          SAMLHandler: class {
+            async handleLogoutRedirect() {
+              return { kind: "response", loggedOut: true, profile: null };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/saml/[slug]/callback/route.ts")
+      >("../../src/app/api/auth/logout/saml/[slug]/callback/route.ts");
+
+      const response = await route.GET(
+        new Request(
+          "http://localhost/api/auth/logout/saml/saml-app/callback?SAMLResponse=abc&RelayState=logout-state-123",
+        ),
+        { params: Promise.resolve({ slug: "saml-app" }) },
+      );
+
+      assert.equal(response.status, 307);
+      assert.equal(response.headers.get("location"), "http://localhost:3000/test/saml-app");
+      assert.equal(markAuthRunLoggedOut.mock.callCount(), 1);
+      assert.equal(clearAppSession.mock.callCount(), 1);
+    });
+
+    it("handles IdP-initiated SAML logout requests and returns a logout response", async (t) => {
+      const markAuthRunLoggedOut = t.mock.fn(async () => undefined);
+      const clearAppSession = t.mock.fn(async () => undefined);
+      const buildLogoutResponseUrl = t.mock.fn(
+        async (_callbackUrl: string, relayState: string, _profile: Record<string, unknown>, success: boolean) =>
+          `https://idp.example.com/logout/saml/response?success=${success}&RelayState=${relayState}`,
+      );
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_saml",
+            name: "SAML App",
+            slug: "saml-app",
+            protocol: "SAML",
+            teamId: "team_1",
+            issuerUrl: null,
+            clientId: null,
+            clientSecret: null,
+            scopes: null,
+            customAuthParams: [],
+            pkceMode: "S256",
+            entryPoint: "https://idp.example.com/sso/saml",
+            samlLogoutUrl: "https://idp.example.com/logout/saml",
+            issuer: "https://authlab.example.com/sp",
+            idpCert: "pem",
+            nameIdFormat: null,
+            requestedAuthnContext: null,
+            forceAuthnDefault: false,
+            isPassiveDefault: false,
+            samlSignatureAlgorithm: "SHA256",
+            clockSkewToleranceSeconds: 0,
+            signAuthnRequests: false,
+            spSigningPrivateKey: null,
+            spSigningCert: null,
+            spEncryptionPrivateKey: null,
+            spEncryptionCert: null,
+            buttonColor: "#3B71CA",
+            createdAt: new Date("2026-03-08T00:00:00.000Z"),
+            updatedAt: new Date("2026-03-08T00:00:00.000Z"),
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_saml_1",
+            protocol: "SAML",
+            claims: {
+              nameID: "user@example.com",
+              nameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+              sessionIndex: "_session123",
+            },
+          })),
+          clearAppSession,
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          getAuthRunByLogoutState: t.mock.fn(async () => null),
+          markAuthRunLoggedOut,
+        },
+      });
+      t.mock.module("@/lib/saml-handler", {
+        namedExports: {
+          SAMLHandler: class {
+            async handleLogoutRedirect() {
+              return {
+                kind: "request",
+                loggedOut: true,
+                profile: {
+                  ID: "_logout_request_1",
+                  issuer: "https://idp.example.com/metadata",
+                  nameID: "user@example.com",
+                  nameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+                  sessionIndex: "_session123",
+                },
+              };
+            }
+
+            async buildLogoutResponseUrl(
+              callbackUrl: string,
+              logoutCallbackUrl: string,
+              relayState: string,
+              profile: Record<string, unknown>,
+              success: boolean,
+            ) {
+              return buildLogoutResponseUrl(
+                callbackUrl,
+                relayState,
+                {
+                  ...profile,
+                  logoutCallbackUrl,
+                },
+                success,
+              );
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/logout/saml/[slug]/callback/route.ts")
+      >("../../src/app/api/auth/logout/saml/[slug]/callback/route.ts");
+
+      const response = await route.GET(
+        new Request(
+          "http://localhost/api/auth/logout/saml/saml-app/callback?SAMLRequest=abc&RelayState=idp-state-123",
+        ),
+        { params: Promise.resolve({ slug: "saml-app" }) },
+      );
+
+      assert.equal(response.status, 307);
+      assert.equal(
+        response.headers.get("location"),
+        "https://idp.example.com/logout/saml/response?success=true&RelayState=idp-state-123",
+      );
+      assert.equal(markAuthRunLoggedOut.mock.callCount(), 1);
+      assert.equal(clearAppSession.mock.callCount(), 1);
+    });
+  });
+
   describe("MFA TOTP routes", () => {
     it("starts TOTP setup for verified users and persists pending setup in session", async (t) => {
       const user = await createUser({ email: "totp@example.com", isVerified: true });
@@ -1427,6 +1716,7 @@ describe("integration: repositories and api routes", () => {
           body: JSON.stringify({
             name: "SAML Test App",
             slug: "saml-test-app",
+            usage: "encryption",
           }),
         }),
       );
@@ -1436,6 +1726,7 @@ describe("integration: repositories and api routes", () => {
         privateKeyPem: string;
         certificatePem: string;
         info: {
+          usage: string;
           subject: string;
           fingerprint256: string;
           validTo: string;
@@ -1444,6 +1735,7 @@ describe("integration: repositories and api routes", () => {
 
       assert.match(payload.privateKeyPem, /BEGIN PRIVATE KEY/);
       assert.match(payload.certificatePem, /BEGIN CERTIFICATE/);
+      assert.equal(payload.info.usage, "encryption");
       assert.match(payload.info.subject, /AuthLab saml-test-app/i);
       assert.match(payload.info.fingerprint256, /^([A-F0-9]{2}:){31}[A-F0-9]{2}$/);
       assert.ok(Number.isFinite(Date.parse(payload.info.validTo)));

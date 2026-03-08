@@ -1,5 +1,6 @@
 import { SAML } from "@node-saml/node-saml";
 import { randomBytes } from "crypto";
+import type { Profile } from "@node-saml/node-saml/lib/types";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import type {
   AuthHandler,
@@ -17,6 +18,45 @@ function normalizeBooleanOverride(value: string | undefined, fallback: boolean):
   return value === "true";
 }
 
+function normalizeStringOverride(
+  value: string | undefined,
+  fallback: string | null,
+): string | null {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function mapSignatureAlgorithm(value: "SHA1" | "SHA256"): "sha1" | "sha256" {
+  return value === "SHA1" ? "sha1" : "sha256";
+}
+
+export interface SamlLogoutProfile {
+  ID?: string;
+  issuer?: string;
+  nameID: string;
+  nameIDFormat: string;
+  nameQualifier?: string;
+  spNameQualifier?: string;
+  sessionIndex?: string;
+}
+
+export interface SamlLogoutResult {
+  kind: "request" | "response";
+  loggedOut: boolean;
+  profile: SamlLogoutProfile | null;
+}
+
+interface SamlClientOptions {
+  forceAuthn?: boolean;
+  isPassive?: boolean;
+  requestedAuthnContext?: string | null;
+  logoutCallbackUrl?: string;
+}
+
 export class SAMLHandler implements AuthHandler {
   private appInstance: DecryptedAppInstance;
 
@@ -26,17 +66,24 @@ export class SAMLHandler implements AuthHandler {
 
   private createSamlClient(
     callbackUrl: string,
-    options?: { forceAuthn?: boolean; isPassive?: boolean },
+    options?: SamlClientOptions,
   ): SAML {
     const hasIdpCert = Boolean(this.appInstance.idpCert?.trim());
     const hasSigningKey =
       this.appInstance.signAuthnRequests &&
       Boolean(this.appInstance.spSigningPrivateKey?.trim()) &&
       Boolean(this.appInstance.spSigningCert?.trim());
+    const requestedAuthnContext =
+      options && "requestedAuthnContext" in options
+        ? (options.requestedAuthnContext ?? null)
+        : this.appInstance.requestedAuthnContext;
+    const requestedContexts = requestedAuthnContext ? [requestedAuthnContext] : [];
 
     return new SAML({
       callbackUrl,
       entryPoint: this.appInstance.entryPoint!,
+      logoutUrl: this.appInstance.samlLogoutUrl?.trim() || this.appInstance.entryPoint!,
+      logoutCallbackUrl: options?.logoutCallbackUrl,
       issuer: this.appInstance.issuer!,
       idpCert: this.appInstance.idpCert!,
       wantAssertionsSigned: hasIdpCert,
@@ -44,10 +91,38 @@ export class SAMLHandler implements AuthHandler {
       forceAuthn: options?.forceAuthn ?? this.appInstance.forceAuthnDefault,
       passive: options?.isPassive ?? this.appInstance.isPassiveDefault,
       identifierFormat: this.appInstance.nameIdFormat || undefined,
+      acceptedClockSkewMs: this.appInstance.clockSkewToleranceSeconds * 1000,
+      disableRequestedAuthnContext: requestedContexts.length === 0,
+      authnContext: requestedContexts,
+      decryptionPvk: this.appInstance.spEncryptionPrivateKey?.trim() || undefined,
       privateKey: hasSigningKey ? this.appInstance.spSigningPrivateKey! : undefined,
       publicCert: hasSigningKey ? this.appInstance.spSigningCert! : undefined,
-      signatureAlgorithm: hasSigningKey ? "sha256" : undefined,
+      signatureAlgorithm: hasSigningKey
+        ? mapSignatureAlgorithm(this.appInstance.samlSignatureAlgorithm)
+        : undefined,
     });
+  }
+
+  private normalizeLogoutProfile(profile: Record<string, unknown> | null | undefined) {
+    if (!profile || typeof profile.nameID !== "string" || profile.nameID.length === 0) {
+      return null;
+    }
+
+    return {
+      ID: typeof profile.ID === "string" ? profile.ID : undefined,
+      issuer: typeof profile.issuer === "string" ? profile.issuer : undefined,
+      nameID: profile.nameID,
+      nameIDFormat:
+        typeof profile.nameIDFormat === "string"
+          ? profile.nameIDFormat
+          : this.appInstance.nameIdFormat || DEFAULT_NAME_ID_FORMAT,
+      nameQualifier:
+        typeof profile.nameQualifier === "string" ? profile.nameQualifier : undefined,
+      spNameQualifier:
+        typeof profile.spNameQualifier === "string" ? profile.spNameQualifier : undefined,
+      sessionIndex:
+        typeof profile.sessionIndex === "string" ? profile.sessionIndex : undefined,
+    } satisfies SamlLogoutProfile;
   }
 
   async getAuthorizationUrl(
@@ -62,7 +137,15 @@ export class SAMLHandler implements AuthHandler {
       options?.runtimeOverrides?.isPassive,
       this.appInstance.isPassiveDefault,
     );
-    const saml = this.createSamlClient(callbackUrl, { forceAuthn, isPassive });
+    const requestedAuthnContext = normalizeStringOverride(
+      options?.runtimeOverrides?.requestedAuthnContext,
+      this.appInstance.requestedAuthnContext,
+    );
+    const saml = this.createSamlClient(callbackUrl, {
+      forceAuthn,
+      isPassive,
+      requestedAuthnContext,
+    });
     const state = randomBytes(32).toString("hex");
     const url = await saml.getAuthorizeUrlAsync(state, "", {});
 
@@ -73,6 +156,9 @@ export class SAMLHandler implements AuthHandler {
         forceAuthn: String(forceAuthn),
         isPassive: String(isPassive),
         nameIdFormat: this.appInstance.nameIdFormat || "",
+        requestedAuthnContext: requestedAuthnContext || "",
+        samlSignatureAlgorithm: this.appInstance.samlSignatureAlgorithm,
+        clockSkewToleranceSeconds: String(this.appInstance.clockSkewToleranceSeconds),
       },
     };
   }
@@ -118,4 +204,85 @@ export class SAMLHandler implements AuthHandler {
       rawXml,
     };
   }
+
+  async buildLogoutUrl(
+    callbackUrl: string,
+    logoutCallbackUrl: string,
+    relayState: string,
+    profile: SamlLogoutProfile,
+  ): Promise<string | null> {
+    if (!this.appInstance.samlLogoutUrl?.trim()) {
+      return null;
+    }
+
+    const saml = this.createSamlClient(callbackUrl, { logoutCallbackUrl });
+    return saml.getLogoutUrlAsync(profile as Profile, relayState, {});
+  }
+
+  async buildLogoutResponseUrl(
+    callbackUrl: string,
+    logoutCallbackUrl: string,
+    relayState: string,
+    logoutRequestProfile: Record<string, unknown>,
+    success: boolean,
+  ): Promise<string> {
+    const saml = this.createSamlClient(callbackUrl, { logoutCallbackUrl });
+    return saml.getLogoutResponseUrlAsync(
+      logoutRequestProfile as Profile,
+      relayState,
+      {},
+      success,
+    );
+  }
+
+  async handleLogoutRedirect(
+    requestUrl: string,
+    callbackUrl: string,
+    logoutCallbackUrl: string,
+  ): Promise<SamlLogoutResult> {
+    const url = new URL(requestUrl);
+    const query = Object.fromEntries(url.searchParams.entries());
+    const saml = this.createSamlClient(callbackUrl, { logoutCallbackUrl });
+    const result = await saml.validateRedirectAsync(query, url.search.slice(1));
+
+    return {
+      kind: url.searchParams.has("SAMLRequest") ? "request" : "response",
+      loggedOut: result.loggedOut,
+      profile: this.normalizeLogoutProfile((result.profile as Record<string, unknown> | null) ?? null),
+    };
+  }
+
+  async handleLogoutPost(
+    formData: Record<string, string>,
+    callbackUrl: string,
+    logoutCallbackUrl: string,
+  ): Promise<SamlLogoutResult> {
+    const saml = this.createSamlClient(callbackUrl, { logoutCallbackUrl });
+
+    if (formData.SAMLRequest) {
+      const result = await saml.validatePostRequestAsync({
+        SAMLRequest: formData.SAMLRequest,
+      });
+      return {
+        kind: "request",
+        loggedOut: result.loggedOut,
+        profile: this.normalizeLogoutProfile((result.profile as Record<string, unknown> | null) ?? null),
+      };
+    }
+
+    if (formData.SAMLResponse) {
+      const result = await saml.validatePostResponseAsync({
+        SAMLResponse: formData.SAMLResponse,
+      });
+      return {
+        kind: "response",
+        loggedOut: result.loggedOut,
+        profile: this.normalizeLogoutProfile((result.profile as Record<string, unknown> | null) ?? null),
+      };
+    }
+
+    throw new Error("Missing SAML logout payload");
+  }
 }
+const DEFAULT_NAME_ID_FORMAT =
+  "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified";

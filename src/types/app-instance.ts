@@ -1,4 +1,8 @@
-import type { PkceMode, Protocol } from "@/generated/prisma/client/enums";
+import type {
+  PkceMode,
+  Protocol,
+  SamlSignatureAlgorithm,
+} from "@/generated/prisma/client/enums";
 
 export interface KeyValueParam {
   key: string;
@@ -19,14 +23,20 @@ export interface AppInstanceInput {
   pkceMode?: PkceMode;
   // SAML
   entryPoint?: string | null;
+  samlLogoutUrl?: string | null;
   issuer?: string | null;
   idpCert?: string | null;
   nameIdFormat?: string | null;
+  requestedAuthnContext?: string | null;
   forceAuthnDefault?: boolean;
   isPassiveDefault?: boolean;
+  samlSignatureAlgorithm?: SamlSignatureAlgorithm;
+  clockSkewToleranceSeconds?: number;
   signAuthnRequests?: boolean;
   spSigningPrivateKey?: string | null;
   spSigningCert?: string | null;
+  spEncryptionPrivateKey?: string | null;
+  spEncryptionCert?: string | null;
   // UI
   buttonColor?: string | null;
 }
@@ -44,14 +54,20 @@ export interface AppInstanceRecord {
   customAuthParamsJson: string | null;
   pkceMode: PkceMode;
   entryPoint: string | null;
+  samlLogoutUrl: string | null;
   issuer: string | null;
   idpCert: string | null;
   nameIdFormat: string | null;
+  requestedAuthnContext: string | null;
   forceAuthnDefault: boolean;
   isPassiveDefault: boolean;
+  samlSignatureAlgorithm: SamlSignatureAlgorithm;
+  clockSkewToleranceSeconds: number;
   signAuthnRequests: boolean;
   spSigningPrivateKey: string | null;
   spSigningCert: string | null;
+  spEncryptionPrivateKey: string | null;
+  spEncryptionCert: string | null;
   buttonColor: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -60,22 +76,33 @@ export interface AppInstanceRecord {
 export interface DecryptedAppInstance
   extends Omit<
     AppInstanceRecord,
-    "clientSecret" | "idpCert" | "spSigningPrivateKey" | "customAuthParamsJson"
+    | "clientSecret"
+    | "idpCert"
+    | "spSigningPrivateKey"
+    | "spEncryptionPrivateKey"
+    | "customAuthParamsJson"
   > {
   clientSecret: string | null;
   idpCert: string | null;
   spSigningPrivateKey: string | null;
+  spEncryptionPrivateKey: string | null;
   customAuthParams: KeyValueParam[];
 }
 
 export interface RedactedAppInstance
   extends Omit<
     AppInstanceRecord,
-    "clientSecret" | "idpCert" | "spSigningPrivateKey" | "customAuthParamsJson"
+    | "clientSecret"
+    | "idpCert"
+    | "spSigningPrivateKey"
+    | "spEncryptionPrivateKey"
+    | "customAuthParamsJson"
   > {
   hasClientSecret: boolean;
   hasIdpCert: boolean;
   hasSpSigningPrivateKey: boolean;
   hasSpSigningCert: boolean;
+  hasSpEncryptionPrivateKey: boolean;
+  hasSpEncryptionCert: boolean;
   customAuthParams: KeyValueParam[];
 }
