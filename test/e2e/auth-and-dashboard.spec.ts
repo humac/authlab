@@ -14,6 +14,7 @@ import {
   createEmailVerifyToken,
   createInviteToken,
   createOidcApp,
+  createSamlApp,
   createPasswordResetToken,
   createTeam,
   createUserWithPersonalTeam,
@@ -747,6 +748,49 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await expect(
       page.getByText("CLIENT CREDENTIALS ISSUED", { exact: true }).first(),
     ).toBeVisible();
+  });
+
+  test("shows a SAML-specific inspector instead of OIDC lifecycle tabs", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-saml-inspector-${randomUUID()}@example.com`,
+      name: "E2E SAML Inspector User",
+    });
+    const app = await createSamlApp({
+      teamId: seeded.team.id,
+      name: "SAML Inspector App",
+      slug: `saml-inspector-${randomUUID().slice(0, 8)}`,
+    });
+    const run = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "SAML",
+      claims: {
+        NameID: seeded.user.email,
+        NameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+        department: "Engineering",
+      },
+      rawSamlResponseXml:
+        "<samlp:Response><Assertion><Subject><NameID>user@example.com</NameID></Subject></Assertion></samlp:Response>",
+    });
+
+    await authenticateAppRun(page, {
+      slug: app.slug,
+      runId: run.id,
+      protocol: "SAML",
+      authenticatedAt: new Date().toISOString(),
+    });
+
+    await page.goto(`/test/${app.slug}/inspector`);
+
+    await expect(page.getByRole("button", { name: "Overview" })).toBeVisible();
+    await expect(page.getByText("SAML session overview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Lifecycle" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "UserInfo" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Discovery" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Validation" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "JWT Decoder" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Raw XML" })).toBeVisible();
   });
 
   test("creates, updates, and deletes users from admin management", async ({ page }) => {
