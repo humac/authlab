@@ -172,12 +172,20 @@ export async function proxy(request: NextRequest) {
   const now = Date.now();
   if (session.lastActivityAt && now - session.lastActivityAt > IDLE_TIMEOUT_MS) {
     session.destroy();
+    // session.destroy() writes the clear-cookie header on `response`.
+    // We must propagate that Set-Cookie to whichever response we return,
+    // otherwise the browser keeps the stale session and enters a redirect loop.
+    const setCookie = response.headers.getSetCookie();
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Session expired" }, { status: 401 });
+      const apiRes = NextResponse.json({ error: "Session expired" }, { status: 401 });
+      setCookie.forEach((c) => apiRes.headers.append("Set-Cookie", c));
+      return apiRes;
     }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirectRes = NextResponse.redirect(loginUrl);
+    setCookie.forEach((c) => redirectRes.headers.append("Set-Cookie", c));
+    return redirectRes;
   }
   session.lastActivityAt = now;
   await session.save();
