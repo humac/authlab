@@ -14,6 +14,7 @@ import { OIDCHandler } from "@/lib/oidc-handler";
 import { DiscoveryMetadataView } from "@/components/inspector/DiscoveryMetadataView";
 import { LifecyclePanel } from "@/components/inspector/LifecyclePanel";
 import { OidcTokenValidationPanel } from "@/components/inspector/OidcTokenValidationPanel";
+import { SamlOverviewPanel } from "@/components/inspector/SamlOverviewPanel";
 import { UserInfoPanel } from "@/components/inspector/UserInfoPanel";
 
 export default async function InspectorPage({
@@ -59,35 +60,52 @@ export default async function InspectorPage({
     typeof authenticatedEvent.metadata.expectedCHash === "string"
       ? authenticatedEvent.metadata.expectedCHash
       : null;
-  const tabs = [
-    {
-      label: "Lifecycle",
-      content: (
-        <LifecyclePanel
-          slug={slug}
-          grantType={run.grantType}
-          claims={run.claims}
-          accessTokenExpiresAt={run.accessTokenExpiresAt?.toISOString() ?? null}
-          hasRefreshToken={Boolean(run.refreshToken)}
-          lastIntrospection={run.lastIntrospection}
-          lastRevocationAt={run.lastRevocationAt?.toISOString() ?? null}
-          events={events.map((event) => ({
-            id: event.id,
-            type: event.type,
-            status: event.status,
-            request: event.request,
-            response: event.response,
-            metadata: event.metadata,
-            occurredAt: event.occurredAt.toISOString(),
-          }))}
-        />
-      ),
-    },
-    {
-      label: "Claims",
-      content: <ClaimsTable claims={run.claims || {}} />,
-    },
-  ];
+  const tabs =
+    run.protocol === "OIDC"
+      ? [
+          {
+            label: "Lifecycle",
+            content: (
+              <LifecyclePanel
+                slug={slug}
+                grantType={run.grantType}
+                claims={run.claims}
+                accessTokenExpiresAt={run.accessTokenExpiresAt?.toISOString() ?? null}
+                hasRefreshToken={Boolean(run.refreshToken)}
+                lastIntrospection={run.lastIntrospection}
+                lastRevocationAt={run.lastRevocationAt?.toISOString() ?? null}
+                events={events.map((event) => ({
+                  id: event.id,
+                  type: event.type,
+                  status: event.status,
+                  request: event.request,
+                  response: event.response,
+                  metadata: event.metadata,
+                  occurredAt: event.occurredAt.toISOString(),
+                }))}
+              />
+            ),
+          },
+          {
+            label: "Claims",
+            content: <ClaimsTable claims={run.claims || {}} />,
+          },
+        ]
+      : [
+          {
+            label: "Overview",
+            content: (
+              <SamlOverviewPanel
+                claims={run.claims}
+                hasRawXml={Boolean(run.rawSamlResponseXml)}
+              />
+            ),
+          },
+          {
+            label: "Claims",
+            content: <ClaimsTable claims={run.claims || {}} />,
+          },
+        ];
 
   if (run.protocol === "OIDC" && discoveryMetadata) {
     tabs.push({
@@ -146,7 +164,11 @@ export default async function InspectorPage({
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-3 sm:px-6 lg:px-8 animate-enter">
       <PageHeader
         title="Auth Inspector"
-        description="Review claims, discovery, raw payloads, and logout diagnostics."
+        description={
+          run.protocol === "OIDC"
+            ? "Review claims, discovery, raw payloads, and logout diagnostics."
+            : "Review captured SAML claims, assertion payloads, and current protocol diagnostics."
+        }
         actions={
           <>
             <ThemeToggle compact />

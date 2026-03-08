@@ -253,6 +253,64 @@ export async function createOidcApp(data: {
   return app;
 }
 
+export async function createSamlApp(data: {
+  teamId: string;
+  name?: string;
+  slug?: string;
+  entryPoint?: string;
+  issuer?: string;
+  idpCert?: string;
+}) {
+  const app = {
+    id: randomUUID(),
+    name: data.name ?? "Seeded SAML App",
+    slug: data.slug ?? `seeded-saml-${randomUUID().slice(0, 8)}`,
+    protocol: "SAML" as const,
+    teamId: data.teamId,
+    entryPoint: data.entryPoint ?? "https://idp.example.com/sso/saml",
+    issuer: data.issuer ?? "https://idp.example.com/metadata",
+    idpCert:
+      data.idpCert ??
+      "-----BEGIN CERTIFICATE-----\nMIIBwjCCAWugAwIBAgIUDUMMYTESTCERTIFICATEONLY1234567890\n-----END CERTIFICATE-----",
+  };
+  const timestamp = nowIso();
+
+  db.prepare(
+    `INSERT INTO "AppInstance" (
+      id, name, slug, protocol, teamId, issuerUrl, clientId, clientSecret, scopes,
+      customAuthParamsJson, pkceMode, entryPoint, issuer, idpCert, nameIdFormat,
+      forceAuthnDefault, isPassiveDefault, signAuthnRequests, spSigningPrivateKey,
+      spSigningCert, buttonColor, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    app.id,
+    app.name,
+    app.slug,
+    app.protocol,
+    app.teamId,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "S256",
+    app.entryPoint,
+    app.issuer,
+    encrypt(app.idpCert),
+    null,
+    0,
+    0,
+    0,
+    null,
+    null,
+    "#3B71CA",
+    timestamp,
+    timestamp,
+  );
+
+  return app;
+}
+
 export async function createAuthRunRecord(data: {
   appInstanceId: string;
   protocol?: "OIDC" | "SAML";
@@ -264,6 +322,7 @@ export async function createAuthRunRecord(data: {
   accessToken?: string | null;
   refreshToken?: string | null;
   rawTokenResponse?: string | null;
+  rawSamlResponseXml?: string | null;
   accessTokenExpiresAt?: string | null;
   lastIntrospection?: Record<string, unknown> | null;
   lastRevocationAt?: string | null;
@@ -301,7 +360,7 @@ export async function createAuthRunRecord(data: {
     data.refreshToken ? encrypt(data.refreshToken) : null,
     data.accessTokenExpiresAt ?? null,
     data.rawTokenResponse ? encrypt(data.rawTokenResponse) : null,
-    null,
+    data.rawSamlResponseXml ?? null,
     null,
     data.lastIntrospection ? JSON.stringify(data.lastIntrospection) : null,
     data.lastRevocationAt ?? null,
