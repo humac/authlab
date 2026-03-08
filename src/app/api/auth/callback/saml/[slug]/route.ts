@@ -3,6 +3,12 @@ import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { SAMLHandler } from "@/lib/saml-handler";
 import { getState } from "@/lib/state-store";
 import { getAppSession, saveAuthResultSession } from "@/lib/session";
+import {
+  completeAuthRun,
+  createAuthRun,
+  getAuthRunById,
+  markAuthRunFailed,
+} from "@/repositories/auth-run.repo";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -10,6 +16,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  let activeRunId: string | null = null;
   try {
     const { slug: expectedSlug } = await params;
     const formData = await request.formData();
@@ -38,6 +45,7 @@ export async function POST(
       }
 
       slug = stateEntry.slug;
+      activeRunId = stateEntry.runId ?? null;
       if (slug !== expectedSlug) {
         return NextResponse.json(
           { error: "Callback slug does not match login session" },
@@ -54,20 +62,39 @@ export async function POST(
         { status: 404 },
       );
     }
+    const run =
+      activeRunId
+        ? await getAuthRunById(activeRunId)
+        : await createAuthRun({
+            appInstanceId: appInstance.id,
+            protocol: "SAML",
+          });
+    if (!run) {
+      return NextResponse.json(
+        { error: "Auth run not found" },
+        { status: 404 },
+      );
+    }
+    activeRunId = run.id;
 
     const callbackUrl = `${APP_URL}/api/auth/callback/saml/${slug}`;
 
     // Process the callback
     const handler = new SAMLHandler(appInstance);
     const result = await handler.handleCallback(samlResponse, callbackUrl);
+    const completedRun = await completeAuthRun(run.id, {
+      claims: result.claims,
+      rawSamlResponseXml: result.rawXml,
+    });
 
     // Store in session
     const session = await getAppSession(slug);
     await saveAuthResultSession(session, {
+      runId: completedRun.id,
       slug,
       protocol: "SAML",
-      claims: result.claims,
-      rawXml: result.rawXml,
+      authenticatedAt:
+        completedRun.authenticatedAt?.toISOString() ?? new Date().toISOString(),
     });
 
     return NextResponse.redirect(`${APP_URL}/test/${slug}/inspector`, 303);
@@ -86,6 +113,9 @@ export async function POST(
       normalized.includes("invalid");
 
     console.error("SAML callback failed:", message);
+    if (activeRunId) {
+      await markAuthRunFailed(activeRunId).catch(() => undefined);
+    }
     return NextResponse.json(
       {
         error: isValidationError

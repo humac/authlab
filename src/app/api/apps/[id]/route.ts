@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { UpdateAppInstanceSchema } from "@/lib/validators";
+import { validatePemCertificate, validatePemPrivateKey } from "@/lib/pem";
 import { getCurrentUser } from "@/lib/user-session";
 import { getTeamMembership } from "@/repositories/team.repo";
 import {
@@ -63,7 +64,37 @@ export async function PUT(
   }
 
   try {
-    const app = await updateAppInstance(id, parsed.data);
+    const payload = { ...parsed.data };
+    if (payload.spSigningCert) {
+      payload.spSigningCert = validatePemCertificate(payload.spSigningCert);
+    }
+    if (payload.spSigningPrivateKey) {
+      payload.spSigningPrivateKey = validatePemPrivateKey(
+        payload.spSigningPrivateKey,
+      );
+    }
+    if (
+      payload.signAuthnRequests &&
+      !result.app.hasSpSigningPrivateKey &&
+      !payload.spSigningPrivateKey
+    ) {
+      return NextResponse.json(
+        { error: "Signed SAML requests require a stored signing private key" },
+        { status: 400 },
+      );
+    }
+    if (
+      payload.signAuthnRequests &&
+      !result.app.hasSpSigningCert &&
+      !payload.spSigningCert
+    ) {
+      return NextResponse.json(
+        { error: "Signed SAML requests require a stored signing certificate" },
+        { status: 400 },
+      );
+    }
+
+    const app = await updateAppInstance(id, payload);
     return NextResponse.json(app);
   } catch (error) {
     if (error instanceof Error && error.message.includes("not found")) {

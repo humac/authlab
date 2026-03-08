@@ -4,6 +4,7 @@ import { hashToken } from "@/lib/token";
 export async function resetDatabase() {
   const prisma = await getPrisma();
 
+  await prisma.authRun.deleteMany();
   await prisma.authToken.deleteMany();
   await prisma.credential.deleteMany();
   await prisma.userProfileImage.deleteMany();

@@ -5,6 +5,11 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { RuntimeLaunchPanel } from "@/components/apps/RuntimeLaunchPanel";
+import { DiscoveryMetadataView } from "@/components/inspector/DiscoveryMetadataView";
+import { getReadableTextColor } from "@/lib/color";
+import { OIDCHandler } from "@/lib/oidc-handler";
 
 export default async function TestPage({
   params,
@@ -22,6 +27,7 @@ export default async function TestPage({
   const testUrl = `${appUrl}/test/${app.slug}`;
   const testLoginUrl = `${testUrl}/login`;
   const testInspectorUrl = `${testUrl}/inspector`;
+  const clientCredentialsUrl = `${appUrl}/api/auth/token/client-credentials/${app.slug}`;
   const oidcCallbackUrl = `${appUrl}/api/auth/callback/oidc/${app.slug}`;
   const samlCallbackUrl = `${appUrl}/api/auth/callback/saml/${app.slug}`;
   const unsignedMetadataUrl =
@@ -30,122 +36,124 @@ export default async function TestPage({
     app.protocol === "SAML"
       ? `${appUrl}/api/saml/metadata/${app.slug}?signed=true`
       : null;
+  const discoveryMetadata =
+    app.protocol === "OIDC"
+      ? await new OIDCHandler(app).getDiscoveryMetadata().catch(() => ({}))
+      : null;
+  const launchButtonColor = app.buttonColor || "#3B71CA";
+  const launchButtonTextColor = getReadableTextColor(launchButtonColor);
+
+  const importantUrls = [
+    ["Test URL", testUrl],
+    ["Test Login URL", testLoginUrl],
+    [
+      app.protocol === "OIDC" ? "OIDC Redirect URI" : "SAML ACS URL",
+      app.protocol === "OIDC" ? oidcCallbackUrl : samlCallbackUrl,
+    ],
+    ["Inspector URL", testInspectorUrl],
+    ...(unsignedMetadataUrl ? [["SP Metadata URL", unsignedMetadataUrl]] : []),
+    ...(signedMetadataUrl ? [["Signed Metadata URL", signedMetadataUrl]] : []),
+  ];
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center px-4 py-8">
-      <div className="mb-4 flex justify-end">
-        <ThemeToggle compact />
-      </div>
+    <div className="mx-auto max-w-7xl space-y-5 px-4 py-3 sm:px-6 lg:px-8 animate-enter">
+      <PageHeader
+        title={app.name}
+        description={`Launch and inspect ${app.protocol} authentication with compact runtime controls.`}
+        actions={
+          <>
+            <ThemeToggle compact />
+            <Link href="/" className="text-sm font-medium text-[var(--primary)] hover:underline">
+              Back to Dashboard
+            </Link>
+          </>
+        }
+      >
+        <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} />
+      </PageHeader>
 
-      <Card className="animate-enter text-center">
-        <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} className="mx-auto" />
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--text)]">{app.name}</h1>
-        <p className="mb-6 text-sm text-[var(--muted)]">Test {app.protocol} authentication flow</p>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <Card className="space-y-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Primary action
+            </p>
+            <a
+              href={testLoginUrl}
+              className="mt-2 inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: launchButtonColor,
+                color: launchButtonTextColor,
+              }}
+            >
+              {app.protocol === "OIDC" ? "Browser Login" : `Login with ${app.protocol}`}
+            </a>
+          </div>
 
-        <Link href={`/test/${slug}/login`}>
-          <button
-            className="focus-ring w-full rounded-xl px-6 py-3 text-lg font-semibold text-white shadow-[var(--shadow-sm)] transition-opacity hover:opacity-90"
-            style={{ backgroundColor: app.buttonColor || "#3B71CA" }}
-          >
-            Login with {app.protocol}
-          </button>
-        </Link>
+          <RuntimeLaunchPanel
+            protocol={app.protocol}
+            loginUrl={testLoginUrl}
+            clientCredentialsUrl={app.protocol === "OIDC" ? clientCredentialsUrl : undefined}
+            savedCustomParams={app.customAuthParams}
+            defaultScopes={app.scopes || "openid profile email"}
+            pkceMode={app.protocol === "OIDC" ? app.pkceMode : undefined}
+            forceAuthnDefault={app.forceAuthnDefault}
+            isPassiveDefault={app.isPassiveDefault}
+          />
+        </Card>
 
-        <Link href="/" className="mt-3 inline-block text-sm font-medium text-[var(--primary)] hover:underline">
-          Back to Dashboard
-        </Link>
-
-        <div className="mt-6 border-t border-[var(--border)] pt-4 text-left">
-          <h2 className="text-sm font-semibold text-[var(--text)]">Important URLs</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Use the same values shown during app creation when configuring your identity provider.
-          </p>
-          <dl className="mt-3 space-y-3">
-            <div>
-              <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Test URL</dt>
-              <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                {testUrl}
-              </code>
-              <div className="mt-1 flex items-center gap-3">
-                <CopyButton text={testUrl} />
-              </div>
-            </div>
-            <div>
-              <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Test Login URL</dt>
-              <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                {testLoginUrl}
-              </code>
-              <div className="mt-1 flex items-center gap-3">
-                <CopyButton text={testLoginUrl} />
-              </div>
-            </div>
-            {app.protocol === "OIDC" ? (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">OIDC Redirect URI</dt>
-                <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                  {oidcCallbackUrl}
-                </code>
-                <div className="mt-1 flex items-center gap-3">
-                  <CopyButton text={oidcCallbackUrl} />
-                </div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Important URLs
+                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Use these values when configuring the identity provider.
+                </p>
               </div>
-            ) : (
-              <>
-                <div>
-                  <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">SAML ACS URL (Callback)</dt>
-                  <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                    {samlCallbackUrl}
+            </div>
+            <div className="space-y-2">
+              {importantUrls.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3"
+                >
+                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    {label}
+                  </p>
+                  <code className="mt-2 block break-all rounded-md bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text)]">
+                    {value}
                   </code>
-                  <div className="mt-1 flex items-center gap-3">
-                    <CopyButton text={samlCallbackUrl} />
-                  </div>
-                </div>
-                {unsignedMetadataUrl && (
-                  <div>
-                    <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">SAML SP Metadata URL</dt>
-                    <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                      {unsignedMetadataUrl}
-                    </code>
-                    <div className="mt-1 flex items-center gap-3">
-                      <CopyButton text={unsignedMetadataUrl} />
-                      <a href={unsignedMetadataUrl} className="text-xs text-[var(--primary)] hover:underline">
+                  <div className="mt-2 flex items-center gap-2">
+                    <CopyButton text={value} />
+                    {label.includes("Metadata") && (
+                      <a href={value} className="text-xs font-medium text-[var(--primary)] hover:underline">
                         Download
                       </a>
-                    </div>
+                    )}
                   </div>
-                )}
-              </>
-            )}
-            <div>
-              <dt className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Inspector URL (after successful login)</dt>
-              <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1.5 text-xs text-[var(--text)]">
-                {testInspectorUrl}
-              </code>
-              <div className="mt-1 flex items-center gap-3">
-                <CopyButton text={testInspectorUrl} />
-              </div>
+                </div>
+              ))}
             </div>
-          </dl>
+          </Card>
 
-          {app.protocol === "SAML" && signedMetadataUrl && (
-            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
-              <p className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Optional signed metadata URL</p>
-              <code className="block break-all rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text)]">
-                {signedMetadataUrl}
-              </code>
-              <div className="mt-1 flex items-center gap-3">
-                <CopyButton text={signedMetadataUrl} />
-                <a href={signedMetadataUrl} className="text-xs text-[var(--primary)] hover:underline">
-                  Download
-                </a>
+          {app.protocol === "OIDC" && discoveryMetadata && (
+            <Card>
+              <div className="mb-3">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Discovery metadata
+                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Current OIDC server capabilities from provider discovery.
+                </p>
               </div>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                Signed metadata requires both <code>SAML_SP_PRIVATE_KEY</code> and <code>SAML_SP_PUBLIC_CERT</code> environment variables.
-              </p>
-            </div>
+              <DiscoveryMetadataView metadata={discoveryMetadata} />
+            </Card>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

@@ -36,7 +36,12 @@
 
 **Focus Areas**:
 - OIDC app flow in `src/lib/oidc-handler.ts` and callback routes
+  - token lifecycle routes in `src/app/api/auth/token/`
+  - UserInfo route in `src/app/api/auth/userinfo/[slug]/route.ts`
+  - RP-initiated logout in `src/app/api/auth/logout/oidc/`
+  - JWT signature / `at_hash` / `c_hash` diagnostics in `src/lib/oidc-token-validation.ts`
 - SAML app flow in `src/lib/saml-handler.ts` and callback routes
+  - per-app SP signing material in `src/app/api/saml/signing-material/` and `src/lib/saml-signing-material.ts`
   - SAML callback routes now use `303` redirects after POST so browser navigation lands on inspector with `GET`
   - Pending auth state cookie uses `SameSite=None` in production to support cross-site IdP POST callback RelayState lookups
 - User auth routes in `src/app/api/user/`:
@@ -85,6 +90,8 @@
   - `Credential`
   - `AuthToken`
   - `UserProfileImage`
+  - `AuthRun`
+  - `AuthRunEvent`
 - Extended `User` fields:
   - `isVerified`, `mfaEnabled`, `totpSecretEnc`, `totpEnabledAt`
 - Turso migration scripts in `prisma/turso-migrations/`
@@ -127,6 +134,13 @@
 - Full local CI parity: `npm run test:ci`
 - Production build (stable path): `npm run build -- --webpack`
 - Reset local DB: delete `dev.db`, then `npx prisma db push`
+
+### Release Branch Workflow
+
+- For staged deploy testing, cut a release branch from the current working state instead of deploying directly from `main`
+- Recommended naming: `release/<yyyy-mm-dd>-<scope>`
+- Keep `main` unmerged until the release branch has been validated in detail
+- Roll back by redeploying a prior release branch commit or switching to the previous release branch
 
 ### Agent Commit Gate
 - Before creating a commit, update `AGENTS.md` and `CLAUDE.md` if the repo workflow, testing strategy, or agent guidance changed during the work

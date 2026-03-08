@@ -25,11 +25,11 @@ export function Card({
 }: CardProps) {
   return (
     <div
-      className={`rounded-2xl border ${tones[tone]} ${
+      className={`rounded-xl border ${tones[tone]} ${
         interactive
           ? "transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]"
           : ""
-      } ${padding ? "p-6" : ""} ${className}`}
+      } ${padding ? "p-4" : ""} ${className}`}
       {...props}
     >
       {children}

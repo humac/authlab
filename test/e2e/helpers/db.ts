@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { encrypt } from "../../../src/lib/encryption";
 import { hashPassword } from "../../../src/lib/password";
 import { hashToken } from "../../../src/lib/token";
 
@@ -37,6 +38,17 @@ export type E2eAppRecord = {
   name: string;
   slug: string;
   clientSecret: string | null;
+  pkceMode: "S256" | "PLAIN" | "NONE";
+  signAuthnRequests: boolean;
+  hasSpSigningPrivateKey: boolean;
+  hasSpSigningCert: boolean;
+};
+
+export type E2eAuthRunRecord = {
+  id: string;
+  appInstanceId: string;
+  protocol: "OIDC" | "SAML";
+  grantType: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
 };
 
 export type E2eJoinRequestRecord = {
@@ -76,6 +88,8 @@ function toBool(value: number | null) {
 
 export async function resetDatabase() {
   db.exec(`
+    DELETE FROM "AuthRunEvent";
+    DELETE FROM "AuthRun";
     DELETE FROM "AuthToken";
     DELETE FROM "Credential";
     DELETE FROM "UserProfileImage";
@@ -177,6 +191,231 @@ export async function createTeam(overrides: TeamSeedOptions = {}) {
   );
 
   return team;
+}
+
+export async function createOidcApp(data: {
+  teamId: string;
+  name?: string;
+  slug?: string;
+  issuerUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  scopes?: string;
+  pkceMode?: "S256" | "PLAIN" | "NONE";
+}) {
+  const app = {
+    id: randomUUID(),
+    name: data.name ?? "Seeded OIDC App",
+    slug: data.slug ?? `seeded-oidc-${randomUUID().slice(0, 8)}`,
+    protocol: "OIDC" as const,
+    teamId: data.teamId,
+    issuerUrl: data.issuerUrl ?? "https://issuer.example.com",
+    clientId: data.clientId ?? "client-123",
+    clientSecret: data.clientSecret ?? "secret-123",
+    scopes: data.scopes ?? "openid profile email",
+    pkceMode: data.pkceMode ?? "S256",
+  };
+  const timestamp = nowIso();
+
+  db.prepare(
+    `INSERT INTO "AppInstance" (
+      id, name, slug, protocol, teamId, issuerUrl, clientId, clientSecret, scopes,
+      customAuthParamsJson, pkceMode, entryPoint, issuer, idpCert, nameIdFormat,
+      forceAuthnDefault, isPassiveDefault, signAuthnRequests, spSigningPrivateKey,
+      spSigningCert, buttonColor, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    app.id,
+    app.name,
+    app.slug,
+    app.protocol,
+    app.teamId,
+    app.issuerUrl,
+    app.clientId,
+    encrypt(app.clientSecret),
+    app.scopes,
+    null,
+    app.pkceMode,
+    null,
+    null,
+    null,
+    null,
+    0,
+    0,
+    0,
+    null,
+    null,
+    "#3B71CA",
+    timestamp,
+    timestamp,
+  );
+
+  return app;
+}
+
+export async function createAuthRunRecord(data: {
+  appInstanceId: string;
+  protocol?: "OIDC" | "SAML";
+  grantType?: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
+  status?: "PENDING" | "AUTHENTICATED" | "LOGGED_OUT" | "FAILED";
+  nonce?: string | null;
+  claims?: Record<string, unknown>;
+  idToken?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  rawTokenResponse?: string | null;
+  accessTokenExpiresAt?: string | null;
+  lastIntrospection?: Record<string, unknown> | null;
+  lastRevocationAt?: string | null;
+}) {
+  const run: E2eAuthRunRecord = {
+    id: randomUUID(),
+    appInstanceId: data.appInstanceId,
+    protocol: data.protocol ?? "OIDC",
+    grantType: data.grantType ?? "AUTHORIZATION_CODE",
+  };
+  const timestamp = nowIso();
+
+  db.prepare(
+    `INSERT INTO "AuthRun" (
+      id, appInstanceId, protocol, grantType, status, loginState, nonce, nonceStatus,
+      runtimeOverridesJson, outboundAuthParamsJson, claimsJson, idToken, accessTokenEnc,
+      refreshTokenEnc, accessTokenExpiresAt, rawTokenResponseEnc, rawSamlResponseXml,
+      userinfoJson, lastIntrospectionJson, lastRevocationAt, authenticatedAt, completedAt,
+      logoutState, logoutCompletedAt, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    run.id,
+    run.appInstanceId,
+    run.protocol,
+    run.grantType,
+    data.status ?? "AUTHENTICATED",
+    null,
+    data.nonce ?? null,
+    data.nonce ? "valid" : null,
+    JSON.stringify({}),
+    JSON.stringify({}),
+    JSON.stringify(data.claims ?? {}),
+    data.idToken ?? null,
+    data.accessToken ? encrypt(data.accessToken) : null,
+    data.refreshToken ? encrypt(data.refreshToken) : null,
+    data.accessTokenExpiresAt ?? null,
+    data.rawTokenResponse ? encrypt(data.rawTokenResponse) : null,
+    null,
+    null,
+    data.lastIntrospection ? JSON.stringify(data.lastIntrospection) : null,
+    data.lastRevocationAt ?? null,
+    timestamp,
+    null,
+    null,
+    null,
+    timestamp,
+    timestamp,
+  );
+
+  return run;
+}
+
+export async function updateAuthRunRecord(
+  runId: string,
+  data: {
+    accessToken?: string | null;
+    refreshToken?: string | null;
+    rawTokenResponse?: string | null;
+    accessTokenExpiresAt?: string | null;
+    lastIntrospection?: Record<string, unknown> | null;
+    lastRevocationAt?: string | null;
+  },
+) {
+  type ExistingAuthRunRow = {
+    accessTokenEnc: string | null;
+    refreshTokenEnc: string | null;
+    rawTokenResponseEnc: string | null;
+    accessTokenExpiresAt: string | null;
+    lastIntrospectionJson: string | null;
+    lastRevocationAt: string | null;
+  };
+  const existing = db
+    .prepare(
+      `SELECT accessTokenEnc, refreshTokenEnc, rawTokenResponseEnc, accessTokenExpiresAt, lastIntrospectionJson, lastRevocationAt
+       FROM "AuthRun"
+       WHERE id = ?`,
+    )
+    .get(runId) as ExistingAuthRunRow;
+
+  db.prepare(
+    `UPDATE "AuthRun"
+     SET accessTokenEnc = ?,
+         refreshTokenEnc = ?,
+         rawTokenResponseEnc = ?,
+         accessTokenExpiresAt = ?,
+         lastIntrospectionJson = ?,
+         lastRevocationAt = ?,
+         updatedAt = ?
+     WHERE id = ?`,
+  ).run(
+    data.accessToken === undefined
+      ? existing.accessTokenEnc
+      : data.accessToken
+        ? encrypt(data.accessToken)
+        : null,
+    data.refreshToken === undefined
+      ? existing.refreshTokenEnc
+      : data.refreshToken
+        ? encrypt(data.refreshToken)
+        : null,
+    data.rawTokenResponse === undefined
+      ? existing.rawTokenResponseEnc
+      : data.rawTokenResponse
+        ? encrypt(data.rawTokenResponse)
+        : null,
+    data.accessTokenExpiresAt === undefined
+      ? existing.accessTokenExpiresAt
+      : data.accessTokenExpiresAt,
+    data.lastIntrospection === undefined
+      ? existing.lastIntrospectionJson
+      : data.lastIntrospection
+        ? JSON.stringify(data.lastIntrospection)
+        : null,
+    data.lastRevocationAt === undefined
+      ? existing.lastRevocationAt
+      : data.lastRevocationAt,
+    nowIso(),
+    runId,
+  );
+}
+
+export async function createAuthRunEventRecord(data: {
+  authRunId: string;
+  type:
+    | "AUTHENTICATED"
+    | "CLIENT_CREDENTIALS_ISSUED"
+    | "REFRESHED"
+    | "INTROSPECTED"
+    | "REVOKED"
+    | "USERINFO_FETCHED"
+    | "FAILED";
+  status?: "SUCCESS" | "FAILED";
+  request?: Record<string, unknown> | null;
+  response?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const timestamp = nowIso();
+  db.prepare(
+    `INSERT INTO "AuthRunEvent" (
+      id, authRunId, type, status, requestJson, responseEnc, metadataJson, occurredAt, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    randomUUID(),
+    data.authRunId,
+    data.type,
+    data.status ?? "SUCCESS",
+    data.request ? JSON.stringify(data.request) : null,
+    data.response ? encrypt(data.response) : null,
+    data.metadata ? JSON.stringify(data.metadata) : null,
+    timestamp,
+    timestamp,
+  );
 }
 
 export async function addTeamMember(
@@ -292,15 +531,43 @@ export async function findUserByEmail(email: string): Promise<E2eUserRecord | nu
 }
 
 export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> {
+  type AppLookupRow = {
+    id: string;
+    name: string;
+    slug: string;
+    clientSecret: string | null;
+    pkceMode: "S256" | "PLAIN" | "NONE";
+    signAuthnRequests: number;
+    hasSpSigningPrivateKey: number;
+    hasSpSigningCert: number;
+  };
+
   const row = db
     .prepare(
-      `SELECT id, name, slug, clientSecret
+      `SELECT
+         id,
+         name,
+         slug,
+         clientSecret,
+         pkceMode,
+         signAuthnRequests,
+         CASE WHEN spSigningPrivateKey IS NULL THEN 0 ELSE 1 END AS hasSpSigningPrivateKey,
+         CASE WHEN spSigningCert IS NULL THEN 0 ELSE 1 END AS hasSpSigningCert
        FROM "AppInstance"
        WHERE slug = ?`,
     )
-    .get(slug) as E2eAppRecord | undefined;
+    .get(slug) as AppLookupRow | undefined;
 
-  return row ?? null;
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    signAuthnRequests: toBool(row.signAuthnRequests),
+    hasSpSigningPrivateKey: toBool(row.hasSpSigningPrivateKey),
+    hasSpSigningCert: toBool(row.hasSpSigningCert),
+  };
 }
 
 export async function listJoinRequestsForUser(

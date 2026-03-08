@@ -2,13 +2,16 @@
 
 ## Project Overview
 
-AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security:
+AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security and Phase 1/2 enterprise protocol tooling:
 - email verification
 - password reset with one-time tokens
 - passkeys (WebAuthn)
 - TOTP MFA
 - encrypted SMTP/Brevo provider settings
 - secure profile image handling via DB blob + API proxy
+- OIDC lifecycle actions: refresh, introspection, revocation, client credentials
+- OIDC validation diagnostics: signature, `at_hash`, `c_hash`, `acr`, `amr`
+- per-app SAML signing material with self-signed test keypair generation
 
 ## Tech Stack
 
@@ -49,7 +52,11 @@ npm run build -- --webpack
 ### High-Level Areas
 
 - `src/app/api/auth/callback/*` — app protocol callbacks (OIDC/SAML)
+- `src/app/api/auth/token/*` — OIDC token lifecycle routes
+- `src/app/api/auth/userinfo/[slug]/route.ts` — on-demand UserInfo retrieval
+- `src/app/api/auth/logout/oidc/*` — RP-initiated OIDC logout
 - `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
+- `src/lib/oidc-token-validation.ts` — OIDC signature and bound-hash validation helpers
 - `src/app/api/user/*` — account security APIs:
   - login + MFA
   - register + verify email
@@ -60,6 +67,7 @@ npm run build -- --webpack
 - `src/app/api/admin/email-provider/*` — encrypted SMTP/Brevo config and connection testing
 - `src/lib/` — security primitives (`encryption`, `password`, `webauthn`, `totp`, `profile-image`, `email-provider`)
 - `src/repositories/` — DB access layer including `auth-token`, `credential`, `profile-image`
+- `src/repositories/auth-run.repo.ts` — persisted auth runs and lifecycle events for inspector/history workflows
 
 ### Key Security Patterns
 
@@ -99,9 +107,14 @@ npm run build -- --webpack
 - `prisma/schema.prisma` now includes:
   - extended `User` security fields
   - `Credential`, `AuthToken`, `UserProfileImage`
+  - `AppInstance` protocol settings for Phase 1/2 OIDC and SAML controls
+  - `AuthRun` and `AuthRunEvent` for persisted protocol sessions and lifecycle history
 - Use local SQLite for CLI through `prisma.config.ts`
 - For Turso changes, generate SQL diff then apply via `turso db shell`
-- Current hardening migration: `prisma/turso-migrations/20260306_hardened_auth_and_profile.sql`
+- Current roadmap migrations include:
+  - `prisma/turso-migrations/20260306_hardened_auth_and_profile.sql`
+  - `prisma/turso-migrations/20260307_phase1_authrun_and_protocol_settings.sql`
+  - `prisma/turso-migrations/20260307_phase2_oidc_token_lifecycle.sql`
 
 ## Environment Variables
 
@@ -122,6 +135,8 @@ npm run build -- --webpack
 - Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.
 - Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
+- SAML signed metadata/AuthN requests are per-app, not global-env driven.
+- For staged deployment, cut a `release/<yyyy-mm-dd>-<scope>` branch and deploy from that branch rather than merging early into `main`.
 
 ## Agent Commit Rule
 

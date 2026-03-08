@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface PasskeyItem {
   id: string;
@@ -374,41 +375,54 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 animate-enter">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">Profile</h1>
+    <div className="mx-auto max-w-5xl space-y-4 animate-enter">
+      <PageHeader
+        title="Profile"
+        description="Manage identity details, authentication methods, and workspace membership from a single compact control surface."
+      />
 
       {error && (
-        <div className="alert-danger rounded-xl p-3 text-sm">
+        <div className="alert-danger rounded-lg p-3 text-sm">
           {error}
         </div>
       )}
       {success && (
-        <div className="alert-success rounded-xl p-3 text-sm">
+        <div className="alert-success rounded-lg p-3 text-sm">
           {success}
         </div>
       )}
 
       {forcePasswordChange && (
-        <div className="alert-warning rounded-xl p-3 text-sm">
+        <div className="alert-warning rounded-lg p-3 text-sm">
           You must change your temporary password before continuing to other pages.
         </div>
       )}
 
       {!forcePasswordChange && (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Profile</h2>
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Identity</p>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Profile details</h2>
+            </div>
+            <Badge variant="blue">Live account</Badge>
+          </div>
 
-          <div className="mb-4 flex items-center gap-4">
+          <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4 md:flex-row md:items-center">
             <Image
               src={avatarHasError ? avatarFallback : avatarUrl}
               alt="Profile"
               width={64}
               height={64}
               unoptimized
-              className="h-16 w-16 rounded-full border border-[var(--border)] object-cover"
+              className="h-16 w-16 rounded-full border border-[var(--border)] bg-[var(--surface)] object-cover"
               onError={() => setAvatarHasError(true)}
             />
-            <div className="space-y-2">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div>
+                <p className="text-sm font-medium text-[var(--text)]">{user.name}</p>
+                <p className="text-xs text-[var(--muted)]">{user.email}</p>
+              </div>
               <Input
                 label="Upload Profile Image"
                 type="file"
@@ -432,8 +446,11 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Change Password</h2>
+      <Card className="space-y-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Security</p>
+          <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Change password</h2>
+        </div>
         <form onSubmit={handlePassword} className="space-y-4">
           <Input label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
           <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
@@ -446,9 +463,12 @@ export default function SettingsPage() {
 
       {!forcePasswordChange && (
         <>
-          <Card data-testid="mfa-card">
+          <Card data-testid="mfa-card" className="space-y-4">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">MFA (TOTP)</h2>
+              <div>
+                <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Security</p>
+                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">MFA (TOTP)</h2>
+              </div>
               <Badge variant={mfaEnabled ? "green" : "gray"}>{mfaEnabled ? "Enabled" : "Disabled"}</Badge>
             </div>
 
@@ -506,9 +526,12 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          <Card data-testid="passkeys-card">
+          <Card data-testid="passkeys-card" className="space-y-4">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[var(--text)]">Passkeys</h2>
+              <div>
+                <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Security</p>
+                <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Passkeys</h2>
+              </div>
               <Button type="button" size="sm" onClick={handleAddPasskey} loading={loading}>
                 Add Passkey
               </Button>
@@ -541,8 +564,11 @@ export default function SettingsPage() {
             )}
           </Card>
 
-          <Card>
-            <h2 className="mb-4 text-lg font-semibold text-[var(--text)]">Team Memberships</h2>
+          <Card className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Workspace access</p>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--text)]">Team memberships</h2>
+            </div>
             <div className="space-y-2">
               {user.teams.map((team) => (
                 <div key={team.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
@@ -574,8 +600,9 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          <Card tone="subtle">
-            <h2 className="mb-2 text-lg font-semibold text-[var(--text)]">Team Management</h2>
+          <Card tone="subtle" className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Workspace access</p>
+            <h2 className="text-lg font-semibold text-[var(--text)]">Team management</h2>
             <p className="text-sm text-[var(--muted)]">
               Team member management and invites are available directly on the dashboard for the active team.
             </p>

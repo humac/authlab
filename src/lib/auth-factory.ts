@@ -5,21 +5,34 @@ import { SAMLHandler } from "./saml-handler";
 export interface AuthorizationResult {
   url: string;
   state: string;
-  codeVerifier?: string;
+  codeVerifier?: string | null;
+  nonce?: string;
+  outboundParams?: Record<string, string>;
 }
 
 export interface AuthResult {
   slug: string;
   protocol: "OIDC" | "SAML";
   claims: Record<string, unknown>;
-  rawToken?: string;
+  rawTokenResponse?: string;
   rawXml?: string;
-  idToken?: string;
-  accessToken?: string;
+  idToken?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  accessTokenExpiresAt?: Date | null;
+  grantType?: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
+  nonceStatus?: string | null;
+}
+
+export interface AuthRequestOptions {
+  runtimeOverrides?: Record<string, string>;
 }
 
 export interface AuthHandler {
-  getAuthorizationUrl(callbackUrl: string): Promise<AuthorizationResult>;
+  getAuthorizationUrl(
+    callbackUrl: string,
+    options?: AuthRequestOptions,
+  ): Promise<AuthorizationResult>;
 }
 
 export function createAuthHandler(

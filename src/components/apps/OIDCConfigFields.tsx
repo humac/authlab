@@ -1,6 +1,8 @@
 "use client";
 
 import { Input } from "@/components/ui/Input";
+import { KeyValueEditor } from "./KeyValueEditor";
+import type { KeyValueParam } from "@/types/app-instance";
 
 interface OIDCConfigFieldsProps {
   values: {
@@ -8,14 +10,18 @@ interface OIDCConfigFieldsProps {
     clientId: string;
     clientSecret: string;
     scopes: string;
+    customAuthParams: KeyValueParam[];
+    pkceMode: "S256" | "PLAIN" | "NONE";
   };
   onChange: (field: string, value: string) => void;
+  onCustomParamsChange: (params: KeyValueParam[]) => void;
   errors?: Record<string, string>;
 }
 
 export function OIDCConfigFields({
   values,
   onChange,
+  onCustomParamsChange,
   errors = {},
 }: OIDCConfigFieldsProps) {
   const isInsecure =
@@ -62,6 +68,41 @@ export function OIDCConfigFields({
         error={errors.scopes}
         helperText="Space-separated list of OIDC scopes"
       />
+      <div className="space-y-1.5">
+        <label htmlFor="oidc-pkce-mode" className="block text-sm font-medium text-[var(--text)]">
+          PKCE Mode
+        </label>
+        <select
+          id="oidc-pkce-mode"
+          name="pkceMode"
+          value={values.pkceMode}
+          onChange={(event) => onChange("pkceMode", event.target.value)}
+          className="focus-ring h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text)]"
+        >
+          <option value="S256">S256 (recommended)</option>
+          <option value="PLAIN">plain (legacy / testing only)</option>
+          <option value="NONE">disabled (legacy / testing only)</option>
+        </select>
+        <p className="text-xs text-[var(--muted)]">
+          Use `plain` or disabled PKCE only when reproducing legacy client or IdP behavior.
+        </p>
+      </div>
+      <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
+          Advanced OIDC defaults
+        </summary>
+        <div className="mt-3">
+          <KeyValueEditor
+            label="Saved authorization parameters"
+            values={values.customAuthParams}
+            onChange={onCustomParamsChange}
+            helperText="Saved parameters are merged into every OIDC authorization request unless a runtime override replaces them."
+          />
+          {errors.customAuthParams && (
+            <p className="mt-2 text-sm text-red-500">{errors.customAuthParams}</p>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

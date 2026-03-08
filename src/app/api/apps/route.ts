@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CreateAppInstanceSchema } from "@/lib/validators";
+import { validatePemCertificate, validatePemPrivateKey } from "@/lib/pem";
 import { getCurrentUser } from "@/lib/user-session";
 import { getTeamMembership } from "@/repositories/team.repo";
 import {
@@ -40,8 +41,26 @@ export async function POST(request: Request) {
   }
 
   try {
+    const payload = { ...parsed.data };
+    if (payload.protocol === "SAML") {
+      if (payload.spSigningCert) {
+        payload.spSigningCert = validatePemCertificate(payload.spSigningCert);
+      }
+      if (payload.spSigningPrivateKey) {
+        payload.spSigningPrivateKey = validatePemPrivateKey(
+          payload.spSigningPrivateKey,
+        );
+      }
+      if (payload.signAuthnRequests && (!payload.spSigningCert || !payload.spSigningPrivateKey)) {
+        return NextResponse.json(
+          { error: "Signed SAML requests require both a signing certificate and private key" },
+          { status: 400 },
+        );
+      }
+    }
+
     const app = await createAppInstance({
-      ...parsed.data,
+      ...payload,
       teamId: user.activeTeamId,
     });
     return NextResponse.json(app, { status: 201 });

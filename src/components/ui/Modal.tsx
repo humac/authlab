@@ -10,6 +10,7 @@ interface ModalProps {
   children: ReactNode;
   size?: "sm" | "md" | "lg";
   tone?: "default" | "subtle";
+  placement?: "center" | "right";
 }
 
 const sizes = {
@@ -25,6 +26,7 @@ export function Modal({
   children,
   size = "md",
   tone = "default",
+  placement = "center",
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -43,7 +45,9 @@ export function Modal({
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm"
+      className={`fixed inset-0 z-50 flex bg-slate-950/45 px-4 backdrop-blur-sm ${
+        placement === "right" ? "items-stretch justify-end py-0" : "items-center justify-center"
+      }`}
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -52,15 +56,19 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`w-full ${sizes[size]} overflow-hidden rounded-2xl border border-[var(--border)] ${
+        className={`w-full ${sizes[size]} overflow-hidden border border-[var(--border)] ${
           tone === "subtle" ? "bg-[var(--surface-2)]" : "bg-[var(--surface)]"
-        } shadow-[var(--shadow-md)] animate-enter`}
+        } shadow-[var(--shadow-md)] animate-enter ${
+          placement === "right"
+            ? "my-0 h-full max-w-xl rounded-none border-y-0 border-r-0"
+            : "rounded-xl"
+        }`}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
-          <h3 id={titleId} className="text-lg font-semibold text-[var(--text)]">{title}</h3>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+          <h3 id={titleId} className="text-base font-semibold text-[var(--text)]">{title}</h3>
           <button
             onClick={onClose}
-            className="focus-ring rounded-lg p-1 text-[var(--muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+            className="focus-ring rounded-md p-1 text-[var(--muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
             aria-label="Close modal"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,7 +76,9 @@ export function Modal({
             </svg>
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className={`px-4 py-4 ${placement === "right" ? "h-[calc(100%-57px)] overflow-y-auto" : ""}`}>
+          {children}
+        </div>
       </div>
     </div>,
     document.body,

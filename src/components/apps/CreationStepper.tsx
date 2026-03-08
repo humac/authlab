@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { OIDCConfigFields } from "./OIDCConfigFields";
 import { SAMLConfigFields } from "./SAMLConfigFields";
+import type { KeyValueParam } from "@/types/app-instance";
 
 const STEPS = [
   { label: "Protocol" },
@@ -26,9 +27,17 @@ interface FormData {
   clientId: string;
   clientSecret: string;
   scopes: string;
+  customAuthParams: KeyValueParam[];
+  pkceMode: "S256" | "PLAIN" | "NONE";
   entryPoint: string;
   issuer: string;
   idpCert: string;
+  nameIdFormat: string;
+  forceAuthnDefault: boolean;
+  isPassiveDefault: boolean;
+  signAuthnRequests: boolean;
+  spSigningPrivateKey: string;
+  spSigningCert: string;
 }
 
 const initialFormData: FormData = {
@@ -40,9 +49,17 @@ const initialFormData: FormData = {
   clientId: "",
   clientSecret: "",
   scopes: "openid profile email",
+  customAuthParams: [{ key: "", value: "" }],
+  pkceMode: "S256",
   entryPoint: "",
   issuer: "",
   idpCert: "",
+  nameIdFormat: "",
+  forceAuthnDefault: false,
+  isPassiveDefault: false,
+  signAuthnRequests: false,
+  spSigningPrivateKey: "",
+  spSigningCert: "",
 };
 
 export function CreationStepper() {
@@ -55,7 +72,7 @@ export function CreationStepper() {
     (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, ""),
   );
 
-  const updateField = (field: string, value: string) => {
+  const updateField = (field: string, value: string | boolean | KeyValueParam[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => {
       const next = { ...prev };
@@ -137,10 +154,18 @@ export function CreationStepper() {
         body.clientId = formData.clientId;
         body.clientSecret = formData.clientSecret;
         body.scopes = formData.scopes || "openid profile email";
+        body.customAuthParams = formData.customAuthParams.filter((entry) => entry.key.trim());
+        body.pkceMode = formData.pkceMode;
       } else {
         body.entryPoint = formData.entryPoint;
         body.issuer = formData.issuer;
         body.idpCert = formData.idpCert;
+        body.nameIdFormat = formData.nameIdFormat || null;
+        body.forceAuthnDefault = formData.forceAuthnDefault;
+        body.isPassiveDefault = formData.isPassiveDefault;
+        body.signAuthnRequests = formData.signAuthnRequests;
+        body.spSigningPrivateKey = formData.spSigningPrivateKey || null;
+        body.spSigningCert = formData.spSigningCert || null;
       }
 
       const res = await fetch("/api/apps", {
@@ -162,13 +187,14 @@ export function CreationStepper() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl animate-enter">
+    <div className="mx-auto max-w-5xl animate-enter space-y-4">
       <Stepper steps={STEPS} currentStep={step} />
 
-      <Card>
+      <Card className="space-y-1">
         {step === 0 && (
           <div>
-            <h2 className="mb-1 text-xl font-semibold tracking-tight text-[var(--text)]">Choose Protocol</h2>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Step 1</p>
+            <h2 className="mb-1 mt-1 text-xl font-semibold tracking-tight text-[var(--text)]">Choose protocol</h2>
             <p className="mb-5 text-sm text-[var(--muted)]">Pick the identity protocol you want to test.</p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -176,10 +202,10 @@ export function CreationStepper() {
                 <button
                   key={proto}
                   onClick={() => updateField("protocol", proto)}
-                  className={`focus-ring rounded-2xl border-2 p-5 text-left transition-colors ${
+                  className={`focus-ring rounded-xl border p-4 text-left transition-colors ${
                     formData.protocol === proto
-                      ? "border-[var(--primary)] bg-[color-mix(in_oklab,var(--primary)_9%,transparent)]"
-                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
+                      ? "border-[var(--primary)] bg-[color-mix(in_oklab,var(--primary)_8%,transparent)] shadow-[var(--shadow-xs)]"
+                      : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]"
                   }`}
                 >
                   <Badge variant={proto.toLowerCase() as "oidc" | "saml"} />
@@ -200,7 +226,8 @@ export function CreationStepper() {
 
         {step === 1 && (
           <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Customize</h2>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Step 2</p>
+            <h2 className="mb-4 mt-1 text-xl font-semibold tracking-tight text-[var(--text)]">Customize</h2>
             <div className="space-y-4">
               <Input
                 label="App Name"
@@ -235,7 +262,7 @@ export function CreationStepper() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
                 <h3 className="text-sm font-semibold text-[var(--text)]">Important URLs</h3>
                 <p className="mt-1 text-xs text-[var(--muted)]">
                   Configure these values in your identity provider.
@@ -290,29 +317,55 @@ export function CreationStepper() {
 
         {step === 2 && formData.protocol === "OIDC" && (
           <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">OIDC Configuration</h2>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Step 3</p>
+            <h2 className="mb-4 mt-1 text-xl font-semibold tracking-tight text-[var(--text)]">OIDC configuration</h2>
             <OIDCConfigFields
               values={{
                 issuerUrl: formData.issuerUrl,
                 clientId: formData.clientId,
                 clientSecret: formData.clientSecret,
                 scopes: formData.scopes,
+                customAuthParams: formData.customAuthParams,
+                pkceMode: formData.pkceMode,
               }}
               onChange={updateField}
+              onCustomParamsChange={(params) => updateField("customAuthParams", params)}
               errors={errors}
             />
           </div>
         )}
         {step === 2 && formData.protocol === "SAML" && (
           <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">SAML Configuration</h2>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Step 3</p>
+            <h2 className="mb-4 mt-1 text-xl font-semibold tracking-tight text-[var(--text)]">SAML configuration</h2>
             <SAMLConfigFields
               values={{
                 entryPoint: formData.entryPoint,
                 issuer: formData.issuer,
                 idpCert: formData.idpCert,
+                nameIdFormat: formData.nameIdFormat,
+                forceAuthnDefault: formData.forceAuthnDefault,
+                isPassiveDefault: formData.isPassiveDefault,
+                signAuthnRequests: formData.signAuthnRequests,
+                spSigningPrivateKey: formData.spSigningPrivateKey,
+                spSigningCert: formData.spSigningCert,
               }}
-              onChange={updateField}
+              generationContext={{
+                name: formData.name,
+                slug: formData.slug,
+                hasStoredSigningMaterial: false,
+              }}
+              onChange={(field, value) => {
+                if (
+                  field === "forceAuthnDefault" ||
+                  field === "isPassiveDefault" ||
+                  field === "signAuthnRequests"
+                ) {
+                  updateField(field, value === "true");
+                  return;
+                }
+                updateField(field, value);
+              }}
               errors={errors}
             />
           </div>
@@ -320,23 +373,30 @@ export function CreationStepper() {
 
         {step === 3 && (
           <div>
-            <h2 className="mb-4 text-xl font-semibold tracking-tight text-[var(--text)]">Review</h2>
+            <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Step 4</p>
+            <h2 className="mb-4 mt-1 text-xl font-semibold tracking-tight text-[var(--text)]">Review</h2>
             <dl className="space-y-2">
-              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Protocol</dt>
                 <dd>
                   <Badge variant={formData.protocol.toLowerCase() as "oidc" | "saml"} />
                 </dd>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              {formData.protocol === "OIDC" && (
+                <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                  <dt className="text-sm text-[var(--muted)]">PKCE mode</dt>
+                  <dd className="text-sm font-medium text-[var(--text)]">{formData.pkceMode}</dd>
+                </div>
+              )}
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Name</dt>
                 <dd className="text-sm font-medium text-[var(--text)]">{formData.name}</dd>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Slug</dt>
                 <dd className="font-mono text-sm text-[var(--text)]">/{formData.slug}</dd>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Button color</dt>
                 <dd className="flex items-center gap-2">
                   <span

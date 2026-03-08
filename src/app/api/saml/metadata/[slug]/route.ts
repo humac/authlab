@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { generateServiceProviderMetadata } from "@node-saml/node-saml";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 
-function normalizePemFromEnv(value: string): string {
-  return value.replace(/\\n/g, "\n").trim();
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -31,25 +27,27 @@ export async function GET(
   try {
     const metadata = signed
       ? (() => {
-          const privateKey = process.env.SAML_SP_PRIVATE_KEY;
-          const publicCert = process.env.SAML_SP_PUBLIC_CERT;
+          const privateKey = app.spSigningPrivateKey;
+          const publicCert = app.spSigningCert;
           if (!privateKey || !publicCert) {
             throw new Error(
-              "Signed metadata requires SAML_SP_PRIVATE_KEY and SAML_SP_PUBLIC_CERT.",
+              "Signed metadata requires an app-level SAML signing private key and certificate.",
             );
           }
           return generateServiceProviderMetadata({
             issuer: app.issuer!,
             callbackUrl,
             signMetadata: true,
+            identifierFormat: app.nameIdFormat || undefined,
             signatureAlgorithm: "sha256",
-            privateKey: normalizePemFromEnv(privateKey),
-            publicCerts: normalizePemFromEnv(publicCert),
+            privateKey: privateKey.trim(),
+            publicCerts: publicCert.trim(),
           });
         })()
       : generateServiceProviderMetadata({
           issuer: app.issuer!,
           callbackUrl,
+          identifierFormat: app.nameIdFormat || undefined,
         });
 
     const filename = `${slug}-sp-metadata${signed ? "-signed" : ""}.xml`;

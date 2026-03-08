@@ -16,9 +16,9 @@ const variants = {
 };
 
 const sizes = {
-  sm: "h-9 px-3 text-xs",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-sm",
+  sm: "h-8 px-2.5 text-xs",
+  md: "h-9 px-3 text-sm",
+  lg: "h-10 px-4 text-sm",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -43,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`focus-ring inline-flex items-center justify-center gap-2 rounded-xl border font-medium tracking-[0.01em] transition-[background-color,color,border-color,box-shadow,transform] duration-200 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
+        className={`focus-ring inline-flex items-center justify-center gap-2 rounded-lg border font-medium tracking-[0.01em] transition-[background-color,color,border-color,box-shadow,transform] duration-200 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
         {...props}
       >

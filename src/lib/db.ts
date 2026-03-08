@@ -9,8 +9,13 @@ let prismaPromise: Promise<PrismaClient> | null = null;
 async function createPrismaClient(): Promise<PrismaClient> {
   const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
   const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
+  const sqliteUrl = process.env.DATABASE_URL?.trim();
   const hasTursoUrl = Boolean(tursoUrl);
   const hasTursoAuthToken = Boolean(tursoAuthToken);
+  const allowLocalSqliteInProduction =
+    process.env.NODE_ENV === "production" &&
+    process.env.VERCEL !== "1" &&
+    Boolean(sqliteUrl?.startsWith("file:"));
 
   if (hasTursoUrl !== hasTursoAuthToken) {
     throw new Error(
@@ -27,13 +32,12 @@ async function createPrismaClient(): Promise<PrismaClient> {
     return new PrismaClient({ adapter });
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !allowLocalSqliteInProduction) {
     throw new Error(
       "Database misconfiguration: TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are required in production.",
     );
   }
 
-  const sqliteUrl = process.env.DATABASE_URL?.trim();
   if (!sqliteUrl) {
     throw new Error(
       "Database misconfiguration: DATABASE_URL is required for non-production environments.",

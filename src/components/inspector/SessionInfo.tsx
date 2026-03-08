@@ -9,12 +9,18 @@ interface SessionInfoProps {
   slug: string;
   protocol: "OIDC" | "SAML";
   authenticatedAt: string;
+  runId: string;
+  nonceStatus?: string | null;
+  hasRpLogout?: boolean;
 }
 
 export function SessionInfo({
   slug,
   protocol,
   authenticatedAt,
+  runId,
+  nonceStatus,
+  hasRpLogout = false,
 }: SessionInfoProps) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -27,24 +33,37 @@ export function SessionInfo({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-sm)]">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-[var(--muted)]">Protocol:</span>
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Protocol</span>
         <Badge variant={protocol.toLowerCase() as "oidc" | "saml"} />
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-[var(--muted)]">Slug:</span>
-        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-sm text-[var(--text)]">{slug}</code>
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Slug</span>
+        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text)]">{slug}</code>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-[var(--muted)]">Authenticated:</span>
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Authenticated</span>
         <span className="text-sm text-[var(--text)]">{new Date(authenticatedAt).toLocaleString()}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-[var(--muted)]">Cookie:</span>
-        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-sm text-[var(--text)]">authlab_{slug}</code>
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Run</span>
+        <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text)]">{runId}</code>
       </div>
-      <div className="ml-auto">
+      {nonceStatus && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Nonce</span>
+          <Badge variant={nonceStatus === "valid" ? "green" : "gray"}>{nonceStatus}</Badge>
+        </div>
+      )}
+      <div className="ml-auto flex items-center gap-2">
+        {hasRpLogout && protocol === "OIDC" && (
+          <a href={`/api/auth/logout/oidc/${slug}`}>
+            <Button variant="secondary" size="sm">
+              RP Logout
+            </Button>
+          </a>
+        )}
         <Button variant="secondary" size="sm" onClick={handleLogout} loading={loggingOut}>
           Logout
         </Button>

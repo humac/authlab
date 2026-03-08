@@ -4,16 +4,30 @@ import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { CopyButton } from "@/components/ui/CopyButton";
+import { Select } from "@/components/ui/Select";
 
 interface SAMLConfigFieldsProps {
   values: {
     entryPoint: string;
     issuer: string;
     idpCert: string;
+    nameIdFormat: string;
+    forceAuthnDefault: boolean;
+    isPassiveDefault: boolean;
+    signAuthnRequests: boolean;
+    spSigningPrivateKey: string;
+    spSigningCert: string;
   };
   onChange: (field: string, value: string) => void;
   errors?: Record<string, string>;
   idpCertPlaceholder?: string;
+  signingKeyPlaceholder?: string;
+  signingCertPlaceholder?: string;
+  generationContext?: {
+    name?: string;
+    slug?: string;
+    hasStoredSigningMaterial?: boolean;
+  };
 }
 
 interface ParsedMetadata {
@@ -24,11 +38,22 @@ interface ParsedMetadata {
   warnings: string[];
 }
 
+interface GeneratedSigningInfo {
+  commonName: string;
+  subject: string;
+  validFrom: string;
+  validTo: string;
+  fingerprint256: string;
+}
+
 export function SAMLConfigFields({
   values,
   onChange,
   errors = {},
   idpCertPlaceholder = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+  signingKeyPlaceholder = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+  signingCertPlaceholder = "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+  generationContext,
 }: SAMLConfigFieldsProps) {
   const [source, setSource] = useState<"xml" | "url">("xml");
   const [xmlInput, setXmlInput] = useState("");
@@ -38,6 +63,9 @@ export function SAMLConfigFields({
   const [parsedMetadata, setParsedMetadata] = useState<ParsedMetadata | null>(null);
   const [applyEntryPoint, setApplyEntryPoint] = useState(true);
   const [applyIdpCert, setApplyIdpCert] = useState(true);
+  const [generatingSigningMaterial, setGeneratingSigningMaterial] = useState(false);
+  const [generationError, setGenerationError] = useState("");
+  const [generatedInfo, setGeneratedInfo] = useState<GeneratedSigningInfo | null>(null);
 
   const handleFileUpload = async (file: File | null) => {
     if (!file) return;
@@ -89,12 +117,58 @@ export function SAMLConfigFields({
     }
   };
 
+  const handleGenerateSigningMaterial = async () => {
+    const hasExistingMaterial =
+      generationContext?.hasStoredSigningMaterial ||
+      values.spSigningPrivateKey.trim().length > 0 ||
+      values.spSigningCert.trim().length > 0;
+
+    if (
+      hasExistingMaterial &&
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Generating a new test keypair will replace the current signing material in this form. Continue?",
+      )
+    ) {
+      return;
+    }
+
+    setGeneratingSigningMaterial(true);
+    setGenerationError("");
+
+    try {
+      const response = await fetch("/api/saml/signing-material", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: generationContext?.name,
+          slug: generationContext?.slug,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        setGenerationError(data?.error || "Failed to generate test signing material.");
+        return;
+      }
+
+      onChange("spSigningPrivateKey", String(data.privateKeyPem || ""));
+      onChange("spSigningCert", String(data.certificatePem || ""));
+      onChange("signAuthnRequests", "true");
+      setGeneratedInfo(data.info as GeneratedSigningInfo);
+    } catch {
+      setGenerationError("Failed to generate test signing material.");
+    } finally {
+      setGeneratingSigningMaterial(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
         <h3 className="mb-3 text-sm font-semibold text-[var(--text)]">Import IdP Metadata</h3>
 
-        <div className="mb-3 inline-flex overflow-hidden rounded-xl border border-[var(--border)]">
+        <div className="mb-3 inline-flex overflow-hidden rounded-lg border border-[var(--border)]">
           <button
             type="button"
             className={`px-3 py-1.5 text-sm ${source === "xml" ? "bg-[var(--surface)] font-medium text-[var(--text)]" : "bg-[var(--surface-2)] text-[var(--muted)]"}`}
@@ -114,7 +188,7 @@ export function SAMLConfigFields({
         {source === "xml" && (
           <div className="space-y-2">
             <textarea
-              className="focus-ring block w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)]"
+              className="focus-ring block w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)]"
               rows={6}
               value={xmlInput}
               onChange={(e) => setXmlInput(e.target.value)}
@@ -153,7 +227,7 @@ export function SAMLConfigFields({
         {parseError && <p className="mt-3 text-sm text-red-500">{parseError}</p>}
 
         {parsedMetadata && (
-          <div className="mt-4 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+          <div className="mt-4 space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
             <p className="text-sm font-semibold text-[var(--text)]">Parsed Metadata Preview</p>
             <dl className="space-y-2 text-sm">
               <div>
@@ -234,9 +308,12 @@ export function SAMLConfigFields({
         helperText="Your Service Provider Entity ID"
       />
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-[var(--text)]">IdP Certificate (PEM)</label>
+        <label htmlFor="saml-idp-cert" className="block text-sm font-medium text-[var(--text)]">
+          IdP Certificate (PEM)
+        </label>
         <textarea
-          className={`focus-ring block w-full rounded-xl border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.idpCert ? "border-red-400" : "border-[var(--border)]"}`}
+          id="saml-idp-cert"
+          className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.idpCert ? "border-red-400" : "border-[var(--border)]"}`}
           rows={6}
           placeholder={idpCertPlaceholder}
           value={values.idpCert}
@@ -247,6 +324,163 @@ export function SAMLConfigFields({
           The IdP&apos;s public X.509 certificate in PEM format
         </p>
       </div>
+
+      <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
+          Advanced SAML defaults
+        </summary>
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          <Select
+            label="NameID Format"
+            value={values.nameIdFormat}
+            onChange={(e) => onChange("nameIdFormat", e.target.value)}
+            options={[
+              { value: "", label: "Provider default" },
+              { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified", label: "Unspecified" },
+              { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress", label: "Email address" },
+              { value: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent", label: "Persistent" },
+              { value: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient", label: "Transient" },
+              { value: "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName", label: "X509 Subject Name" },
+            ]}
+          />
+          <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Request behavior
+            </p>
+            <label className="flex items-center justify-between text-sm text-[var(--text)]">
+              <span>ForceAuthn by default</span>
+              <input
+                type="checkbox"
+                checked={values.forceAuthnDefault}
+                onChange={(e) => onChange("forceAuthnDefault", String(e.target.checked))}
+              />
+            </label>
+            <label className="flex items-center justify-between text-sm text-[var(--text)]">
+              <span>IsPassive by default</span>
+              <input
+                type="checkbox"
+                checked={values.isPassiveDefault}
+                onChange={(e) => onChange("isPassiveDefault", String(e.target.checked))}
+              />
+            </label>
+            <label className="flex items-center justify-between text-sm text-[var(--text)]">
+              <span>Sign AuthN requests</span>
+              <input
+                type="checkbox"
+                checked={values.signAuthnRequests}
+                onChange={(e) => onChange("signAuthnRequests", String(e.target.checked))}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="lg:col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Test signing keypair
+                </p>
+                <p className="text-sm text-[var(--text)]">
+                  Generate a self-signed certificate for IdP metadata import in test environments.
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  The generated private key is shown only in this form before save. Regenerating
+                  requires re-importing your SP metadata or certificate in the IdP.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={generationContext?.hasStoredSigningMaterial ? "secondary" : "primary"}
+                size="sm"
+                loading={generatingSigningMaterial}
+                onClick={handleGenerateSigningMaterial}
+              >
+                {generationContext?.hasStoredSigningMaterial ||
+                values.spSigningPrivateKey.trim() ||
+                values.spSigningCert.trim()
+                  ? "Regenerate Test Keypair"
+                  : "Generate Test Keypair"}
+              </Button>
+            </div>
+
+            {generationError && <p className="mt-3 text-sm text-red-500">{generationError}</p>}
+
+            {generatedInfo && (
+              <dl className="mt-3 grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-sm md:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Subject
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-[var(--text)]">
+                    {generatedInfo.subject}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    Valid Until
+                  </dt>
+                  <dd className="mt-1 text-[var(--text)]">
+                    {new Date(generatedInfo.validTo).toLocaleString()}
+                  </dd>
+                </div>
+                <div className="md:col-span-2">
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                    SHA-256 Fingerprint
+                  </dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-[var(--text)]">
+                    {generatedInfo.fingerprint256}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="saml-sp-signing-private-key" className="block text-sm font-medium text-[var(--text)]">
+              SP Signing Private Key
+            </label>
+            <textarea
+              id="saml-sp-signing-private-key"
+              className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.spSigningPrivateKey ? "border-red-400" : "border-[var(--border)]"}`}
+              rows={6}
+              placeholder={signingKeyPlaceholder}
+              value={values.spSigningPrivateKey}
+              onChange={(e) => onChange("spSigningPrivateKey", e.target.value)}
+            />
+            {errors.spSigningPrivateKey && (
+              <p className="text-sm text-red-500">{errors.spSigningPrivateKey}</p>
+            )}
+            {!errors.spSigningPrivateKey && (
+              <p className="text-sm text-[var(--muted)]">
+                Stored encrypted at rest. After save, the private key is no longer returned in API
+                responses.
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="saml-sp-signing-cert" className="block text-sm font-medium text-[var(--text)]">
+              SP Signing Certificate
+            </label>
+            <textarea
+              id="saml-sp-signing-cert"
+              className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] shadow-[var(--shadow-xs)] placeholder:text-[var(--muted)] ${errors.spSigningCert ? "border-red-400" : "border-[var(--border)]"}`}
+              rows={6}
+              placeholder={signingCertPlaceholder}
+              value={values.spSigningCert}
+              onChange={(e) => onChange("spSigningCert", e.target.value)}
+            />
+            {errors.spSigningCert && (
+              <p className="text-sm text-red-500">{errors.spSigningCert}</p>
+            )}
+            {!errors.spSigningCert && (
+              <p className="text-sm text-[var(--muted)]">
+                Share this certificate or refreshed SP metadata with the IdP after regeneration.
+              </p>
+            )}
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

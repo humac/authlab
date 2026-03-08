@@ -13,17 +13,30 @@ const baseSchema = z.object({
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
 });
 
+const KeyValueParamSchema = z.object({
+  key: z.string().min(1, "Key is required").max(100),
+  value: z.string().max(500).default(""),
+});
+
 const oidcFields = z.object({
   issuerUrl: z.url("Invalid issuer URL"),
   clientId: z.string().min(1, "Client ID is required"),
   clientSecret: z.string().min(1, "Client Secret is required"),
   scopes: z.string().optional().nullable(),
+  customAuthParams: z.array(KeyValueParamSchema).optional(),
+  pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),
 });
 
 const samlFields = z.object({
   entryPoint: z.url("Invalid entry point URL"),
   issuer: z.string().min(1, "Issuer is required"),
   idpCert: z.string().min(1, "IdP Certificate is required"),
+  nameIdFormat: z.string().optional().nullable(),
+  forceAuthnDefault: z.boolean().optional(),
+  isPassiveDefault: z.boolean().optional(),
+  signAuthnRequests: z.boolean().optional(),
+  spSigningPrivateKey: z.string().optional().nullable(),
+  spSigningCert: z.string().optional().nullable(),
 });
 
 export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
@@ -34,6 +47,12 @@ export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
       entryPoint: z.string().optional().nullable(),
       issuer: z.string().optional().nullable(),
       idpCert: z.string().optional().nullable(),
+      nameIdFormat: z.string().optional().nullable(),
+      forceAuthnDefault: z.boolean().optional(),
+      isPassiveDefault: z.boolean().optional(),
+      signAuthnRequests: z.boolean().optional(),
+      spSigningPrivateKey: z.string().optional().nullable(),
+      spSigningCert: z.string().optional().nullable(),
     }),
   baseSchema
     .extend({ protocol: z.literal("SAML") })
@@ -43,6 +62,7 @@ export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
       clientId: z.string().optional().nullable(),
       clientSecret: z.string().optional().nullable(),
       scopes: z.string().optional().nullable(),
+      customAuthParams: z.array(KeyValueParamSchema).optional(),
     }),
 ]);
 
@@ -58,9 +78,17 @@ export const UpdateAppInstanceSchema = z.object({
   clientId: z.string().optional().nullable(),
   clientSecret: z.string().optional().nullable(),
   scopes: z.string().optional().nullable(),
+  customAuthParams: z.array(KeyValueParamSchema).optional(),
+  pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),
   entryPoint: z.string().url().optional().nullable(),
   issuer: z.string().optional().nullable(),
   idpCert: z.string().optional().nullable(),
+  nameIdFormat: z.string().optional().nullable(),
+  forceAuthnDefault: z.boolean().optional(),
+  isPassiveDefault: z.boolean().optional(),
+  signAuthnRequests: z.boolean().optional(),
+  spSigningPrivateKey: z.string().optional().nullable(),
+  spSigningCert: z.string().optional().nullable(),
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
 });
 

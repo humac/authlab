@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { OIDCConfigFields } from "./OIDCConfigFields";
 import { SAMLConfigFields } from "./SAMLConfigFields";
 import type { RedactedAppInstance } from "@/types/app-instance";
 
@@ -23,14 +24,22 @@ export function EditAppForm({ app }: EditAppFormProps) {
     clientId: app.clientId || "",
     clientSecret: "",
     scopes: app.scopes || "openid profile email",
+    customAuthParams: app.customAuthParams,
+    pkceMode: app.pkceMode,
     entryPoint: app.entryPoint || "",
     issuer: app.issuer || "",
     idpCert: "",
+    nameIdFormat: app.nameIdFormat || "",
+    forceAuthnDefault: app.forceAuthnDefault,
+    isPassiveDefault: app.isPassiveDefault,
+    signAuthnRequests: app.signAuthnRequests,
+    spSigningPrivateKey: "",
+    spSigningCert: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const updateField = (field: string, value: string) => {
+  const updateField = (field: string, value: string | boolean | typeof formData.customAuthParams) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -39,7 +48,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
     setSaving(true);
     setError("");
 
-    const body: Record<string, string> = {
+    const body: Record<string, unknown> = {
       name: formData.name,
       slug: formData.slug,
       buttonColor: formData.buttonColor,
@@ -50,10 +59,22 @@ export function EditAppForm({ app }: EditAppFormProps) {
       body.clientId = formData.clientId;
       if (formData.clientSecret) body.clientSecret = formData.clientSecret;
       body.scopes = formData.scopes;
+      body.customAuthParams = formData.customAuthParams.filter((entry) => entry.key.trim());
+      body.pkceMode = formData.pkceMode;
     } else {
       body.entryPoint = formData.entryPoint;
       body.issuer = formData.issuer;
       if (formData.idpCert) body.idpCert = formData.idpCert;
+      body.nameIdFormat = formData.nameIdFormat || null;
+      body.forceAuthnDefault = formData.forceAuthnDefault;
+      body.isPassiveDefault = formData.isPassiveDefault;
+      body.signAuthnRequests = formData.signAuthnRequests;
+      if (formData.spSigningPrivateKey) {
+        body.spSigningPrivateKey = formData.spSigningPrivateKey;
+      }
+      if (formData.spSigningCert) {
+        body.spSigningCert = formData.spSigningCert;
+      }
     }
 
     try {
@@ -95,34 +116,18 @@ export function EditAppForm({ app }: EditAppFormProps) {
         />
 
         {app.protocol === "OIDC" && (
-          <>
-            <Input
-              label="Issuer URL"
-              value={formData.issuerUrl}
-              onChange={(e) => updateField("issuerUrl", e.target.value)}
-            />
-            <Input
-              label="Client ID"
-              value={formData.clientId}
-              onChange={(e) => updateField("clientId", e.target.value)}
-            />
-            <Input
-              label="Client Secret"
-              type="password"
-              value={formData.clientSecret}
-              onChange={(e) => updateField("clientSecret", e.target.value)}
-              helperText={
-                app.hasClientSecret
-                  ? "Leave blank to keep existing secret"
-                  : "Enter client secret"
-              }
-            />
-            <Input
-              label="Scopes"
-              value={formData.scopes}
-              onChange={(e) => updateField("scopes", e.target.value)}
-            />
-          </>
+          <OIDCConfigFields
+            values={{
+              issuerUrl: formData.issuerUrl,
+              clientId: formData.clientId,
+              clientSecret: formData.clientSecret,
+              scopes: formData.scopes,
+              customAuthParams: formData.customAuthParams,
+              pkceMode: formData.pkceMode,
+            }}
+            onChange={(field, value) => updateField(field, value)}
+            onCustomParamsChange={(params) => updateField("customAuthParams", params)}
+          />
         )}
 
         {app.protocol === "SAML" && (
@@ -131,11 +136,42 @@ export function EditAppForm({ app }: EditAppFormProps) {
               entryPoint: formData.entryPoint,
               issuer: formData.issuer,
               idpCert: formData.idpCert,
+              nameIdFormat: formData.nameIdFormat,
+              forceAuthnDefault: formData.forceAuthnDefault,
+              isPassiveDefault: formData.isPassiveDefault,
+              signAuthnRequests: formData.signAuthnRequests,
+              spSigningPrivateKey: formData.spSigningPrivateKey,
+              spSigningCert: formData.spSigningCert,
             }}
-            onChange={updateField}
+            generationContext={{
+              name: formData.name,
+              slug: formData.slug,
+              hasStoredSigningMaterial: app.hasSpSigningPrivateKey || app.hasSpSigningCert,
+            }}
+            onChange={(field, value) => {
+              if (
+                field === "forceAuthnDefault" ||
+                field === "isPassiveDefault" ||
+                field === "signAuthnRequests"
+              ) {
+                updateField(field, value === "true");
+                return;
+              }
+              updateField(field, value);
+            }}
             idpCertPlaceholder={
               app.hasIdpCert
                 ? "Leave blank to keep existing certificate"
+                : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+            }
+            signingKeyPlaceholder={
+              app.hasSpSigningPrivateKey
+                ? "Leave blank to keep existing signing private key"
+                : "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+            }
+            signingCertPlaceholder={
+              app.hasSpSigningCert
+                ? "Leave blank to keep existing signing certificate"
                 : "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
             }
           />
