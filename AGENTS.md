@@ -85,12 +85,17 @@
   - TOTP enrollment/disable
   - profile image upload/remove
 - Admin email provider settings in `src/app/(dashboard)/admin/settings/page.tsx`
+- Dense management surfaces:
+  - responsive stacked-table behavior across dashboard, teams, admin users, and inspector tables
+  - explicit access-state copy for team join/request workflows instead of color-only signaling
+  - compact control alignment for search inputs and adjacent action buttons
 
 **Design System**:
 - Primary color: `#3B71CA` via CSS custom properties in `globals.css`
 - Tailwind CSS v4 utilities
 - Client components for interactive forms
 - Server components for data-loading layout/page shells
+- Prefer explicit labels and helper text over unexplained badge color semantics in operational views
 
 ### Database/Backend Developer
 

@@ -475,6 +475,8 @@ Implemented foundation includes:
 - ForceAuthn / IsPassive
 - `AuthRun` persistence
 - compact enterprise SaaS UI refresh baseline
+- responsive management tables that collapse into labeled mobile rows
+- clearer team access and join-request workflow copy instead of color-only status cues
 
 ## Phase 2: Token Lifecycle
 

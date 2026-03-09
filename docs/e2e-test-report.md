@@ -28,6 +28,9 @@ The original manual/browser-assisted run documented in this report covered the f
 - OIDC lifecycle diagnostics and actions
 - Client credentials, token exchange, and protocol-specific inspector flows
 - SCIM mock provisioning
+- Team slug auto-generation recovery
+- Responsive management tables without horizontal-scroll dependence
+- Explicit team access and join-review state copy on the Teams page
 - Admin user creation, update, and deletion
 - Responsive smoke checks across mobile, tablet, and desktop
 

@@ -19,6 +19,7 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - SAML Single Logout (SP-initiated and IdP-initiated callback handling)
 - SAML request controls: AuthnContext, signature algorithm, clock skew, logout URL
 - SCIM mock provisioning endpoints with persisted resources and request logs
+- dense responsive management UI with stacked mobile tables and clearer team access/join-request states
 
 ## Tech Stack
 
@@ -67,6 +68,7 @@ npm run build -- --webpack
 - `src/app/api/auth/logout/oidc/*` — RP-initiated OIDC logout
 - `src/app/api/auth/logout/saml/*` — SAML single logout start and callback handling
 - `src/app/api/scim/*` — app-scoped SCIM mock discovery and resource endpoints
+- `src/app/(dashboard)/teams/*`, `src/app/(dashboard)/admin/users/page.tsx`, and `src/components/apps/Dashboard.tsx` — responsive operational tables and team access workflows
 - `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
 - `src/lib/oidc-token-validation.ts` — OIDC signature and bound-hash validation helpers
 - `src/lib/oidc-backchannel-logout.ts` — logout-token validation and run correlation
@@ -162,6 +164,8 @@ npm run build -- --webpack
 - Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
 - SAML signed metadata/AuthN requests are per-app, not global-env driven.
 - SAML metadata now exposes app-level decryption and SLO callbacks when configured.
+- Dense management tables use a mobile stacked-row pattern rather than horizontal scrolling.
+- Team access and join-review states are intentionally labeled in copy, not left as badge-color-only semantics.
 - `npm run test:e2e` uses a built Next.js server and `localhost` origin to keep Playwright and WebAuthn stable.
 - Do not run `npm run test:e2e` and `npm run build:ci` in parallel; both can contend on the Next.js build lock.
 - Release flow is branch- and tag-based:

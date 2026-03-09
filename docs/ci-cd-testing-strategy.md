@@ -83,7 +83,7 @@ If you use GitHub Environments for production, add required reviewers there as a
 - Integration tests: disposable SQLite-backed route and repository flows for auth token lifecycle, registration, invite acceptance, join requests, OIDC callbacks, SAML callbacks, MFA TOTP setup/disable, passkey registration/login management, password reset, admin routes, Phase 1 through 4 OIDC routes, and SCIM mock routes
 - Security regression tests: disposable SQLite-backed auth abuse coverage for generic registration/login/recovery responses, brute-force rate limiting, MFA lockout, and expired passkey challenge handling
 - Nightly performance baselines: in-process route benchmarks for register, password login, invalid-password login, password reset request, and verification resend flows with avg/p95 budgets and artifact reports
-- End-to-end tests: Playwright browser journeys for registration, email verification, login, MFA setup/disable, passkey enrollment/login/removal, password reset, invite acceptance, team join requests, profile management, app lifecycle, client credentials, token exchange, SCIM provisioning, protocol inspectors, admin user management, admin access control, and responsive smoke checks across mobile/tablet/desktop
+- End-to-end tests: Playwright browser journeys for registration, email verification, login, MFA setup/disable, passkey enrollment/login/removal, password reset, invite acceptance, team join requests, team slug auto-generation, profile management, app lifecycle, client credentials, token exchange, SCIM provisioning, protocol inspectors, admin user management, admin access control, and responsive smoke checks across mobile/tablet/desktop
 - Schema validation: Prisma
 - Build verification: Next.js webpack production build
 - Dependency risk review: GitHub dependency review
@@ -94,6 +94,7 @@ If you use GitHub Environments for production, add required reviewers there as a
 - `npm run test:e2e` builds and serves the app in production mode before running Playwright
 - The browser suite stays on `localhost` so WebAuthn/passkey coverage remains valid
 - Do not run E2E and `npm run build:ci` in parallel locally because they can contend on `.next/lock`
+- Current browser coverage includes the mobile-safe table layout and clearer teams access/join-request workflow semantics
 
 ### Not yet automated in this repository
 

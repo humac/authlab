@@ -18,7 +18,7 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
 - **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
 - **Cross-Team App Transfer** — Team admins/owners can move or copy app configurations across teams
-- **Dense SaaS UI** — Compact management tables, runtime launch controls, and analyst-focused inspector tabs
+- **Dense SaaS UI** — Compact management tables, runtime launch controls, analyst-focused inspector tabs, mobile-friendly stacked table layouts, and explicit team access / join-queue states
 
 ## Tech Stack
 
@@ -98,6 +98,12 @@ npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab dashboard with a "Create Your First App" prompt.
+
+Recent UX baseline highlights:
+
+- management tables collapse into readable labeled rows on mobile instead of horizontal scroll
+- team access states are explained directly in the Teams directory (`No access`, `Request pending`, role-based access, and join queue summaries)
+- compact search inputs and adjacent action buttons share the same control height
 
 ### 6. Verify local changes before commit
 
