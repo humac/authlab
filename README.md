@@ -8,10 +8,11 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 
 - **Dynamic Provider Registry** — Create multiple OIDC or SAML app instances, each with its own slug-based URL
 - **Isolated Sessions** — Each tenant gets its own encrypted cookie (`authlab_{slug}`), so you can test multiple providers simultaneously
-- **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, client credentials, device authorization, token exchange, PAR, and back-channel logout testing
-- **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, claims diff, trace logging, decoded claims, and raw JSON/XML views
+- **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, client credentials, device authorization, token exchange, PAR, and both front-channel and back-channel logout testing
+- **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, claims diff, trace logging, compliance reporting, decoded claims, and raw JSON/XML views
 - **Per-App SAML Signing** — Upload or generate self-signed SP signing material per app instance for signed metadata and AuthN requests
 - **Enterprise SAML Controls** — NameID format, ForceAuthn, IsPassive, AuthnContext, signature algorithm, clock skew, encrypted assertions, and SAML SLO per app instance
+- **SAML Trust Diagnostics** — Structured assertion parsing, signature detail inspection, IdP certificate health/expiry checks, and run-level compliance summaries
 - **SCIM Mock Provisioning** — App-scoped SCIM `ServiceProviderConfig`, `Schemas`, `ResourceTypes`, `Users`, and `Groups` endpoints with persisted mock resources and request logs
 - **Callback Routing** — App-specific callback URL for both OIDC and SAML; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
@@ -145,6 +146,8 @@ npm run test:perf
 Register these callback URLs in your identity provider's configuration:
 
 - **OIDC (per app)**: `http://localhost:3000/api/auth/callback/oidc/{slug}`
+- **OIDC front-channel logout (per app)**: `http://localhost:3000/api/auth/frontchannel-logout/{slug}`
+- **OIDC back-channel logout (per app)**: `http://localhost:3000/api/auth/backchannel-logout/{slug}`
 - **SAML (per app)**: `http://localhost:3000/api/auth/callback/saml/{slug}`
 
 Use the exact slug for the app instance you are testing (shown on each app test page).  
@@ -173,7 +176,7 @@ If a SAML app does not have signing material configured, unsigned metadata still
 1. Click **Test** on your app instance card
 2. Click the **Login with OIDC/SAML** button
 3. Authenticate at your IdP
-4. View the inspector page with lifecycle, validation, trace, claims diff, and raw payload diagnostics
+4. View the inspector page with lifecycle, validation, trace, claims diff, compliance, raw payload, and protocol-specific trust diagnostics
 
 For OIDC apps, the test workbench also supports:
 
@@ -181,6 +184,12 @@ For OIDC apps, the test workbench also supports:
 - Client credentials
 - Device authorization
 - Token exchange
+
+For SAML apps, the inspector now also highlights:
+
+- signature structure and certificate matching details
+- IdP signing certificate subject, fingerprint, and expiry posture
+- assertion/compliance posture across Conditions, SubjectConfirmation, SLO, and signing configuration
 
 For app-level provisioning tests, the app detail page exposes:
 

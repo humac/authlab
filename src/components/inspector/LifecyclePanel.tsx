@@ -50,7 +50,12 @@ function eventVariant(type: string, status: string): "blue" | "green" | "gray" {
   if (status === "FAILED") {
     return "gray";
   }
-  if (type === "REVOKED" || type === "DEVICE_AUTHORIZATION_STARTED") {
+  if (
+    type === "REVOKED" ||
+    type === "DEVICE_AUTHORIZATION_STARTED" ||
+    type === "FRONTCHANNEL_LOGGED_OUT" ||
+    type === "BACKCHANNEL_LOGGED_OUT"
+  ) {
     return "blue";
   }
   return "green";
@@ -297,6 +302,10 @@ function describeEvent(event: LifecycleEventView): string {
         : "Revocation requested.";
     case "USERINFO_FETCHED":
       return "UserInfo response captured.";
+    case "FRONTCHANNEL_LOGGED_OUT":
+      return "Front-channel logout callback accepted and matching runs invalidated.";
+    case "BACKCHANNEL_LOGGED_OUT":
+      return "Back-channel logout token accepted and matching runs invalidated.";
     case "FAILED":
       return "A lifecycle action failed.";
     default:

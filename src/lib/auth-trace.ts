@@ -67,6 +67,8 @@ function buildEventTitle(protocol: AuthRun["protocol"], type: AuthRunEvent["type
       return "Token revocation";
     case "USERINFO_FETCHED":
       return "UserInfo request";
+    case "FRONTCHANNEL_LOGGED_OUT":
+      return "Front-channel logout";
     case "BACKCHANNEL_LOGGED_OUT":
       return "Back-channel logout";
     case "FAILED":
@@ -110,6 +112,8 @@ function buildEventSummary(protocol: AuthRun["protocol"], event: AuthRunEvent): 
       return "Submitted a revocation request for the selected token.";
     case "USERINFO_FETCHED":
       return "Called the provider UserInfo endpoint with the current access token.";
+    case "FRONTCHANNEL_LOGGED_OUT":
+      return "Accepted a front-channel logout callback and invalidated matching runs.";
     case "BACKCHANNEL_LOGGED_OUT":
       return "Accepted a provider-initiated logout token and invalidated matching runs.";
     default:

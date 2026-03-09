@@ -8,6 +8,8 @@ Branch under test: historical baseline report
 
 This file is now an archival baseline from the earlier manual/browser-assisted run. The current source of truth is the Playwright suite in `test/e2e/auth-and-dashboard.spec.ts`, which now covers the broader Phase 1 through Phase 4 product surface.
 
+Post-Phase-4 follow-up features such as OIDC front-channel logout handling, SAML signature detail inspection, certificate expiry diagnostics, and protocol compliance reporting are implemented in the product, but they are not part of the historical manual run captured below. Their regression coverage currently lives in the unit, integration, security, and build gates rather than in this archival report.
+
 ## Summary
 
 - Journeys tested in this historical report: 5
@@ -33,6 +35,13 @@ The original manual/browser-assisted run documented in this report covered the f
 - Explicit team access and join-review state copy on the Teams page
 - Admin user creation, update, and deletion
 - Responsive smoke checks across mobile, tablet, and desktop
+
+The suite is still supplemented by non-browser checks for newer inspector-only diagnostics:
+
+- OIDC front-channel logout callback handling
+- SAML signature structure analysis
+- certificate health / expiry reporting
+- protocol compliance summaries
 
 ## Environment and Setup
 

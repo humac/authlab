@@ -38,6 +38,7 @@
 - OIDC app flow in `src/lib/oidc-handler.ts` and callback routes
   - token lifecycle routes in `src/app/api/auth/token/`
   - back-channel logout in `src/app/api/auth/backchannel-logout/[slug]/route.ts` and `src/lib/oidc-backchannel-logout.ts`
+  - front-channel logout in `src/app/api/auth/frontchannel-logout/[slug]/route.ts`
   - device authorization in `src/app/api/auth/device/`
   - token exchange in `src/app/api/auth/token/exchange/`
   - UserInfo route in `src/app/api/auth/userinfo/[slug]/route.ts`
@@ -48,6 +49,8 @@
   - per-app SP signing material in `src/app/api/saml/signing-material/` and `src/lib/saml-signing-material.ts`
   - SAML SLO in `src/app/api/auth/logout/saml/` and `src/lib/saml-logout.ts`
   - app-level encrypted assertion support via `spEncryptionPrivateKey` / `spEncryptionCert`
+  - signature diagnostics in `src/lib/saml-signature-diagnostics.ts`
+  - certificate health/expiry checks in `src/lib/certificate-diagnostics.ts`
   - SAML callback routes now use `303` redirects after POST so browser navigation lands on inspector with `GET`
   - Pending auth state cookie uses `SameSite=None` in production to support cross-site IdP POST callback RelayState lookups
 - SCIM mock provisioning in `src/app/api/scim/`, `src/lib/scim*.ts`, and `src/repositories/scim.repo.ts`
@@ -55,6 +58,8 @@
   - lifecycle timeline
   - claims diff
   - trace view
+  - protocol compliance reporting
+  - SAML signature and certificate panels
   - protocol-specific OIDC/SAML diagnostics
 - User auth routes in `src/app/api/user/`:
   - login + MFA (`login`, `login/mfa/totp`)

@@ -22,6 +22,15 @@ import { getLatestDeviceAuthorizationSnapshot } from "@/lib/oidc-device-flow";
 import { parseSamlResponseXml } from "@/lib/saml-response-parser";
 import { getSamlLogoutProfileFromRun } from "@/lib/saml-logout";
 import { ClaimsDiffPanel } from "@/components/inspector/ClaimsDiffPanel";
+import { SamlSignaturePanel } from "@/components/inspector/SamlSignaturePanel";
+import { CertificateHealthPanel } from "@/components/inspector/CertificateHealthPanel";
+import { ProtocolCompliancePanel } from "@/components/inspector/ProtocolCompliancePanel";
+import { analyzeSamlSignatureDiagnostics } from "@/lib/saml-signature-diagnostics";
+import { analyzeCertificatePem } from "@/lib/certificate-diagnostics";
+import {
+  buildOidcComplianceReport,
+  buildSamlComplianceReport,
+} from "@/lib/protocol-compliance";
 
 export default async function InspectorPage({
   params,
@@ -87,6 +96,16 @@ export default async function InspectorPage({
     run.protocol === "SAML" && run.rawSamlResponseXml
       ? await parseSamlResponseXml(run.rawSamlResponseXml)
       : null;
+  const samlSignatureDiagnostics =
+    run.protocol === "SAML"
+      ? await analyzeSamlSignatureDiagnostics({
+          xml: run.rawSamlResponseXml,
+          configuredIdpCert: app.idpCert,
+          callbackValidated: run.status === "AUTHENTICATED",
+        })
+      : null;
+  const samlCertificateDiagnostics =
+    run.protocol === "SAML" ? analyzeCertificatePem(app.idpCert) : null;
   const hasSamlLogout =
     run.protocol === "SAML" &&
     Boolean(app.samlLogoutUrl) &&
@@ -107,6 +126,23 @@ export default async function InspectorPage({
         : null,
     samlEntryPoint: app.protocol === "SAML" ? app.entryPoint : null,
   });
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const complianceReport =
+    run.protocol === "OIDC"
+      ? buildOidcComplianceReport({
+          app,
+          run,
+          discoveryMetadata,
+          frontChannelLogoutUrl: `${appUrl}/api/auth/frontchannel-logout/${slug}`,
+          backChannelLogoutUrl: `${appUrl}/api/auth/backchannel-logout/${slug}`,
+        })
+      : buildSamlComplianceReport({
+          app,
+          run,
+          assertion: samlAssertion,
+          signature: samlSignatureDiagnostics!,
+          certificate: samlCertificateDiagnostics!,
+        });
   const tabs =
     run.protocol === "OIDC"
       ? [
@@ -154,6 +190,10 @@ export default async function InspectorPage({
             label: "Trace",
             content: <TracePanel entries={traceEntries} />,
           },
+          {
+            label: "Compliance",
+            content: <ProtocolCompliancePanel report={complianceReport} />,
+          },
         ]
       : [
           {
@@ -185,6 +225,23 @@ export default async function InspectorPage({
           {
             label: "Trace",
             content: <TracePanel entries={traceEntries} />,
+          },
+          {
+            label: "Signature",
+            content: <SamlSignaturePanel diagnostics={samlSignatureDiagnostics!} />,
+          },
+          {
+            label: "Certificate",
+            content: (
+              <CertificateHealthPanel
+                title="IdP signing certificate"
+                diagnostics={samlCertificateDiagnostics!}
+              />
+            ),
+          },
+          {
+            label: "Compliance",
+            content: <ProtocolCompliancePanel report={complianceReport} />,
           },
         ];
 

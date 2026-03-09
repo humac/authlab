@@ -133,6 +133,60 @@ describe("integration: repositories and api routes", () => {
       });
       assert.equal(remainingMatches.length, 0);
     });
+
+    it("accepts front-channel logout callbacks and marks matching runs logged out", async (t) => {
+      const team = await createTeam({ slug: "frontchannel-team" });
+      const prisma = await getPrisma();
+      const app = await prisma.appInstance.create({
+        data: {
+          name: "Front-channel OIDC",
+          slug: "frontchannel-oidc",
+          protocol: "OIDC",
+          teamId: team.id,
+          issuerUrl: "https://issuer.example.com",
+          clientId: "client-123",
+        },
+      });
+
+      const run = await createAuthRun({
+        appInstanceId: app.id,
+        protocol: "OIDC",
+        loginState: "frontchannel-state",
+      });
+      await completeAuthRun(run.id, {
+        claims: { sub: "user-123", sid: "sid-123" },
+        oidcSubject: "user-123",
+        oidcSessionId: "sid-123",
+      });
+
+      const clearAppSession = t.mock.fn(async () => {});
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => null),
+          clearAppSession,
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/frontchannel-logout/[slug]/route.ts")
+      >("../../src/app/api/auth/frontchannel-logout/[slug]/route.ts");
+
+      const response = await route.GET(
+        new Request(
+          "http://localhost/api/auth/frontchannel-logout/frontchannel-oidc?iss=https%3A%2F%2Fissuer.example.com&sid=sid-123",
+        ),
+        { params: Promise.resolve({ slug: "frontchannel-oidc" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const updatedRun = await prisma.authRun.findUnique({ where: { id: run.id } });
+      assert.equal(updatedRun?.status, "LOGGED_OUT");
+      const events = await prisma.authRunEvent.findMany({
+        where: { authRunId: run.id },
+      });
+      assert.equal(events.some((event) => event.type === "FRONTCHANNEL_LOGGED_OUT"), true);
+      assert.equal(clearAppSession.mock.callCount(), 0);
+    });
   });
 
   describe("POST /api/user/register", () => {
