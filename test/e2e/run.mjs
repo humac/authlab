@@ -36,4 +36,5 @@ function run(command, args) {
 }
 
 run(npxBin, ["prisma", "db", "push"]);
+run(npxBin, ["next", "build", "--webpack"]);
 run(npxBin, ["playwright", "test"]);

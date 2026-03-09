@@ -26,6 +26,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
     scopes: app.scopes || "openid profile email",
     customAuthParams: app.customAuthParams,
     pkceMode: app.pkceMode,
+    usePar: app.usePar,
     entryPoint: app.entryPoint || "",
     samlLogoutUrl: app.samlLogoutUrl || "",
     issuer: app.issuer || "",
@@ -67,6 +68,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
       body.scopes = formData.scopes;
       body.customAuthParams = formData.customAuthParams.filter((entry) => entry.key.trim());
       body.pkceMode = formData.pkceMode;
+      body.usePar = formData.usePar;
     } else {
       body.entryPoint = formData.entryPoint;
       body.samlLogoutUrl = formData.samlLogoutUrl || null;
@@ -141,6 +143,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
               scopes: formData.scopes,
               customAuthParams: formData.customAuthParams,
               pkceMode: formData.pkceMode,
+              usePar: formData.usePar,
             }}
             onChange={(field, value) => updateField(field, value)}
             onCustomParamsChange={(params) => updateField("customAuthParams", params)}

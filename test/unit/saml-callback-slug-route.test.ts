@@ -54,6 +54,7 @@ describe("SAML callback slug route", () => {
         createAuthRun,
         getAuthRunById: t.mock.fn(async () => null),
         completeAuthRun,
+        createAuthRunEvent: t.mock.fn(async () => undefined),
         markAuthRunFailed: t.mock.fn(async () => undefined),
       },
     });
@@ -119,6 +120,7 @@ describe("SAML callback slug route", () => {
         createAuthRun: t.mock.fn(async () => ({ id: "run-1" })),
         getAuthRunById: t.mock.fn(async () => null),
         completeAuthRun: t.mock.fn(async () => ({ id: "run-1" })),
+        createAuthRunEvent: t.mock.fn(async () => undefined),
         markAuthRunFailed: t.mock.fn(async () => undefined),
       },
     });

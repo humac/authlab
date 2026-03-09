@@ -176,7 +176,7 @@ export default function TeamDetailPage() {
         )}
       </div>
       <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-        <table className="w-full text-sm">
+        <table className="responsive-table w-full text-sm">
           <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
             <tr>
               <th className="px-3 py-2">Member</th>
@@ -187,11 +187,11 @@ export default function TeamDetailPage() {
           <tbody>
             {filteredMembers.map((member) => (
               <tr key={member.id} className="border-t border-[var(--border)]">
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" data-label="Member">
                   <p className="font-medium text-[var(--text)]">{member.user.name}</p>
                   <p className="text-xs text-[var(--muted)]">{member.user.email}</p>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" data-label="Role">
                   {member.role === "OWNER" ? (
                     <Badge variant="blue">OWNER</Badge>
                   ) : canManage ? (
@@ -209,7 +209,7 @@ export default function TeamDetailPage() {
                     </Badge>
                   )}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5" data-label="Actions">
                   {canManage && member.role !== "OWNER" && (
                     <Button
                       size="sm"

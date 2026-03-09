@@ -25,6 +25,7 @@ const oidcFields = z.object({
   scopes: z.string().optional().nullable(),
   customAuthParams: z.array(KeyValueParamSchema).optional(),
   pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),
+  usePar: z.boolean().optional(),
 });
 
 const samlFields = z.object({
@@ -92,6 +93,7 @@ export const UpdateAppInstanceSchema = z.object({
   scopes: z.string().optional().nullable(),
   customAuthParams: z.array(KeyValueParamSchema).optional(),
   pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),
+  usePar: z.boolean().optional(),
   entryPoint: z.string().url().optional().nullable(),
   samlLogoutUrl: z.string().url().optional().nullable(),
   issuer: z.string().optional().nullable(),

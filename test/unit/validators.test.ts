@@ -23,6 +23,7 @@ describe("validators", () => {
       clientId: "client-id",
       clientSecret: "client-secret",
       scopes: "openid profile email",
+      usePar: true,
       buttonColor: "#3B71CA",
       entryPoint: null,
       issuer: null,

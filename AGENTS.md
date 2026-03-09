@@ -37,15 +37,25 @@
 **Focus Areas**:
 - OIDC app flow in `src/lib/oidc-handler.ts` and callback routes
   - token lifecycle routes in `src/app/api/auth/token/`
+  - back-channel logout in `src/app/api/auth/backchannel-logout/[slug]/route.ts` and `src/lib/oidc-backchannel-logout.ts`
+  - device authorization in `src/app/api/auth/device/`
+  - token exchange in `src/app/api/auth/token/exchange/`
   - UserInfo route in `src/app/api/auth/userinfo/[slug]/route.ts`
   - RP-initiated logout in `src/app/api/auth/logout/oidc/`
   - JWT signature / `at_hash` / `c_hash` diagnostics in `src/lib/oidc-token-validation.ts`
+  - auth trace capture in `src/lib/auth-trace.ts`
 - SAML app flow in `src/lib/saml-handler.ts` and callback routes
   - per-app SP signing material in `src/app/api/saml/signing-material/` and `src/lib/saml-signing-material.ts`
   - SAML SLO in `src/app/api/auth/logout/saml/` and `src/lib/saml-logout.ts`
   - app-level encrypted assertion support via `spEncryptionPrivateKey` / `spEncryptionCert`
   - SAML callback routes now use `303` redirects after POST so browser navigation lands on inspector with `GET`
   - Pending auth state cookie uses `SameSite=None` in production to support cross-site IdP POST callback RelayState lookups
+- SCIM mock provisioning in `src/app/api/scim/`, `src/lib/scim*.ts`, and `src/repositories/scim.repo.ts`
+- inspector tooling in `src/components/inspector/`:
+  - lifecycle timeline
+  - claims diff
+  - trace view
+  - protocol-specific OIDC/SAML diagnostics
 - User auth routes in `src/app/api/user/`:
   - login + MFA (`login`, `login/mfa/totp`)
   - registration + verification (`register`, `verify-email`, `verify-email/resend`)
@@ -75,12 +85,17 @@
   - TOTP enrollment/disable
   - profile image upload/remove
 - Admin email provider settings in `src/app/(dashboard)/admin/settings/page.tsx`
+- Dense management surfaces:
+  - responsive stacked-table behavior across dashboard, teams, admin users, and inspector tables
+  - explicit access-state copy for team join/request workflows instead of color-only signaling
+  - compact control alignment for search inputs and adjacent action buttons
 
 **Design System**:
 - Primary color: `#3B71CA` via CSS custom properties in `globals.css`
 - Tailwind CSS v4 utilities
 - Client components for interactive forms
 - Server components for data-loading layout/page shells
+- Prefer explicit labels and helper text over unexplained badge color semantics in operational views
 
 ### Database/Backend Developer
 
@@ -94,6 +109,8 @@
   - `UserProfileImage`
   - `AuthRun`
   - `AuthRunEvent`
+  - `ScimResource`
+  - `ScimRequestLog`
 - Extended `User` fields:
   - `isVerified`, `mfaEnabled`, `totpSecretEnc`, `totpEnabledAt`
 - Turso migration scripts in `prisma/turso-migrations/`
@@ -137,12 +154,20 @@
 - Production build (stable path): `npm run build -- --webpack`
 - Reset local DB: delete `dev.db`, then `npx prisma db push`
 
+### E2E Harness Notes
+
+- `npm run test:e2e` runs Playwright against a built Next.js server, not `next dev`
+- The harness keeps the public origin on `localhost` so WebAuthn/passkey coverage remains stable
+- Avoid running `npm run test:e2e` and `npm run build:ci` in parallel because they both need the Next.js build output and can contend on `.next/lock`
+
 ### Release Branch Workflow
 
-- For staged deploy testing, cut a release branch from the current working state instead of deploying directly from `main`
-- Recommended naming: `release/<yyyy-mm-dd>-<scope>`
-- Keep `main` unmerged until the release branch has been validated in detail
-- Roll back by redeploying a prior release branch commit or switching to the previous release branch
+- `main` is the integration branch
+- `alpha` is the staged alpha release branch
+- `beta` is the staged beta release branch
+- Deploy from `alpha` or `beta`, not directly from `main`
+- Cut immutable GitHub release tags from those branches, for example `v0.1.0-alpha` and `v0.2.0-beta`
+- Roll back by redeploying a prior tag or previous `alpha` / `beta` head
 
 ### Agent Commit Gate
 - Before creating a commit, update `AGENTS.md` and `CLAUDE.md` if the repo workflow, testing strategy, or agent guidance changed during the work

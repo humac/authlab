@@ -19,12 +19,22 @@ interface LifecycleEventView {
 
 interface LifecyclePanelProps {
   slug: string;
+  status: "PENDING" | "AUTHENTICATED" | "LOGGED_OUT" | "FAILED";
   grantType: string;
   claims: Record<string, unknown> | null;
   accessTokenExpiresAt: string | null;
   hasRefreshToken: boolean;
   lastIntrospection: Record<string, unknown> | null;
   lastRevocationAt: string | null;
+  deviceAuthorization?: {
+    userCode: string;
+    verificationUri: string;
+    verificationUriComplete: string | null;
+    expiresIn: number;
+    interval: number | null;
+    requestedScopes: string | null;
+    startedAt: string | null;
+  } | null;
   events: LifecycleEventView[];
 }
 
@@ -40,7 +50,7 @@ function eventVariant(type: string, status: string): "blue" | "green" | "gray" {
   if (status === "FAILED") {
     return "gray";
   }
-  if (type === "REVOKED") {
+  if (type === "REVOKED" || type === "DEVICE_AUTHORIZATION_STARTED") {
     return "blue";
   }
   return "green";
@@ -99,11 +109,20 @@ function getStringListClaim(value: unknown): string[] {
 }
 
 function getPosture(
+  status: string,
+  grantType: string,
   accessTokenExpiresAt: string | null,
   lastIntrospection: Record<string, unknown> | null,
   lastRevocationAt: string | null,
   enableRelative: boolean,
 ): { label: string; detail: string; variant: "blue" | "green" | "gray" } {
+  if (grantType === "DEVICE_AUTHORIZATION" && status === "PENDING") {
+    return {
+      label: "Awaiting approval",
+      detail: "The device flow has started, but the provider has not completed the secondary-device approval yet.",
+      variant: "blue",
+    };
+  }
   const active =
     isRecord(lastIntrospection) && typeof lastIntrospection.active === "boolean"
       ? lastIntrospection.active
@@ -151,9 +170,18 @@ function getPosture(
 }
 
 function getRefreshDiagnostics(
+  grantType: string,
+  status: string,
   hasRefreshToken: boolean,
   events: LifecycleEventView[],
 ): { label: string; detail: string; variant: "blue" | "green" | "gray" } {
+  if (grantType === "DEVICE_AUTHORIZATION" && status === "PENDING") {
+    return {
+      label: "Waiting on approval",
+      detail: "Refresh testing is unavailable until the device flow exchanges for tokens.",
+      variant: "gray",
+    };
+  }
   const refreshedEvent = events.find((event) => event.type === "REFRESHED");
 
   if (refreshedEvent) {
@@ -206,6 +234,15 @@ function getAuthContextDiagnostics(
       amr: [],
     };
   }
+  if (grantType === "DEVICE_AUTHORIZATION" && (!claims || Object.keys(claims).length === 0)) {
+    return {
+      label: "Awaiting user session",
+      detail: "Authentication-context claims will appear after the end user approves the device code.",
+      variant: "gray",
+      acr: null,
+      amr: [],
+    };
+  }
 
   const acr = getStringClaim(claims?.acr);
   const amr = getStringListClaim(claims?.amr);
@@ -238,6 +275,12 @@ function describeEvent(event: LifecycleEventView): string {
       return "Interactive browser login completed.";
     case "CLIENT_CREDENTIALS_ISSUED":
       return "Machine-to-machine token issued.";
+    case "DEVICE_AUTHORIZATION_STARTED":
+      return "Device authorization started and user verification instructions captured.";
+    case "DEVICE_AUTHORIZATION_COMPLETED":
+      return "Device authorization completed and the token snapshot was stored.";
+    case "TOKEN_EXCHANGED":
+      return "A new token snapshot was issued from the active session token.";
     case "REFRESHED":
       return isRecord(event.metadata) && event.metadata.replacedRefreshToken === true
         ? "Access token refreshed and refresh token rotated."
@@ -262,6 +305,7 @@ function describeEvent(event: LifecycleEventView): string {
 }
 
 function buildTimelineEntries(
+  status: string,
   grantType: string,
   accessTokenExpiresAt: string | null,
   lastRevocationAt: string | null,
@@ -275,8 +319,14 @@ function buildTimelineEntries(
   const issuedEvent =
     chronological.find(
       (event) =>
-        event.type === "AUTHENTICATED" || event.type === "CLIENT_CREDENTIALS_ISSUED",
+        event.type === "AUTHENTICATED" ||
+        event.type === "CLIENT_CREDENTIALS_ISSUED" ||
+        event.type === "DEVICE_AUTHORIZATION_COMPLETED" ||
+        event.type === "TOKEN_EXCHANGED",
     ) ?? chronological[0];
+  const deviceStartEvent = chronological.find(
+    (event) => event.type === "DEVICE_AUTHORIZATION_STARTED",
+  );
   const refreshedEvent = [...chronological].reverse().find((event) => event.type === "REFRESHED");
   const introspectedEvent = [...chronological]
     .reverse()
@@ -288,13 +338,37 @@ function buildTimelineEntries(
     entries.push({
       id: `${issuedEvent.id}-issued`,
       title:
-        grantType === "CLIENT_CREDENTIALS" ? "Machine token issued" : "Browser session issued",
+        grantType === "CLIENT_CREDENTIALS"
+          ? "Machine token issued"
+          : grantType === "DEVICE_AUTHORIZATION"
+            ? status === "PENDING"
+              ? "Device flow started"
+              : "Device flow completed"
+            : grantType === "TOKEN_EXCHANGE"
+              ? "Token exchange completed"
+            : "Browser session issued",
       detail:
         grantType === "CLIENT_CREDENTIALS"
           ? "The client credentials grant returned a token snapshot for this app."
+          : grantType === "DEVICE_AUTHORIZATION" && status === "PENDING"
+            ? "The provider issued a device code and is waiting for the end user to approve it on a secondary device."
+            : grantType === "DEVICE_AUTHORIZATION"
+              ? "The device authorization exchange completed and stored the current token snapshot."
+            : grantType === "TOKEN_EXCHANGE"
+              ? "The token exchange grant returned a new delegated token snapshot and switched the active inspector session."
           : "The authorization code exchange completed and stored the current token snapshot.",
       occurredAt: issuedEvent.occurredAt,
-      variant: "green",
+      variant: grantType === "DEVICE_AUTHORIZATION" && status === "PENDING" ? "blue" : "green",
+    });
+  }
+
+  if (deviceStartEvent && issuedEvent?.id !== deviceStartEvent.id) {
+    entries.push({
+      id: `${deviceStartEvent.id}-device-start`,
+      title: "Device verification issued",
+      detail: describeEvent(deviceStartEvent),
+      occurredAt: deviceStartEvent.occurredAt,
+      variant: "blue",
     });
   }
 
@@ -354,21 +428,26 @@ function buildTimelineEntries(
 
 export function LifecyclePanel({
   slug,
+  status,
   grantType,
   claims,
   accessTokenExpiresAt,
   hasRefreshToken,
   lastIntrospection,
   lastRevocationAt,
+  deviceAuthorization = null,
   events,
 }: LifecyclePanelProps) {
   const router = useRouter();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [mounted, setMounted] = useState(false);
-  const refreshDiagnostics = getRefreshDiagnostics(hasRefreshToken, events);
+  const refreshDiagnostics = getRefreshDiagnostics(grantType, status, hasRefreshToken, events);
   const authContext = getAuthContextDiagnostics(grantType, claims);
   const posture = getPosture(
+    status,
+    grantType,
     accessTokenExpiresAt,
     lastIntrospection,
     lastRevocationAt,
@@ -376,6 +455,7 @@ export function LifecyclePanel({
   );
   const latestEvent = events[0] ?? null;
   const timelineEntries = buildTimelineEntries(
+    status,
     grantType,
     accessTokenExpiresAt,
     lastRevocationAt,
@@ -394,6 +474,7 @@ export function LifecyclePanel({
   ) {
     setLoadingAction(action);
     setError("");
+    setNotice("");
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -401,6 +482,18 @@ export function LifecyclePanel({
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 202 && data && typeof data === "object" && "pending" in data) {
+        const pollAfter =
+          typeof data.pollAfterSeconds === "number"
+            ? ` Poll again in ${data.pollAfterSeconds}s.`
+            : "";
+        setNotice(
+          typeof data.error === "string"
+            ? `${data.error}.${pollAfter}`
+            : `The device flow is still waiting for approval.${pollAfter}`,
+        );
+        return;
+      }
       if (!response.ok) {
         setError(typeof data.error === "string" ? data.error : "Lifecycle action failed");
         return;
@@ -421,11 +514,23 @@ export function LifecyclePanel({
             Run mode
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <Badge variant="blue">{grantType === "CLIENT_CREDENTIALS" ? "M2M" : "Browser"}</Badge>
+            <Badge variant="blue">
+              {grantType === "CLIENT_CREDENTIALS"
+                ? "M2M"
+                : grantType === "DEVICE_AUTHORIZATION"
+                  ? "Device"
+                  : grantType === "TOKEN_EXCHANGE"
+                    ? "Exchange"
+                  : "Browser"}
+            </Badge>
             <span className="text-sm font-medium text-[var(--text)]">
               {grantType === "CLIENT_CREDENTIALS"
                 ? "Client credentials"
-                : "Authorization code"}
+                : grantType === "DEVICE_AUTHORIZATION"
+                  ? "Device authorization"
+                  : grantType === "TOKEN_EXCHANGE"
+                    ? "Token exchange"
+                  : "Authorization code"}
             </span>
           </div>
         </div>
@@ -592,79 +697,131 @@ export function LifecyclePanel({
 
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
               <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--muted)]">
-                Access token expiry
+                {grantType === "DEVICE_AUTHORIZATION" && status === "PENDING"
+                  ? "Device flow state"
+                  : "Access token expiry"}
               </p>
               <p className="mt-1 text-sm text-[var(--text)]">
-                {accessTokenExpiresAt
+                {grantType === "DEVICE_AUTHORIZATION" && status === "PENDING"
+                  ? "Waiting for end-user verification"
+                  : accessTokenExpiresAt
                   ? formatTimestamp(accessTokenExpiresAt)
                   : "Provider did not return an expiry timestamp"}
               </p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  runAction("introspect-access", `/api/auth/token/introspect/${slug}`, {
-                    target: "access_token",
-                  })
-                }
-                loading={loadingAction === "introspect-access"}
-              >
-                Introspect Access Token
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  runAction("revoke-access", `/api/auth/token/revoke/${slug}`, {
-                    target: "access_token",
-                  })
-                }
-                loading={loadingAction === "revoke-access"}
-              >
-                Revoke Access Token
-              </Button>
-              {hasRefreshToken ? (
+            {grantType === "DEVICE_AUTHORIZATION" && status === "PENDING" && deviceAuthorization ? (
+              <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--muted)]">
+                      User code
+                    </p>
+                    <code className="mt-1 inline-block rounded bg-[var(--surface-2)] px-2 py-1 text-sm text-[var(--text)]">
+                      {deviceAuthorization.userCode}
+                    </code>
+                  </div>
+                  <Badge variant="blue">
+                    {deviceAuthorization.interval
+                      ? `Poll ${deviceAuthorization.interval}s`
+                      : "Default poll interval"}
+                  </Badge>
+                </div>
+                <div className="space-y-1 text-xs text-[var(--muted)]">
+                  <p>
+                    Verify at{" "}
+                    <a
+                      href={deviceAuthorization.verificationUriComplete ?? deviceAuthorization.verificationUri}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-[var(--primary)] hover:underline"
+                    >
+                      {deviceAuthorization.verificationUri}
+                    </a>
+                  </p>
+                  {deviceAuthorization.requestedScopes ? (
+                    <p>Requested scopes: {deviceAuthorization.requestedScopes}</p>
+                  ) : null}
+                  {deviceAuthorization.startedAt ? (
+                    <p>Started: {formatTimestamp(deviceAuthorization.startedAt)}</p>
+                  ) : null}
+                </div>
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => runAction("refresh", `/api/auth/token/refresh/${slug}`)}
-                  loading={loadingAction === "refresh"}
+                  className="w-full"
+                  onClick={() => runAction("device-poll", `/api/auth/device/${slug}/poll`)}
+                  loading={loadingAction === "device-poll"}
                 >
-                  Refresh Tokens
+                  Poll for Device Completion
                 </Button>
-              ) : null}
-              {hasRefreshToken ? (
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() =>
-                    runAction("introspect-refresh", `/api/auth/token/introspect/${slug}`, {
-                      target: "refresh_token",
+                    runAction("introspect-access", `/api/auth/token/introspect/${slug}`, {
+                      target: "access_token",
                     })
                   }
-                  loading={loadingAction === "introspect-refresh"}
+                  loading={loadingAction === "introspect-access"}
                 >
-                  Introspect Refresh Token
+                  Introspect Access Token
                 </Button>
-              ) : null}
-              {hasRefreshToken ? (
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() =>
-                    runAction("revoke-refresh", `/api/auth/token/revoke/${slug}`, {
-                      target: "refresh_token",
+                    runAction("revoke-access", `/api/auth/token/revoke/${slug}`, {
+                      target: "access_token",
                     })
                   }
-                  loading={loadingAction === "revoke-refresh"}
+                  loading={loadingAction === "revoke-access"}
                 >
-                  Revoke Refresh Token
+                  Revoke Access Token
                 </Button>
-              ) : null}
-            </div>
+                {hasRefreshToken ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => runAction("refresh", `/api/auth/token/refresh/${slug}`)}
+                    loading={loadingAction === "refresh"}
+                  >
+                    Refresh Tokens
+                  </Button>
+                ) : null}
+                {hasRefreshToken ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      runAction("introspect-refresh", `/api/auth/token/introspect/${slug}`, {
+                        target: "refresh_token",
+                      })
+                    }
+                    loading={loadingAction === "introspect-refresh"}
+                  >
+                    Introspect Refresh Token
+                  </Button>
+                ) : null}
+                {hasRefreshToken ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      runAction("revoke-refresh", `/api/auth/token/revoke/${slug}`, {
+                        target: "refresh_token",
+                      })
+                    }
+                    loading={loadingAction === "revoke-refresh"}
+                  >
+                    Revoke Refresh Token
+                  </Button>
+                ) : null}
+              </div>
+            )}
 
             {lastRevocationAt ? (
               <p className="text-xs text-[var(--muted)]">
@@ -672,6 +829,7 @@ export function LifecyclePanel({
               </p>
             ) : null}
 
+            {notice ? <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm text-[var(--muted)]">{notice}</div> : null}
             {error ? <div className="alert-danger rounded-lg p-3 text-sm">{error}</div> : null}
           </div>
 

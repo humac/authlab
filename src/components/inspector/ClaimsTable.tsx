@@ -19,8 +19,8 @@ export function ClaimsTable({ claims }: ClaimsTableProps) {
   };
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-      <table className="w-full text-sm">
+    <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+      <table className="responsive-table w-full text-sm">
         <thead>
           <tr className="bg-[var(--surface-2)]">
             <th
@@ -38,8 +38,10 @@ export function ClaimsTable({ claims }: ClaimsTableProps) {
               key={key}
               className="border-t border-[var(--border)] hover:bg-[var(--surface-2)]"
             >
-              <td className="px-4 py-3 font-mono font-medium text-[var(--primary)]">{key}</td>
-              <td className="break-all whitespace-pre-wrap px-4 py-3 font-mono text-[var(--text)]">
+              <td className="px-4 py-3 font-mono font-medium text-[var(--primary)]" data-label="Claim">
+                {key}
+              </td>
+              <td className="break-all whitespace-pre-wrap px-4 py-3 font-mono text-[var(--text)]" data-label="Value">
                 {formatValue(value)}
               </td>
             </tr>

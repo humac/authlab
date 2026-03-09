@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { getPrisma } from "@/lib/db";
+import { deriveScimBearerToken } from "@/lib/scim";
 import { hashToken } from "@/lib/token";
+import {
+  completeAuthRun,
+  createAuthRun,
+  listBackchannelLogoutCandidates,
+  markAuthRunsLoggedOut,
+} from "@/repositories/auth-run.repo";
 import {
   consumeAuthToken,
   createAuthToken,
@@ -59,6 +66,72 @@ describe("integration: repositories and api routes", () => {
 
       const remaining = await prisma.authToken.findMany();
       assert.equal(remaining.length, 0);
+    });
+  });
+
+  describe("auth run repository", () => {
+    it("matches back-channel logout candidates by sid before falling back to sub", async () => {
+      const team = await createTeam({ slug: "oidc-team" });
+      const prisma = await getPrisma();
+      const app = await prisma.appInstance.create({
+        data: {
+          name: "OIDC App",
+          slug: "oidc-app",
+          protocol: "OIDC",
+          teamId: team.id,
+          issuerUrl: "https://issuer.example.com",
+          clientId: "client-123",
+        },
+      });
+
+      const sidRun = await createAuthRun({
+        appInstanceId: app.id,
+        protocol: "OIDC",
+        loginState: "state-sid",
+      });
+      await completeAuthRun(sidRun.id, {
+        claims: { sub: "user-123", sid: "sid-123" },
+        oidcSubject: "user-123",
+        oidcSessionId: "sid-123",
+      });
+
+      const subRun = await createAuthRun({
+        appInstanceId: app.id,
+        protocol: "OIDC",
+        loginState: "state-sub",
+      });
+      await completeAuthRun(subRun.id, {
+        claims: { sub: "user-123" },
+        oidcSubject: "user-123",
+      });
+
+      const sidMatches = await listBackchannelLogoutCandidates({
+        appInstanceId: app.id,
+        oidcSessionId: "sid-123",
+        oidcSubject: "user-123",
+      });
+      assert.deepEqual(
+        sidMatches.map((run) => run.id),
+        [sidRun.id],
+      );
+
+      const subMatches = await listBackchannelLogoutCandidates({
+        appInstanceId: app.id,
+        oidcSubject: "user-123",
+      });
+      assert.deepEqual(
+        subMatches.map((run) => run.id).sort(),
+        [sidRun.id, subRun.id].sort(),
+      );
+
+      const loggedOutCount = await markAuthRunsLoggedOut([sidRun.id, subRun.id]);
+      assert.equal(loggedOutCount, 2);
+
+      const remainingMatches = await listBackchannelLogoutCandidates({
+        appInstanceId: app.id,
+        oidcSubject: "user-123",
+      });
+      assert.equal(remainingMatches.length, 0);
     });
   });
 
@@ -565,6 +638,7 @@ describe("integration: repositories and api routes", () => {
             authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
           })),
           createAuthRun: t.mock.fn(async () => ({ id: "run-2" })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
           markAuthRunFailed: t.mock.fn(async () => undefined),
         },
       });
@@ -641,6 +715,7 @@ describe("integration: repositories and api routes", () => {
             id: "run-3",
             authenticatedAt: new Date("2026-03-07T12:00:00.000Z"),
           })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
           markAuthRunFailed: t.mock.fn(async () => undefined),
         },
       });
@@ -2211,6 +2286,574 @@ describe("integration: repositories and api routes", () => {
       assert.equal(response.status, 200);
       const payload = await getJson(response) as { revoked: boolean };
       assert.equal(payload.revoked, true);
+    });
+  });
+
+  describe("OIDC phase 4 routes", () => {
+    it("accepts a valid back-channel logout token and logs out matching runs", async (t) => {
+      const markAuthRunsLoggedOut = t.mock.fn(async () => 1);
+      const createAuthRunEvent = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+            clientId: "client-123",
+          })),
+        },
+      });
+      t.mock.module("@/lib/oidc-backchannel-logout", {
+        namedExports: {
+          validateOidcBackchannelLogoutToken: t.mock.fn(async () => ({
+            subject: "user-123",
+            sessionId: "sid-123",
+            jwtId: "jti-123",
+            issuedAt: 1_762_401_600,
+            algorithm: "RS256",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          listBackchannelLogoutCandidates: t.mock.fn(async () => [
+            { id: "run_1" },
+          ]),
+          markAuthRunsLoggedOut,
+          createAuthRunEvent,
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/backchannel-logout/[slug]/route.ts")
+      >("../../src/app/api/auth/backchannel-logout/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/backchannel-logout/oidc-app", {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            logout_token: "logout.jwt.token",
+          }).toString(),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = await getJson(response) as { acknowledged: boolean; matchedRuns: number };
+      assert.equal(payload.acknowledged, true);
+      assert.equal(payload.matchedRuns, 1);
+      assert.deepEqual(markAuthRunsLoggedOut.mock.calls.at(0)?.arguments.at(0), ["run_1"]);
+      assert.equal(createAuthRunEvent.mock.callCount(), 1);
+    });
+
+    it("rejects back-channel logout requests without a logout token", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+            clientId: "client-123",
+          })),
+        },
+      });
+      t.mock.module("@/lib/oidc-backchannel-logout", {
+        namedExports: {
+          validateOidcBackchannelLogoutToken: t.mock.fn(async () => ({
+            subject: "user-123",
+            sessionId: "sid-123",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          listBackchannelLogoutCandidates: t.mock.fn(async () => []),
+          markAuthRunsLoggedOut: t.mock.fn(async () => 0),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/backchannel-logout/[slug]/route.ts")
+      >("../../src/app/api/auth/backchannel-logout/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/backchannel-logout/oidc-app", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 400);
+      const payload = await getJson(response) as { error: string };
+      assert.equal(payload.error, "Missing logout_token");
+    });
+
+    it("starts a device authorization run and saves the pending session", async (t) => {
+      const saveAuthResultSession = t.mock.fn(async () => undefined);
+      const session = { save: t.mock.fn(async () => undefined) };
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getAppSession: t.mock.fn(async () => session),
+          saveAuthResultSession,
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          createAuthRun: t.mock.fn(async () => ({
+            id: "run_device_1",
+            createdAt: new Date("2026-03-08T12:00:00.000Z"),
+          })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async initiateDeviceAuthorization() {
+              return {
+                deviceCode: "device-code-123",
+                userCode: "ABCD-EFGH",
+                verificationUri: "https://issuer.example.com/activate",
+                verificationUriComplete:
+                  "https://issuer.example.com/activate?user_code=ABCD-EFGH",
+                expiresIn: 900,
+                interval: 5,
+                rawResponse: JSON.stringify({ device_code: "device-code-123" }),
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/device/[slug]/route.ts")
+      >("../../src/app/api/auth/device/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/device/oidc-app", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ scopes: "openid offline_access" }),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = await getJson(response) as { redirectTo: string };
+      assert.equal(payload.redirectTo, "http://localhost:3000/test/oidc-app/inspector");
+      assert.deepEqual(saveAuthResultSession.mock.calls.at(0)?.arguments.at(1), {
+        runId: "run_device_1",
+        slug: "oidc-app",
+        protocol: "OIDC",
+        authenticatedAt: "2026-03-08T12:00:00.000Z",
+      });
+    });
+
+    it("returns 202 while a device authorization run is still pending", async (t) => {
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_device_1",
+            grantType: "DEVICE_AUTHORIZATION",
+            status: "PENDING",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          listAuthRunEvents: t.mock.fn(async () => [
+            {
+              id: "event_device_1",
+              type: "DEVICE_AUTHORIZATION_STARTED",
+              metadata: {
+                deviceCode: "device-code-123",
+                userCode: "ABCD-EFGH",
+                verificationUri: "https://issuer.example.com/activate",
+                expiresIn: 900,
+                interval: 5,
+              },
+            },
+          ]),
+          completeAuthRun: t.mock.fn(async () => ({ id: "run_device_1" })),
+          createAuthRunEvent: t.mock.fn(async () => undefined),
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async pollDeviceAuthorization() {
+              return {
+                status: "pending",
+                error: "Waiting for user approval",
+                interval: 5,
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/device/[slug]/poll/route.ts")
+      >("../../src/app/api/auth/device/[slug]/poll/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/device/oidc-app/poll", {
+          method: "POST",
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 202);
+      const payload = await getJson(response) as {
+        pending: boolean;
+        pollAfterSeconds: number;
+      };
+      assert.equal(payload.pending, true);
+      assert.equal(payload.pollAfterSeconds, 5);
+    });
+
+    it("completes a device authorization run when the provider returns tokens", async (t) => {
+      const completeAuthRun = t.mock.fn(async () => ({ id: "run_device_1" }));
+      const createAuthRunEvent = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_device_1",
+            grantType: "DEVICE_AUTHORIZATION",
+            status: "PENDING",
+          })),
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          listAuthRunEvents: t.mock.fn(async () => [
+            {
+              id: "event_device_1",
+              type: "DEVICE_AUTHORIZATION_STARTED",
+              metadata: {
+                deviceCode: "device-code-123",
+                userCode: "ABCD-EFGH",
+                verificationUri: "https://issuer.example.com/activate",
+                expiresIn: 900,
+                interval: 5,
+              },
+            },
+          ]),
+          completeAuthRun,
+          createAuthRunEvent,
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async pollDeviceAuthorization() {
+              return {
+                status: "authorized",
+                result: {
+                  claims: { sub: "user-123", sid: "sid-123" },
+                  rawTokenResponse: JSON.stringify({ access_token: "device-access" }),
+                  idToken: "id-token",
+                  accessToken: "device-access",
+                  refreshToken: "device-refresh",
+                  accessTokenExpiresAt: new Date("2026-03-08T13:00:00.000Z"),
+                },
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/device/[slug]/poll/route.ts")
+      >("../../src/app/api/auth/device/[slug]/poll/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/device/oidc-app/poll", {
+          method: "POST",
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      assert.equal(completeAuthRun.mock.callCount(), 1);
+      assert.equal(createAuthRunEvent.mock.callCount(), 1);
+    });
+
+    it("creates a new run for token exchange and switches the active session", async (t) => {
+      const createAuthRun = t.mock.fn(async () => ({
+        id: "run_exchange_1",
+      }));
+      const completeAuthRun = t.mock.fn(async () => ({
+        id: "run_exchange_1",
+        authenticatedAt: new Date("2026-03-08T13:00:00.000Z"),
+      }));
+      const createAuthRunEvent = t.mock.fn(async () => undefined);
+      const saveAuthResultSession = t.mock.fn(async () => undefined);
+
+      t.mock.module("@/repositories/app-instance.repo", {
+        namedExports: {
+          getAppInstanceBySlug: t.mock.fn(async () => ({
+            id: "app_oidc",
+            slug: "oidc-app",
+            protocol: "OIDC",
+          })),
+        },
+      });
+      t.mock.module("@/lib/session", {
+        namedExports: {
+          getActiveAuthRun: t.mock.fn(async () => ({
+            id: "run_browser_1",
+            accessToken: "source-access-token",
+            idToken: "source-id-token",
+            oidcSubject: "user-123",
+            oidcSessionId: "sid-123",
+          })),
+          getAppSession: t.mock.fn(async () => ({ save: t.mock.fn(async () => undefined) })),
+          saveAuthResultSession,
+        },
+      });
+      t.mock.module("@/repositories/auth-run.repo", {
+        namedExports: {
+          createAuthRun,
+          completeAuthRun,
+          createAuthRunEvent,
+          markAuthRunFailed: t.mock.fn(async () => undefined),
+        },
+      });
+      t.mock.module("@/lib/oidc-handler", {
+        namedExports: {
+          OIDCHandler: class {
+            async exchangeToken() {
+              return {
+                claims: { sub: "user-123", sid: "sid-999" },
+                rawTokenResponse: JSON.stringify({ access_token: "delegated-access" }),
+                accessToken: "delegated-access",
+                accessTokenExpiresAt: new Date("2026-03-08T14:00:00.000Z"),
+                grantType: "TOKEN_EXCHANGE",
+              };
+            }
+          },
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/auth/token/exchange/[slug]/route.ts")
+      >("../../src/app/api/auth/token/exchange/[slug]/route.ts");
+
+      const response = await route.POST(
+        new Request("http://localhost/api/auth/token/exchange/oidc-app", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            subjectTokenSource: "access_token",
+            requestedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+            audience: "api://orders",
+            scope: "orders.read",
+          }),
+        }),
+        { params: Promise.resolve({ slug: "oidc-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = (await getJson(response)) as { redirectTo: string };
+      assert.equal(payload.redirectTo, "http://localhost:3000/test/oidc-app/inspector");
+      assert.equal(createAuthRun.mock.callCount(), 1);
+      assert.equal(completeAuthRun.mock.callCount(), 1);
+      assert.equal(createAuthRunEvent.mock.callCount(), 1);
+      assert.deepEqual(saveAuthResultSession.mock.calls.at(0)?.arguments.at(1), {
+        runId: "run_exchange_1",
+        slug: "oidc-app",
+        protocol: "OIDC",
+        authenticatedAt: "2026-03-08T13:00:00.000Z",
+      });
+    });
+  });
+
+  describe("SCIM mock routes", () => {
+    it("returns service provider capabilities for authorized requests", async () => {
+      const prisma = await getPrisma();
+      const team = await createTeam();
+      const app = await prisma.appInstance.create({
+        data: {
+          name: "SCIM App",
+          slug: "scim-app",
+          protocol: "OIDC",
+          teamId: team.id,
+          issuerUrl: "https://issuer.example.com",
+          clientId: "client-123",
+        },
+      });
+
+      const route = await importFresh<
+        typeof import("../../src/app/api/scim/[slug]/ServiceProviderConfig/route.ts")
+      >("../../src/app/api/scim/[slug]/ServiceProviderConfig/route.ts");
+
+      const response = await route.GET(
+        new Request("http://localhost/api/scim/scim-app/ServiceProviderConfig", {
+          headers: {
+            authorization: `Bearer ${deriveScimBearerToken(app.id)}`,
+          },
+        }),
+        { params: Promise.resolve({ slug: "scim-app" }) },
+      );
+
+      assert.equal(response.status, 200);
+      const payload = (await getJson(response)) as { patch?: { supported?: boolean } };
+      assert.equal(payload.patch?.supported, true);
+    });
+
+    it("creates, filters, patches, and deletes SCIM users while logging requests", async () => {
+      const prisma = await getPrisma();
+      const team = await createTeam();
+      const app = await prisma.appInstance.create({
+        data: {
+          name: "SCIM CRUD App",
+          slug: "scim-crud-app",
+          protocol: "OIDC",
+          teamId: team.id,
+          issuerUrl: "https://issuer.example.com",
+          clientId: "client-123",
+        },
+      });
+      const authHeader = {
+        authorization: `Bearer ${deriveScimBearerToken(app.id)}`,
+        "content-type": "application/json",
+      };
+
+      const usersRoute = await importFresh<
+        typeof import("../../src/app/api/scim/[slug]/Users/route.ts")
+      >("../../src/app/api/scim/[slug]/Users/route.ts");
+      const userItemRoute = await importFresh<
+        typeof import("../../src/app/api/scim/[slug]/Users/[resourceId]/route.ts")
+      >("../../src/app/api/scim/[slug]/Users/[resourceId]/route.ts");
+
+      const createResponse = await usersRoute.POST(
+        new Request("http://localhost/api/scim/scim-crud-app/Users", {
+          method: "POST",
+          headers: authHeader,
+          body: JSON.stringify({
+            userName: "baseline@example.com",
+            active: true,
+            externalId: "ext-123",
+          }),
+        }),
+        { params: Promise.resolve({ slug: "scim-crud-app" }) },
+      );
+
+      assert.equal(createResponse.status, 201);
+      const createdPayload = (await getJson(createResponse)) as { id: string; userName: string };
+      assert.equal(createdPayload.userName, "baseline@example.com");
+
+      const listResponse = await usersRoute.GET(
+        new Request(
+          'http://localhost/api/scim/scim-crud-app/Users?filter=userName%20eq%20%22baseline@example.com%22',
+          {
+            headers: {
+              authorization: `Bearer ${deriveScimBearerToken(app.id)}`,
+            },
+          },
+        ),
+        { params: Promise.resolve({ slug: "scim-crud-app" }) },
+      );
+
+      assert.equal(listResponse.status, 200);
+      const listPayload = (await getJson(listResponse)) as { totalResults: number };
+      assert.equal(listPayload.totalResults, 1);
+
+      const patchResponse = await userItemRoute.PATCH(
+        new Request(
+          `http://localhost/api/scim/scim-crud-app/Users/${createdPayload.id}`,
+          {
+            method: "PATCH",
+            headers: authHeader,
+            body: JSON.stringify({
+              Operations: [
+                { op: "replace", path: "active", value: false },
+                { op: "replace", path: "name.givenName", value: "Updated" },
+              ],
+            }),
+          },
+        ),
+        {
+          params: Promise.resolve({
+            slug: "scim-crud-app",
+            resourceId: createdPayload.id,
+          }),
+        },
+      );
+
+      assert.equal(patchResponse.status, 200);
+      const patchedPayload = (await getJson(patchResponse)) as {
+        active: boolean;
+        name?: { givenName?: string };
+      };
+      assert.equal(patchedPayload.active, false);
+      assert.equal(patchedPayload.name?.givenName, "Updated");
+
+      const deleteResponse = await userItemRoute.DELETE(
+        new Request(
+          `http://localhost/api/scim/scim-crud-app/Users/${createdPayload.id}`,
+          {
+            method: "DELETE",
+            headers: {
+              authorization: `Bearer ${deriveScimBearerToken(app.id)}`,
+            },
+          },
+        ),
+        {
+          params: Promise.resolve({
+            slug: "scim-crud-app",
+            resourceId: createdPayload.id,
+          }),
+        },
+      );
+
+      assert.equal(deleteResponse.status, 204);
+
+      const [resourceCount, requestLogCount] = await Promise.all([
+        prisma.scimResource.count({ where: { appInstanceId: app.id } }),
+        prisma.scimRequestLog.count({ where: { appInstanceId: app.id } }),
+      ]);
+      assert.equal(resourceCount, 0);
+      assert.equal(requestLogCount, 4);
     });
   });
 });

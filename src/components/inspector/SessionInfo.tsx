@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 interface SessionInfoProps {
   slug: string;
   protocol: "OIDC" | "SAML";
+  status: "PENDING" | "AUTHENTICATED" | "LOGGED_OUT" | "FAILED";
   authenticatedAt: string;
   runId: string;
   nonceStatus?: string | null;
@@ -18,6 +19,7 @@ interface SessionInfoProps {
 export function SessionInfo({
   slug,
   protocol,
+  status,
   authenticatedAt,
   runId,
   nonceStatus,
@@ -45,8 +47,24 @@ export function SessionInfo({
         <code className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text)]">{slug}</code>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Authenticated</span>
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
+          {status === "PENDING" ? "Started" : "Authenticated"}
+        </span>
         <span className="text-sm text-[var(--text)]">{new Date(authenticatedAt).toLocaleString()}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Status</span>
+        <Badge
+          variant={
+            status === "AUTHENTICATED"
+              ? "green"
+              : status === "PENDING"
+                ? "blue"
+                : "gray"
+          }
+        >
+          {status.replaceAll("_", " ")}
+        </Badge>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">Run</span>

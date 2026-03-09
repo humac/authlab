@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 import { sealData } from "iron-session";
 import { authenticator } from "otplib";
+import { deriveScimBearerToken } from "../../src/lib/scim";
 import {
   addTeamMember,
   countProfileImages,
@@ -112,6 +113,11 @@ async function authenticateAppRun(
       sameSite: "Lax",
     },
   ]);
+}
+
+async function logoutViaApi(page: Page) {
+  await page.request.post("/api/user/logout");
+  await page.context().clearCookies();
 }
 
 async function createAvatarFile(testInfo: TestInfo) {
@@ -251,11 +257,11 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     await teamOneRow.getByRole("button", { name: "Request access" }).click();
     await expect(page.getByText("Join request submitted")).toBeVisible();
-    await expect(teamOneRow.getByText("Pending")).toBeVisible();
+    await expect(teamOneRow.getByRole("button", { name: "Request pending" })).toBeVisible();
 
     await teamTwoRow.getByRole("button", { name: "Request access" }).click();
     await expect(page.getByText("Join request submitted")).toBeVisible();
-    await expect(teamTwoRow.getByText("Pending")).toBeVisible();
+    await expect(teamTwoRow.getByRole("button", { name: "Request pending" })).toBeVisible();
 
     const requests = await listJoinRequestsForUser(seeded.user.id);
     expect(requests).toHaveLength(2);
@@ -263,6 +269,30 @@ test.describe("e2e: auth and dashboard journeys", () => {
       teamOne.id,
       teamTwo.id,
     ]);
+  });
+
+  test("auto-generates and recovers the slug while creating teams as an admin", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-team-admin-${randomUUID()}@example.com`,
+      name: "E2E Team Admin",
+      isSystemAdmin: true,
+    });
+
+    await loginViaUi(page, seeded.user.email, seeded.password);
+    await page.goto("/teams");
+
+    await page.getByRole("button", { name: "Create team" }).click();
+    await page.getByLabel("Name").fill("Operations Lab");
+    await expect(page.getByLabel("Slug")).toHaveValue("operations-lab");
+
+    await page.getByLabel("Slug").fill("ops");
+    await expect(page.getByLabel("Slug")).toHaveValue("ops");
+
+    await page.getByLabel("Slug").fill("");
+    await page.getByLabel("Name").fill("Operations Lab Europe");
+    await expect(page.getByLabel("Slug")).toHaveValue("operations-lab-europe");
   });
 
   test("manages profile details, avatar, and password", async ({ page }, testInfo) => {
@@ -301,7 +331,7 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByRole("button", { name: "Update Password" }).click();
     await expect(page.getByText("Password updated", { exact: true })).toBeVisible();
 
-    await page.request.post("/api/user/logout");
+    await logoutViaApi(page);
     await page.goto("/login");
     await expect(page).toHaveURL("/login");
 
@@ -433,6 +463,52 @@ test.describe("e2e: auth and dashboard journeys", () => {
     expect(createdApp?.clockSkewToleranceSeconds).toBe(120);
   });
 
+  test("shows SCIM provisioning details on the authenticated app page and accepts SCIM writes", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-scim-${randomUUID()}@example.com`,
+      name: "E2E SCIM User",
+    });
+    const app = await createOidcApp({
+      teamId: seeded.team.id,
+      name: "SCIM App",
+      slug: `scim-${randomUUID().slice(0, 8)}`,
+    });
+
+    await authenticatePage(page, {
+      userId: seeded.user.id,
+      email: seeded.user.email,
+      name: seeded.user.name,
+      isSystemAdmin: false,
+      mustChangePassword: false,
+      isVerified: true,
+      mfaEnabled: false,
+      activeTeamId: seeded.team.id,
+    });
+
+    await page.goto(`/apps/${app.id}`);
+    await expect(page.getByText("SCIM mock provisioning")).toBeVisible();
+    await expect(page.getByText("/api/scim/")).toBeVisible();
+
+    const response = await page.request.post(`/api/scim/${app.slug}/Users`, {
+      headers: {
+        authorization: `Bearer ${deriveScimBearerToken(app.id)}`,
+        "content-type": "application/json",
+      },
+      data: {
+        userName: "provisioned@example.com",
+        active: true,
+      },
+    });
+    expect(response.status()).toBe(201);
+
+    await page.reload();
+    await expect(page.getByText("provisioned@example.com", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recent SCIM requests")).toBeVisible();
+    await expect(page.getByText("POST /api/scim/")).toBeVisible();
+  });
+
   test("blocks non-admin access to admin pages", async ({ page }) => {
     const seeded = await createUserWithPersonalTeam({
       email: `e2e-admin-${randomUUID()}@example.com`,
@@ -476,7 +552,7 @@ test.describe("e2e: auth and dashboard journeys", () => {
       await expect(page.getByText("Passkey added", { exact: true })).toBeVisible();
       expect(await countCredentials(seeded.user.id)).toBe(1);
 
-      await page.request.post("/api/user/logout");
+      await logoutViaApi(page);
       await page.goto("/login");
       await expect(page).toHaveURL("/login");
 
@@ -617,6 +693,17 @@ test.describe("e2e: auth and dashboard journeys", () => {
     });
     await createAuthRunEventRecord({
       authRunId: run.id,
+      type: "AUTHORIZATION_STARTED",
+      request: {
+        method: "GET",
+        endpoint: "https://issuer.example.com/oauth2/v1/authorize",
+      },
+      response: JSON.stringify({
+        redirectUrl: "https://issuer.example.com/oauth2/v1/authorize?client_id=test-client",
+      }),
+    });
+    await createAuthRunEventRecord({
+      authRunId: run.id,
       type: "AUTHENTICATED",
       request: { grant_type: "authorization_code" },
       metadata: { nonceStatus: "valid" },
@@ -698,6 +785,11 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await expect(page.getByText("mfa", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh Tokens" })).toBeVisible();
     await expect(page.getByText("Stored", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Trace" }).click();
+    await expect(page.getByText("Protocol trace")).toBeVisible();
+    await expect(page.getByText("Authorization request")).toBeVisible();
+    await expect(page.getByText("Token exchange")).toBeVisible();
+    await page.getByRole("button", { name: "Lifecycle" }).click();
 
     await page.getByRole("button", { name: "Introspect Access Token" }).click();
     await expect(
@@ -712,6 +804,64 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await page.getByRole("button", { name: "Revoke Refresh Token" }).click();
     await expect(page.getByText("Unavailable", { exact: true })).toBeVisible();
     await expect(page.getByText("REVOKED", { exact: true }).first()).toBeVisible();
+  });
+
+  test("compares claims between persisted runs in the inspector", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-claims-diff-${randomUUID()}@example.com`,
+      name: "E2E Claims Diff User",
+    });
+    const app = await createOidcApp({
+      teamId: seeded.team.id,
+      name: "Claims Diff App",
+      slug: `claims-diff-${randomUUID().slice(0, 8)}`,
+    });
+    const baselineRun = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      claims: {
+        sub: "user-123",
+        email: "baseline@example.com",
+        role: "member",
+      },
+      idToken: "baseline-id-token",
+      accessToken: "baseline-access-token",
+      rawTokenResponse: JSON.stringify({ access_token: "baseline-access-token" }),
+    });
+    const currentRun = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      claims: {
+        sub: "user-123",
+        email: "current@example.com",
+        groups: ["engineering"],
+      },
+      idToken: "current-id-token",
+      accessToken: "current-access-token",
+      rawTokenResponse: JSON.stringify({ access_token: "current-access-token" }),
+    });
+
+    await authenticateAppRun(page, {
+      slug: app.slug,
+      runId: currentRun.id,
+      protocol: "OIDC",
+      authenticatedAt: new Date().toISOString(),
+    });
+
+    await page.goto(`/test/${app.slug}/inspector?compare=${baselineRun.id}`);
+    await page.getByRole("button", { name: "Claims Diff" }).click();
+
+    await expect(page.getByText("Compare runs")).toBeVisible();
+    await expect(page.getByText("1 changed")).toBeVisible();
+    await expect(page.getByText("1 added")).toBeVisible();
+    await expect(page.getByText("1 removed")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "email" })).toBeVisible();
+    await expect(page.getByText("current@example.com")).toBeVisible();
+    await expect(page.getByText("baseline@example.com")).toBeVisible();
+    await expect(page.getByRole("cell", { name: "groups" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "role" })).toBeVisible();
   });
 
   test("launches the client credentials path from the OIDC workbench", async ({
@@ -766,6 +916,78 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await expect(
       page.getByText("CLIENT CREDENTIALS ISSUED", { exact: true }).first(),
     ).toBeVisible();
+  });
+
+  test("launches token exchange from the OIDC workbench", async ({ page }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-token-exchange-${randomUUID()}@example.com`,
+      name: "E2E Token Exchange User",
+    });
+    const app = await createOidcApp({
+      teamId: seeded.team.id,
+      name: "Token Exchange App",
+      slug: `token-exchange-${randomUUID().slice(0, 8)}`,
+    });
+    const sourceRun = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      grantType: "AUTHORIZATION_CODE",
+      accessToken: "source-access-token",
+      idToken: "source-id-token",
+      rawTokenResponse: JSON.stringify({ access_token: "source-access-token" }),
+      accessTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    const exchangedRun = await createAuthRunRecord({
+      appInstanceId: app.id,
+      protocol: "OIDC",
+      grantType: "TOKEN_EXCHANGE",
+      accessToken: "delegated-access-token",
+      rawTokenResponse: JSON.stringify({ access_token: "delegated-access-token" }),
+      accessTokenExpiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+    });
+    await createAuthRunEventRecord({
+      authRunId: exchangedRun.id,
+      type: "TOKEN_EXCHANGED",
+      request: {
+        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+        subject_token_source: "access_token",
+      },
+      response: JSON.stringify({ access_token: "delegated-access-token" }),
+    });
+
+    await authenticateAppRun(page, {
+      slug: app.slug,
+      runId: sourceRun.id,
+      protocol: "OIDC",
+      authenticatedAt: new Date().toISOString(),
+    });
+
+    await page.route(`**/api/auth/token/exchange/${app.slug}`, async (route) => {
+      await authenticateAppRun(page, {
+        slug: app.slug,
+        runId: exchangedRun.id,
+        protocol: "OIDC",
+        authenticatedAt: new Date().toISOString(),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100"}/test/${app.slug}/inspector`,
+          runId: exchangedRun.id,
+        }),
+      });
+    });
+
+    await page.goto(`/test/${app.slug}`);
+    await expect(page.getByText("Token exchange", { exact: true })).toBeVisible();
+    await page.getByLabel("Audience").fill("api://orders");
+    await page.getByLabel("Requested scopes").last().fill("orders.read");
+    await page.getByRole("button", { name: "Run Token Exchange" }).click();
+
+    await expect(page).toHaveURL(`/test/${app.slug}/inspector`);
+    await expect(page.getByText("Token exchange completed")).toBeVisible();
+    await expect(page.getByText("TOKEN EXCHANGED", { exact: true }).first()).toBeVisible();
   });
 
   test("shows a SAML-specific inspector instead of OIDC lifecycle tabs", async ({
@@ -846,6 +1068,24 @@ test.describe("e2e: auth and dashboard journeys", () => {
       protocol: "SAML",
       authenticatedAt: new Date().toISOString(),
     });
+    await createAuthRunEventRecord({
+      authRunId: run.id,
+      type: "AUTHORIZATION_STARTED",
+      request: {
+        method: "GET",
+        endpoint: "https://idp.example.com/sso",
+      },
+      response: "<samlp:AuthnRequest />",
+    });
+    await createAuthRunEventRecord({
+      authRunId: run.id,
+      type: "AUTHENTICATED",
+      request: {
+        method: "POST",
+        endpoint: "https://authlab.example.com/api/auth/callback/saml/sample-app",
+      },
+      response: `<?xml version="1.0" encoding="UTF-8"?><samlp:Response />`,
+    });
 
     await page.goto(`/test/${app.slug}/inspector`);
 
@@ -856,6 +1096,7 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await expect(page.getByRole("button", { name: "Discovery" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Validation" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "JWT Decoder" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Trace" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Raw XML" })).toBeVisible();
     await expect(page.getByRole("button", { name: "SAML SLO" })).toBeVisible();
     await expect(page.getByText("Assertion envelope")).toBeVisible();
@@ -863,6 +1104,9 @@ test.describe("e2e: auth and dashboard journeys", () => {
     await expect(page.getByText("Authentication statement")).toBeVisible();
     await expect(page.getByText("Attribute statement")).toBeVisible();
     await expect(page.getByRole("cell", { name: "Department", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Trace" }).click();
+    await expect(page.getByText("AuthnRequest redirect")).toBeVisible();
+    await expect(page.getByText("Assertion callback")).toBeVisible();
   });
 
   test("creates, updates, and deletes users from admin management", async ({ page }) => {

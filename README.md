@@ -1,6 +1,6 @@
 # AuthLab — Multi-Tenant Auth Testing Workbench
 
-A developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. Configure an identity provider, authenticate, inspect claims and payloads, exercise token lifecycle actions, and validate protocol behavior from a single enterprise-style workbench.
+A developer tool for dynamically creating, saving, and launching isolated OIDC or SAML test instances. Configure an identity provider, authenticate, inspect claims and payloads, exercise token lifecycle actions, validate logout behavior, test provisioning, and debug protocol behavior from a single enterprise-style workbench.
 
 **Live**: [authlab-snowy.vercel.app](https://authlab-snowy.vercel.app)
 
@@ -8,16 +8,17 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 
 - **Dynamic Provider Registry** — Create multiple OIDC or SAML app instances, each with its own slug-based URL
 - **Isolated Sessions** — Each tenant gets its own encrypted cookie (`authlab_{slug}`), so you can test multiple providers simultaneously
-- **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, and client-credentials testing
-- **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, decoded claims, and raw JSON/XML views
+- **OIDC Workbench** — Custom authorization parameters, PKCE modes (`S256`, `PLAIN`, `NONE`), nonce validation, UserInfo, introspection, revocation, refresh, client credentials, device authorization, token exchange, PAR, and back-channel logout testing
+- **Lifecycle Inspector** — Token timeline, `acr` / `amr` diagnostics, JWT signature validation, `at_hash` / `c_hash` validation, claims diff, trace logging, decoded claims, and raw JSON/XML views
 - **Per-App SAML Signing** — Upload or generate self-signed SP signing material per app instance for signed metadata and AuthN requests
 - **Enterprise SAML Controls** — NameID format, ForceAuthn, IsPassive, AuthnContext, signature algorithm, clock skew, encrypted assertions, and SAML SLO per app instance
+- **SCIM Mock Provisioning** — App-scoped SCIM `ServiceProviderConfig`, `Schemas`, `ResourceTypes`, `Users`, and `Groups` endpoints with persisted mock resources and request logs
 - **Callback Routing** — App-specific callback URL for both OIDC and SAML; state/RelayState maps back to the correct tenant
 - **Encryption at Rest** — Client secrets and IdP certificates encrypted with AES-256-GCM in the database
 - **Secret Redaction** — API never exposes actual secrets; returns `hasClientSecret: boolean` instead
 - **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
 - **Cross-Team App Transfer** — Team admins/owners can move or copy app configurations across teams
-- **Dense SaaS UI** — Compact management tables, runtime launch controls, and analyst-focused inspector tabs
+- **Dense SaaS UI** — Compact management tables, runtime launch controls, analyst-focused inspector tabs, mobile-friendly stacked table layouts, and explicit team access / join-queue states
 
 ## Tech Stack
 
@@ -88,7 +89,7 @@ The `TURSO_*` variables are only needed for production — leave them commented 
 npx prisma db push
 ```
 
-This creates a `dev.db` SQLite file in the project root with the `AppInstance` table.
+This creates a `dev.db` SQLite file in the project root with the current Prisma schema, including app instances, auth runs, lifecycle events, and SCIM mock resources.
 
 ### 5. Start the dev server
 
@@ -97,6 +98,12 @@ npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000). You should see the AuthLab dashboard with a "Create Your First App" prompt.
+
+Recent UX baseline highlights:
+
+- management tables collapse into readable labeled rows on mobile instead of horizontal scroll
+- team access states are explained directly in the Teams directory (`No access`, `Request pending`, role-based access, and join queue summaries)
+- compact search inputs and adjacent action buttons share the same control height
 
 ### 6. Verify local changes before commit
 
@@ -166,7 +173,21 @@ If a SAML app does not have signing material configured, unsigned metadata still
 1. Click **Test** on your app instance card
 2. Click the **Login with OIDC/SAML** button
 3. Authenticate at your IdP
-4. View the inspector page with decoded claims, raw data, and JWT breakdown
+4. View the inspector page with lifecycle, validation, trace, claims diff, and raw payload diagnostics
+
+For OIDC apps, the test workbench also supports:
+
+- Browser login
+- Client credentials
+- Device authorization
+- Token exchange
+
+For app-level provisioning tests, the app detail page exposes:
+
+- SCIM base URL
+- SCIM discovery endpoints
+- app-scoped bearer token
+- recent SCIM resources and request logs
 
 ## Production Build
 
@@ -232,22 +253,24 @@ After deployment, upload the PEM pair into the target SAML app instance or use t
 
 ## Release Workflow
 
-For staged testing before merging to `main`, cut a release branch from the current working state and deploy from that branch instead of deploying directly from `main`.
+AuthLab currently uses a three-branch release model:
 
-Recommended naming:
-
-```bash
-git switch -c release/<yyyy-mm-dd>-<scope>
-```
+- `main` — integration branch
+- `alpha` — staged alpha release branch
+- `beta` — staged beta release branch
 
 Suggested flow:
 
-1. Create the release branch from the exact state you want to test.
-2. Push the branch and deploy from that branch only.
-3. If you need to roll back, redeploy the previous release branch commit or switch back to the prior release branch.
-4. Merge to `main` only after the release branch has been validated in detail.
+1. Merge and stabilize work on `main`.
+2. Cut or fast-forward `alpha` from the `main` commit you want to release as the alpha line.
+3. Advance `beta` from the tested beta line you want to stage separately.
+4. Tag immutable releases from those branches, for example:
+   - `v0.1.0-alpha`
+   - `v0.2.0-beta`
+5. Deploy from `alpha` or `beta`, not directly from `main`.
+6. Roll back by redeploying the previous tagged commit or prior branch head.
 
-This keeps `main` stable while making deploy and rollback decisions branch-based instead of ad hoc.
+This keeps `main` as integration while making deploy and rollback decisions branch- and tag-based.
 
 ### Automated Deploy (GitHub Actions)
 

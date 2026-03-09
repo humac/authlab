@@ -147,6 +147,64 @@ a:hover {
   background-size: 28px 28px;
 }
 
+.responsive-table {
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table,
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tbody {
+    padding: 0.25rem;
+  }
+
+  .responsive-table tr {
+    border-top: 1px solid var(--border);
+    border-radius: 0.9rem;
+    background: var(--surface);
+    padding: 0.2rem 0.85rem;
+  }
+
+  .responsive-table tr:first-child {
+    border-top: none;
+  }
+
+  .responsive-table td {
+    border-top: 1px solid var(--border);
+    padding: 0.8rem 0;
+  }
+
+  .responsive-table td:first-child {
+    border-top: none;
+  }
+
+  .responsive-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  .responsive-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}
+
 @keyframes enter-rise {
   from {
     opacity: 0;

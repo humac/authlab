@@ -440,9 +440,9 @@ export function SamlOverviewPanel({
           </Badge>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-hidden">
           {assertion?.attributes.length ? (
-            <table className="min-w-full border-separate border-spacing-0 text-left">
+            <table className="responsive-table min-w-full border-separate border-spacing-0 text-left">
               <thead>
                 <tr>
                   <th className="border-b border-[var(--border)] px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -459,7 +459,7 @@ export function SamlOverviewPanel({
               <tbody>
                 {assertion.attributes.map((attribute) => (
                   <tr key={`${attribute.name}-${attribute.friendlyName ?? "value"}`}>
-                    <td className="border-b border-[var(--border)] px-3 py-3 align-top text-sm font-medium text-[var(--text)]">
+                    <td className="border-b border-[var(--border)] px-3 py-3 align-top text-sm font-medium text-[var(--text)]" data-label="Name">
                       <div>{attribute.name}</div>
                       {attribute.nameFormat && (
                         <div className="mt-1 text-xs font-normal text-[var(--muted)]">
@@ -467,10 +467,10 @@ export function SamlOverviewPanel({
                         </div>
                       )}
                     </td>
-                    <td className="border-b border-[var(--border)] px-3 py-3 align-top text-sm text-[var(--text)]">
+                    <td className="border-b border-[var(--border)] px-3 py-3 align-top text-sm text-[var(--text)]" data-label="Friendly name">
                       {attribute.friendlyName ?? "Unavailable"}
                     </td>
-                    <td className="border-b border-[var(--border)] px-3 py-3 align-top">
+                    <td className="border-b border-[var(--border)] px-3 py-3 align-top" data-label="Values">
                       <div className="flex flex-wrap gap-2">
                         {attribute.values.length ? (
                           attribute.values.map((value) => (

@@ -1,0 +1,1 @@
+ALTER TABLE "AppInstance" ADD COLUMN "usePar" BOOLEAN NOT NULL DEFAULT false;
