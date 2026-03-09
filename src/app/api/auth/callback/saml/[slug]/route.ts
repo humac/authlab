@@ -5,6 +5,7 @@ import { getState } from "@/lib/state-store";
 import { getAppSession, saveAuthResultSession } from "@/lib/session";
 import {
   completeAuthRun,
+  createAuthRunEvent,
   createAuthRun,
   getAuthRunById,
   markAuthRunFailed,
@@ -86,6 +87,22 @@ export async function POST(
       claims: result.claims,
       rawSamlResponseXml: result.rawXml,
     });
+    await createAuthRunEvent({
+      authRunId: completedRun.id,
+      type: "AUTHENTICATED",
+      request: {
+        method: "POST",
+        endpoint: callbackUrl,
+        binding: "HTTP_POST",
+        relayStatePresent: Boolean(relayState),
+      },
+      response: result.rawXml ?? null,
+      metadata: {
+        claimKeys: Object.keys(result.claims),
+        nameId:
+          typeof result.claims.NameID === "string" ? result.claims.NameID : null,
+      },
+    });
 
     // Store in session
     const session = await getAppSession(slug);
@@ -114,6 +131,15 @@ export async function POST(
 
     console.error("SAML callback failed:", message);
     if (activeRunId) {
+      await createAuthRunEvent({
+        authRunId: activeRunId,
+        type: "FAILED",
+        status: "FAILED",
+        metadata: {
+          action: "saml_callback",
+          message,
+        },
+      }).catch(() => undefined);
       await markAuthRunFailed(activeRunId).catch(() => undefined);
     }
     return NextResponse.json(

@@ -1,12 +1,16 @@
 # E2E Test Report
 
-Date: 2026-03-06
+Date: 2026-03-08
 Project: AuthLab
-Branch under test: `feat/profile-menu-avatar`
+Branch under test: historical baseline report
+
+## Status Note
+
+This file is now an archival baseline from the earlier manual/browser-assisted run. The current source of truth is the Playwright suite in `test/e2e/auth-and-dashboard.spec.ts`, which now covers the broader Phase 1 through Phase 4 product surface.
 
 ## Summary
 
-- Journeys tested: 5
+- Journeys tested in this historical report: 5
 - Responsive pass: 6 major pages across 3 viewports
 - Screenshots captured: 54
 - Issues found: 3
@@ -21,6 +25,9 @@ The original manual/browser-assisted run documented in this report covered the f
 - Passkey enrollment, login, and removal
 - Password reset request and completion
 - Invite acceptance after login redirect
+- OIDC lifecycle diagnostics and actions
+- Client credentials, token exchange, and protocol-specific inspector flows
+- SCIM mock provisioning
 - Admin user creation, update, and deletion
 - Responsive smoke checks across mobile, tablet, and desktop
 

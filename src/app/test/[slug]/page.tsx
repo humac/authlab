@@ -10,6 +10,7 @@ import { RuntimeLaunchPanel } from "@/components/apps/RuntimeLaunchPanel";
 import { DiscoveryMetadataView } from "@/components/inspector/DiscoveryMetadataView";
 import { getReadableTextColor } from "@/lib/color";
 import { OIDCHandler } from "@/lib/oidc-handler";
+import { getActiveAuthRun } from "@/lib/session";
 
 export default async function TestPage({
   params,
@@ -17,7 +18,10 @@ export default async function TestPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const app = await getAppInstanceBySlug(slug);
+  const [app, activeRun] = await Promise.all([
+    getAppInstanceBySlug(slug),
+    getActiveAuthRun(slug),
+  ]);
 
   if (!app) {
     notFound();
@@ -28,9 +32,15 @@ export default async function TestPage({
   const testLoginUrl = `${testUrl}/login`;
   const testInspectorUrl = `${testUrl}/inspector`;
   const clientCredentialsUrl = `${appUrl}/api/auth/token/client-credentials/${app.slug}`;
+  const deviceAuthorizationUrl = `${appUrl}/api/auth/device/${app.slug}`;
+  const tokenExchangeUrl = `${appUrl}/api/auth/token/exchange/${app.slug}`;
   const oidcCallbackUrl = `${appUrl}/api/auth/callback/oidc/${app.slug}`;
   const samlCallbackUrl = `${appUrl}/api/auth/callback/saml/${app.slug}`;
   const samlLogoutCallbackUrl = `${appUrl}/api/auth/logout/saml/${app.slug}/callback`;
+  const scimBaseUrl = `${appUrl}/api/scim/${app.slug}`;
+  const scimUsersUrl = `${scimBaseUrl}/Users`;
+  const scimGroupsUrl = `${scimBaseUrl}/Groups`;
+  const scimConfigUrl = `${scimBaseUrl}/ServiceProviderConfig`;
   const unsignedMetadataUrl =
     app.protocol === "SAML" ? `${appUrl}/api/saml/metadata/${app.slug}` : null;
   const signedMetadataUrl =
@@ -43,6 +53,16 @@ export default async function TestPage({
       : null;
   const launchButtonColor = app.buttonColor || "#3B71CA";
   const launchButtonTextColor = getReadableTextColor(launchButtonColor);
+  const hasDeviceAuthorization =
+    discoveryMetadata !== null &&
+    typeof discoveryMetadata === "object" &&
+    "device_authorization_endpoint" in discoveryMetadata &&
+    typeof discoveryMetadata.device_authorization_endpoint === "string";
+  const hasParSupport =
+    discoveryMetadata !== null &&
+    typeof discoveryMetadata === "object" &&
+    "pushed_authorization_request_endpoint" in discoveryMetadata &&
+    typeof discoveryMetadata.pushed_authorization_request_endpoint === "string";
 
   const importantUrls = [
     ["Test URL", testUrl],
@@ -52,6 +72,10 @@ export default async function TestPage({
       app.protocol === "OIDC" ? oidcCallbackUrl : samlCallbackUrl,
     ],
     ["Inspector URL", testInspectorUrl],
+    ["SCIM Base URL", scimBaseUrl],
+    ["SCIM Users URL", scimUsersUrl],
+    ["SCIM Groups URL", scimGroupsUrl],
+    ["SCIM ServiceProviderConfig", scimConfigUrl],
     ...(unsignedMetadataUrl ? [["SP Metadata URL", unsignedMetadataUrl]] : []),
     ...(signedMetadataUrl ? [["Signed Metadata URL", signedMetadataUrl]] : []),
     ...(app.protocol === "SAML" ? [["SAML SLO Callback URL", samlLogoutCallbackUrl]] : []),
@@ -96,9 +120,19 @@ export default async function TestPage({
             protocol={app.protocol}
             loginUrl={testLoginUrl}
             clientCredentialsUrl={app.protocol === "OIDC" ? clientCredentialsUrl : undefined}
+            deviceAuthorizationUrl={
+              app.protocol === "OIDC" && hasDeviceAuthorization
+                ? deviceAuthorizationUrl
+                : undefined
+            }
+            tokenExchangeUrl={app.protocol === "OIDC" ? tokenExchangeUrl : undefined}
+            hasActiveAccessToken={app.protocol === "OIDC" ? Boolean(activeRun?.accessToken) : false}
+            hasActiveIdToken={app.protocol === "OIDC" ? Boolean(activeRun?.idToken) : false}
             savedCustomParams={app.customAuthParams}
             defaultScopes={app.scopes || "openid profile email"}
             pkceMode={app.protocol === "OIDC" ? app.pkceMode : undefined}
+            usePar={app.protocol === "OIDC" ? app.usePar : undefined}
+            parSupported={app.protocol === "OIDC" ? hasParSupport : undefined}
             forceAuthnDefault={app.forceAuthnDefault}
             isPassiveDefault={app.isPassiveDefault}
             requestedAuthnContextDefault={app.requestedAuthnContext}

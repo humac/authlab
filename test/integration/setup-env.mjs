@@ -27,6 +27,9 @@ if (!globalThis.__authlabIntegrationSetup) {
     "20260308_phase3_saml_request_controls.sql",
     "20260308_phase3_saml_encryption_keys.sql",
     "20260308_phase3_saml_slo.sql",
+    "20260308_phase4_oidc_backchannel_logout.sql",
+    "20260308_phase4_oidc_par.sql",
+    "20260308_phase4_scim_mock.sql",
   ];
   const migrationSql = migrationFiles
     .map((name) => fs.readFileSync(path.join(migrationDir, name), "utf8"))

@@ -29,6 +29,7 @@ interface FormData {
   scopes: string;
   customAuthParams: KeyValueParam[];
   pkceMode: "S256" | "PLAIN" | "NONE";
+  usePar: boolean;
   entryPoint: string;
   samlLogoutUrl: string;
   issuer: string;
@@ -57,6 +58,7 @@ const initialFormData: FormData = {
   scopes: "openid profile email",
   customAuthParams: [{ key: "", value: "" }],
   pkceMode: "S256",
+  usePar: false,
   entryPoint: "",
   samlLogoutUrl: "",
   issuer: "",
@@ -168,6 +170,7 @@ export function CreationStepper() {
         body.scopes = formData.scopes || "openid profile email";
         body.customAuthParams = formData.customAuthParams.filter((entry) => entry.key.trim());
         body.pkceMode = formData.pkceMode;
+        body.usePar = formData.usePar;
       } else {
         body.entryPoint = formData.entryPoint;
         body.samlLogoutUrl = formData.samlLogoutUrl || null;
@@ -342,10 +345,11 @@ export function CreationStepper() {
                 issuerUrl: formData.issuerUrl,
                 clientId: formData.clientId,
                 clientSecret: formData.clientSecret,
-                scopes: formData.scopes,
-                customAuthParams: formData.customAuthParams,
-                pkceMode: formData.pkceMode,
-              }}
+              scopes: formData.scopes,
+              customAuthParams: formData.customAuthParams,
+              pkceMode: formData.pkceMode,
+              usePar: formData.usePar,
+            }}
               onChange={updateField}
               onCustomParamsChange={(params) => updateField("customAuthParams", params)}
               errors={errors}

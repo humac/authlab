@@ -26,6 +26,8 @@ export interface AuthRun {
   loginState: string | null;
   nonce: string | null;
   nonceStatus: string | null;
+  oidcSubject: string | null;
+  oidcSessionId: string | null;
   runtimeOverrides: Record<string, string>;
   outboundAuthParams: Record<string, string>;
   claims: Record<string, unknown>;
@@ -54,6 +56,8 @@ export interface CreateAuthRunInput {
   nonce?: string | null;
   runtimeOverrides?: Record<string, string>;
   outboundAuthParams?: Record<string, string>;
+  oidcSubject?: string | null;
+  oidcSessionId?: string | null;
 }
 
 export interface CompleteAuthRunInput {
@@ -70,6 +74,8 @@ export interface CompleteAuthRunInput {
   authenticatedAt?: Date;
   status?: AuthRun["status"];
   nonceStatus?: string | null;
+  oidcSubject?: string | null;
+  oidcSessionId?: string | null;
 }
 
 export interface CreateAuthRunEventInput {

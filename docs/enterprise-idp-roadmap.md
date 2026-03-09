@@ -18,16 +18,20 @@ This file is intended to be the durable product and engineering reference for up
 
 AuthLab currently supports:
 
-- OIDC Authorization Code flow with PKCE
-- OIDC discovery-based configuration
-- generic claims inspection
+- OIDC Authorization Code, Client Credentials, Device Authorization, and Token Exchange flows
+- OIDC discovery-based configuration, custom auth parameters, PKCE modes, nonce handling, PAR, UserInfo, refresh, introspection, revocation, logout, and back-channel logout
+- structured OIDC diagnostics including lifecycle timeline, JWT signature validation, `at_hash` / `c_hash`, `acr` / `amr`, trace logging, and claims diff
 - SAML SP-initiated and IdP-initiated SSO
 - SAML metadata import from XML or URL
 - XML hardening including XXE defense
 - HTTP-Redirect and HTTP-POST SAML bindings
-- inspector views for claims, JWT payloads, and raw token/XML output
+- per-app SAML signing, encryption, SLO, NameID, ForceAuthn, IsPassive, AuthnContext, signature algorithm, and clock skew controls
+- structured SAML assertion inspection and raw XML views
+- app-scoped SCIM mock provisioning with persisted resources and request logs
 - multi-tenant teams with RBAC
 - encrypted secrets at rest
+
+Phases 1 through 4 of the roadmap are implemented on `beta`. The remaining sections of this document preserve the original reasoning and gap analysis, but the status tables below are the current source of truth for what is done versus deferred.
 
 ### Assessment
 
@@ -140,12 +144,12 @@ The same principle should guide future work:
 
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
-| Authorization Code without PKCE | Missing | High | Needed for legacy apps and older IdP/client combinations |
-| Client Credentials grant | Missing | High | Essential for M2M and API testing |
-| Refresh token support | Missing | High | Required for realistic token lifecycle validation |
-| Device Authorization grant | Missing | Medium | Useful for CLI, device, and constrained-input scenarios |
+| Authorization Code without PKCE | Phase 2 | High | Needed for legacy apps and older IdP/client combinations |
+| Client Credentials grant | Phase 2 | High | Essential for M2M and API testing |
+| Refresh token support | Phase 2 | High | Required for realistic token lifecycle validation |
+| Device Authorization grant | Phase 4 | Medium | Useful for CLI, device, and constrained-input scenarios |
 | Implicit flow | Missing | Low | Mainly for legacy validation and migration testing |
-| Token Exchange (RFC 8693) | Missing | Medium | Important in Ping and ForgeRock enterprise environments |
+| Token Exchange (RFC 8693) | Phase 4 | Medium | Important in Ping and ForgeRock enterprise environments |
 | CIBA | Missing | Low | Advanced niche enterprise scenario |
 
 ### OIDC Recommendations
@@ -183,15 +187,15 @@ This is useful for enterprise CLI and device testing against IdPs such as Okta a
 
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
-| Token introspection | Missing | High | Validates resource server token state |
-| Token revocation | Missing | High | Validates immediate invalidation behavior |
+| Token introspection | Phase 2 | High | Validates resource server token state |
+| Token revocation | Phase 2 | High | Validates immediate invalidation behavior |
 | UserInfo endpoint call | Phase 1 | High | Compares token claims with profile endpoint results |
-| JWT signature validation display | Missing | High | Analysts need trust diagnostics, not only decoded payloads |
-| `at_hash` and `c_hash` display | Missing | Medium | Useful for protocol correctness checks |
+| JWT signature validation display | Phase 2 | High | Analysts need trust diagnostics, not only decoded payloads |
+| `at_hash` and `c_hash` display | Phase 2 | Medium | Useful for protocol correctness checks |
 | Nonce support | Phase 1 | High | Required replay-defense validation |
-| `acr_values` and `amr` diagnostics | Partially missing | High | Critical for MFA and policy troubleshooting |
+| `acr_values` and `amr` diagnostics | Phase 2 | High | Critical for MFA and policy troubleshooting |
 | Custom authorization parameters | Phase 1 | High | Highest flexibility gain across IdPs |
-| Token lifetime / expiry timeline | Missing | Medium | Helps analysts understand session and renewal timing |
+| Token lifetime / expiry timeline | Phase 2 | Medium | Helps analysts understand session and renewal timing |
 
 ### Recommendations
 
@@ -229,7 +233,7 @@ Even if these values are already visible as generic claims, the product still ne
 | --- | --- | --- | --- |
 | RP-initiated logout | Phase 1 | High | Table-stakes for browser SSO validation |
 | Front-channel logout | Missing | Medium | Needed for coordinated browser logout scenarios |
-| Back-channel logout | Missing | High | Important for enterprise logout propagation |
+| Back-channel logout | Phase 4 | High | Important for enterprise logout propagation |
 | Session Management iframe | Missing | Low | Lower-value legacy mechanism |
 
 ### Recommendations
@@ -240,7 +244,7 @@ Already in Phase 1. This should remain driven by discovery and visible only when
 
 #### Back-Channel Logout
 
-Implement a logout token endpoint and local session invalidation workflow. This is high-value because enterprise buyers often need to verify centralized session invalidation across relying parties.
+Implemented in Phase 4. AuthLab now accepts a provider-signed logout token, validates it against discovery metadata and JWKS, correlates the token by `sid` or `sub`, and marks matching OIDC runs logged out locally.
 
 #### Front-Channel Logout
 
@@ -260,9 +264,9 @@ Add a visible signal when the IdP triggers the registered front-channel logout U
 | Scoping / ProxyCount | Missing | Low | Specialized federation case |
 | Attribute query | Missing | Low | Niche but useful in Shibboleth-style deployments |
 | ECP | Missing | Low | Specialized scenario |
-| Signature algorithm selection | Missing | Medium | Needed for legacy interop validation |
+| Signature algorithm selection | Phase 3 | Medium | Needed for legacy interop validation |
 | Clock skew tolerance | Phase 3 | Medium | Useful in labs and staging environments |
-| Conditions / AudienceRestriction display | Missing | Medium | Improves SAML troubleshooting accuracy |
+| Conditions / AudienceRestriction display | Phase 3 | Medium | Improves SAML troubleshooting accuracy |
 
 ### Recommendations
 
@@ -294,13 +298,13 @@ This remains one of the most important missing SAML capabilities. It should supp
 
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
-| Structured SAML assertion viewer | Missing | High | Makes XML understandable at analyst speed |
+| Structured SAML assertion viewer | Phase 3 | High | Makes XML understandable at analyst speed |
 | SAML signature verification detail panel | Missing | High | Needed for trust troubleshooting |
-| SAML Conditions and SubjectConfirmation display | Missing | High | Critical validity diagnostics |
+| SAML Conditions and SubjectConfirmation display | Phase 3 | High | Critical validity diagnostics |
 | OIDC discovery metadata viewer | Phase 1 | High | Helps configure and explain provider behavior |
-| Request and response trace logging | Missing | High | Needed for end-to-end debugging |
-| Token timeline | Missing | Medium | Useful for lifecycle analysis |
-| Claims diff | Missing | Medium | Useful when comparing two runs |
+| Request and response trace logging | Phase 4 | High | Needed for end-to-end debugging |
+| Token timeline | Phase 2 | Medium | Useful for lifecycle analysis |
+| Claims diff | Phase 4 | Medium | Useful when comparing two runs |
 | IdP certificate expiry checker | Missing | Medium | Helps identify impending breakage |
 | Protocol compliance report | Missing | Low | Nice-to-have summary layer |
 
@@ -407,7 +411,7 @@ These vendors show up in larger or more mature identity programs where advanced 
 | SP-initiated vs IdP-initiated comparison | High | Helps compare claim and assertion differences clearly |
 | Step-up authentication testing | High | Directly useful for MFA and assurance validation |
 | JIT provisioning simulation | Medium | Helps downstream application onboarding scenarios |
-| SCIM mock endpoint | Medium | High differentiation for enterprise evaluations |
+| SCIM mock endpoint | Phase 4 | High differentiation for enterprise evaluations |
 | Dynamic client registration | Medium | Useful for standards-complete OIDC testing |
 | Pushed Authorization Requests | Medium | Important for FAPI and regulated environments |
 | DPoP | Low | Emerging standard, lower current demand |
@@ -553,6 +557,10 @@ Phase 3 is now the SAML baseline on `beta`: structured assertion diagnostics, en
 - claims diff
 - PAR
 
+### Current State
+
+Phase 4 is implemented on `beta`. AuthLab now includes OIDC back-channel logout, Device Authorization, request/response trace logging, token exchange, PAR, claims diff, and SCIM mock endpoints.
+
 ### Why Phase 4 Last
 
 These features are valuable but are either:
@@ -563,25 +571,9 @@ These features are valuable but are either:
 
 This phase should be treated as the advanced capability layer after the core browser and token lifecycle workflows are solid.
 
-## What Still Remains After Phase 2
+## What Still Remains After Phase 4
 
-The major remaining roadmap work is:
-
-- encrypted SAML assertions
-- SAML SLO
-- AuthnContextClassRef
-- signature algorithm selection
-- structured SAML viewer
-- clock skew tolerance
-- back-channel logout
-- device authorization
-- token exchange
-- SCIM mock
-- full trace logging
-- claims diff
-- PAR
-
-Additional gaps still outside the implemented Phase 1 and Phase 2 baseline:
+The major roadmap work that still remains beyond Phases 1 through 4 is:
 
 - front-channel logout
 - session management iframe support
@@ -605,21 +597,21 @@ Reasoning:
 
 ## Recommended Next Step
 
-The cleanest next implementation target is Phase 3.
+The cleanest next implementation target is a post-Phase-4 polish and expansion pass rather than a new foundational phase.
 
 If narrowed further, the highest-value immediate bundle is:
 
-1. encrypted SAML assertions
-2. SAML SLO
-3. AuthnContextClassRef requests
-4. structured SAML assertion viewer
+1. front-channel logout
+2. SAML signature verification detail panel
+3. certificate expiry checker
+4. protocol compliance report
 
 Reasoning:
 
-- it addresses the largest remaining enterprise fidelity gap in the product
-- it unlocks common Entra ID, PingFederate, and Okta enterprise-app SAML scenarios
-- it builds naturally on the per-app signing and compact inspector foundation already in place
-- it keeps roadmap sequencing coherent by finishing the next protocol depth layer rather than reopening solved OIDC lifecycle work
+- logout/session propagation is the clearest remaining standards gap after back-channel logout
+- signature and certificate diagnostics improve day-two troubleshooting substantially
+- compliance summaries become more useful now that the core protocol workbench is implemented
+- these items extend the existing inspection and validation surfaces without forcing a new storage model
 
 ## Product Positioning Outcome
 
@@ -637,6 +629,6 @@ The biggest differentiators will be:
 - deep token lifecycle tools
 - realistic enterprise SAML controls
 - strong inspection and trace tooling
-- eventual SCIM plus SSO testing in one place
+- SCIM plus SSO testing in one place
 
 That combination is what makes the roadmap strategically worthwhile.

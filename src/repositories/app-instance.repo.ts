@@ -282,6 +282,7 @@ export async function copyAppInstanceToTeam(
     scopes: source.scopes,
     customAuthParams: source.customAuthParams,
     pkceMode: source.pkceMode,
+    usePar: source.usePar,
     entryPoint: source.entryPoint,
     samlLogoutUrl: source.samlLogoutUrl,
     issuer: source.issuer,

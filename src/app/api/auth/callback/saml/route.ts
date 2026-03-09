@@ -3,7 +3,12 @@ import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { SAMLHandler } from "@/lib/saml-handler";
 import { getState } from "@/lib/state-store";
 import { getAppSession, saveAuthResultSession } from "@/lib/session";
-import { completeAuthRun, getAuthRunById, markAuthRunFailed } from "@/repositories/auth-run.repo";
+import {
+  completeAuthRun,
+  createAuthRunEvent,
+  getAuthRunById,
+  markAuthRunFailed,
+} from "@/repositories/auth-run.repo";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -71,6 +76,22 @@ export async function POST(request: Request) {
       claims: result.claims,
       rawSamlResponseXml: result.rawXml,
     });
+    await createAuthRunEvent({
+      authRunId: completedRun.id,
+      type: "AUTHENTICATED",
+      request: {
+        method: "POST",
+        endpoint: callbackUrl,
+        binding: "HTTP_POST",
+        relayStatePresent: Boolean(relayState),
+      },
+      response: result.rawXml ?? null,
+      metadata: {
+        claimKeys: Object.keys(result.claims),
+        nameId:
+          typeof result.claims.NameID === "string" ? result.claims.NameID : null,
+      },
+    });
 
     // Store in session
     const session = await getAppSession(slug);
@@ -99,6 +120,15 @@ export async function POST(request: Request) {
 
     console.error("SAML callback failed:", message);
     if (activeRunId) {
+      await createAuthRunEvent({
+        authRunId: activeRunId,
+        type: "FAILED",
+        status: "FAILED",
+        metadata: {
+          action: "saml_callback",
+          message,
+        },
+      }).catch(() => undefined);
       await markAuthRunFailed(activeRunId).catch(() => undefined);
     }
     return NextResponse.json(

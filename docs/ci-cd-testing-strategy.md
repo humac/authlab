@@ -20,7 +20,7 @@ Runs on every pull request and merge queue event:
 - `npm run test:security`
 - `npm run prisma:validate`
 - `npm run build:ci`
-- Playwright E2E coverage for the auth and dashboard journeys in `e2e-test-report.md`
+- Playwright E2E coverage for the auth and dashboard journeys in `docs/e2e-test-report.md`
 - Dependency diff scanning with `actions/dependency-review-action`
 - Production release-readiness verification for trusted PRs and merge queue runs:
   - validate `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`
@@ -79,15 +79,21 @@ If you use GitHub Environments for production, add required reviewers there as a
 
 - Static analysis: ESLint
 - Type safety: TypeScript compiler
-- Unit tests: native Node test runner with 107 passing tests across 26 suites covering auth/security helpers, session helpers, passkey helpers, metadata parsing, repository helpers, and validator branches
-- Integration tests: disposable SQLite-backed route and repository flows for auth token lifecycle, registration, invite acceptance, join requests, OIDC callbacks, SAML callbacks, MFA TOTP setup/disable, passkey registration/login management, password reset, and core admin routes
+- Unit tests: native Node test runner covering auth/security helpers, session helpers, passkey helpers, OIDC lifecycle helpers, SAML controls, trace helpers, claims diff helpers, SCIM helpers, repository helpers, and validator branches
+- Integration tests: disposable SQLite-backed route and repository flows for auth token lifecycle, registration, invite acceptance, join requests, OIDC callbacks, SAML callbacks, MFA TOTP setup/disable, passkey registration/login management, password reset, admin routes, Phase 1 through 4 OIDC routes, and SCIM mock routes
 - Security regression tests: disposable SQLite-backed auth abuse coverage for generic registration/login/recovery responses, brute-force rate limiting, MFA lockout, and expired passkey challenge handling
 - Nightly performance baselines: in-process route benchmarks for register, password login, invalid-password login, password reset request, and verification resend flows with avg/p95 budgets and artifact reports
-- End-to-end tests: Playwright browser journeys for registration, email verification, login, MFA setup/disable, passkey enrollment/login/removal, password reset, invite acceptance, team join requests, profile management, app lifecycle, admin user management, admin access control, and responsive smoke checks across mobile/tablet/desktop
+- End-to-end tests: Playwright browser journeys for registration, email verification, login, MFA setup/disable, passkey enrollment/login/removal, password reset, invite acceptance, team join requests, profile management, app lifecycle, client credentials, token exchange, SCIM provisioning, protocol inspectors, admin user management, admin access control, and responsive smoke checks across mobile/tablet/desktop
 - Schema validation: Prisma
 - Build verification: Next.js webpack production build
 - Dependency risk review: GitHub dependency review
 - Deployment readiness: Vercel env validation and prebuilt artifact generation
+
+### E2E Harness Notes
+
+- `npm run test:e2e` builds and serves the app in production mode before running Playwright
+- The browser suite stays on `localhost` so WebAuthn/passkey coverage remains valid
+- Do not run E2E and `npm run build:ci` in parallel locally because they can contend on `.next/lock`
 
 ### Not yet automated in this repository
 
