@@ -27,7 +27,7 @@ const defaultLabels: Record<string, string> = {
 export function Badge({ variant, children, className = "" }: BadgeProps) {
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-md px-2 text-[11px] font-semibold tracking-[0.06em] ${variants[variant]} ${className}`}
+      className={`inline-flex h-5 items-center whitespace-nowrap rounded-md px-2 text-[11px] font-semibold tracking-[0.06em] ${variants[variant]} ${className}`}
     >
       {children || defaultLabels[variant] || variant.toUpperCase()}
     </span>
