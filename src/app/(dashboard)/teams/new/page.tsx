@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 
+function toSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export default function NewTeamPage() {
   const user = useUser();
   const router = useRouter();
@@ -18,13 +25,9 @@ export default function NewTeamPage() {
 
   function handleNameChange(value: string) {
     setName(value);
-    if (autoSlug) {
-      setSlug(
-        value
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, ""),
-      );
+    if (autoSlug || !slug.trim()) {
+      setSlug(toSlug(value));
+      setAutoSlug(true);
     }
   }
 
@@ -105,8 +108,9 @@ export default function NewTeamPage() {
             label="Slug"
             value={slug}
             onChange={(e) => {
-              setSlug(e.target.value);
-              setAutoSlug(false);
+              const nextSlug = toSlug(e.target.value);
+              setSlug(nextSlug);
+              setAutoSlug(nextSlug.length === 0);
             }}
             required
             placeholder="my-team"

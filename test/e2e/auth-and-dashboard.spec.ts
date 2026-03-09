@@ -257,11 +257,11 @@ test.describe("e2e: auth and dashboard journeys", () => {
 
     await teamOneRow.getByRole("button", { name: "Request access" }).click();
     await expect(page.getByText("Join request submitted")).toBeVisible();
-    await expect(teamOneRow.getByText("Pending")).toBeVisible();
+    await expect(teamOneRow.getByRole("button", { name: "Request pending" })).toBeVisible();
 
     await teamTwoRow.getByRole("button", { name: "Request access" }).click();
     await expect(page.getByText("Join request submitted")).toBeVisible();
-    await expect(teamTwoRow.getByText("Pending")).toBeVisible();
+    await expect(teamTwoRow.getByRole("button", { name: "Request pending" })).toBeVisible();
 
     const requests = await listJoinRequestsForUser(seeded.user.id);
     expect(requests).toHaveLength(2);
@@ -269,6 +269,30 @@ test.describe("e2e: auth and dashboard journeys", () => {
       teamOne.id,
       teamTwo.id,
     ]);
+  });
+
+  test("auto-generates and recovers the slug while creating teams as an admin", async ({
+    page,
+  }) => {
+    const seeded = await createUserWithPersonalTeam({
+      email: `e2e-team-admin-${randomUUID()}@example.com`,
+      name: "E2E Team Admin",
+      isSystemAdmin: true,
+    });
+
+    await loginViaUi(page, seeded.user.email, seeded.password);
+    await page.goto("/teams");
+
+    await page.getByRole("button", { name: "Create team" }).click();
+    await page.getByLabel("Name").fill("Operations Lab");
+    await expect(page.getByLabel("Slug")).toHaveValue("operations-lab");
+
+    await page.getByLabel("Slug").fill("ops");
+    await expect(page.getByLabel("Slug")).toHaveValue("ops");
+
+    await page.getByLabel("Slug").fill("");
+    await page.getByLabel("Name").fill("Operations Lab Europe");
+    await expect(page.getByLabel("Slug")).toHaveValue("operations-lab-europe");
   });
 
   test("manages profile details, avatar, and password", async ({ page }, testInfo) => {

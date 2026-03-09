@@ -134,8 +134,8 @@ export function ClaimsDiffPanel({
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-            <table className="w-full text-sm">
+          <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+            <table className="responsive-table w-full text-sm">
               <thead>
                 <tr className="bg-[var(--surface-2)]">
                   <th className="px-4 py-3 text-left font-semibold text-[var(--muted)]">Claim</th>
@@ -147,16 +147,16 @@ export function ClaimsDiffPanel({
               <tbody>
                 {relevantEntries.map((entry) => (
                   <tr key={entry.key} className="border-t border-[var(--border)] align-top">
-                    <td className="px-4 py-3 font-mono font-medium text-[var(--primary)]">
+                    <td className="px-4 py-3 font-mono font-medium text-[var(--primary)]" data-label="Claim">
                       {entry.key}
                     </td>
-                    <td className="whitespace-pre-wrap break-all px-4 py-3 font-mono text-[var(--text)]">
+                    <td className="whitespace-pre-wrap break-all px-4 py-3 font-mono text-[var(--text)]" data-label="Current">
                       {entry.currentValue ?? "null"}
                     </td>
-                    <td className="whitespace-pre-wrap break-all px-4 py-3 font-mono text-[var(--text)]">
+                    <td className="whitespace-pre-wrap break-all px-4 py-3 font-mono text-[var(--text)]" data-label="Baseline">
                       {entry.compareValue ?? "null"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Status">
                       <Badge variant={formatStatusVariant(entry.status)}>
                         {entry.status}
                       </Badge>
@@ -176,4 +176,3 @@ export function ClaimsDiffPanel({
     </div>
   );
 }
-
