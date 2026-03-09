@@ -35,6 +35,8 @@ export default async function TestPage({
   const deviceAuthorizationUrl = `${appUrl}/api/auth/device/${app.slug}`;
   const tokenExchangeUrl = `${appUrl}/api/auth/token/exchange/${app.slug}`;
   const oidcCallbackUrl = `${appUrl}/api/auth/callback/oidc/${app.slug}`;
+  const oidcFrontchannelLogoutUrl = `${appUrl}/api/auth/frontchannel-logout/${app.slug}`;
+  const oidcBackchannelLogoutUrl = `${appUrl}/api/auth/backchannel-logout/${app.slug}`;
   const samlCallbackUrl = `${appUrl}/api/auth/callback/saml/${app.slug}`;
   const samlLogoutCallbackUrl = `${appUrl}/api/auth/logout/saml/${app.slug}/callback`;
   const scimBaseUrl = `${appUrl}/api/scim/${app.slug}`;
@@ -71,6 +73,8 @@ export default async function TestPage({
       app.protocol === "OIDC" ? "OIDC Redirect URI" : "SAML ACS URL",
       app.protocol === "OIDC" ? oidcCallbackUrl : samlCallbackUrl,
     ],
+    ...(app.protocol === "OIDC" ? [["OIDC Front-channel Logout URI", oidcFrontchannelLogoutUrl]] : []),
+    ...(app.protocol === "OIDC" ? [["OIDC Back-channel Logout URI", oidcBackchannelLogoutUrl]] : []),
     ["Inspector URL", testInspectorUrl],
     ["SCIM Base URL", scimBaseUrl],
     ["SCIM Users URL", scimUsersUrl],
