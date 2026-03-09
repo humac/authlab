@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { createAuthHandler } from "@/lib/auth-factory";
+import { decodeSamlRedirectRequest } from "@/lib/auth-trace";
 import { setState } from "@/lib/state-store";
-import { createAuthRun } from "@/repositories/auth-run.repo";
+import { createAuthRun, createAuthRunEvent } from "@/repositories/auth-run.repo";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -67,6 +68,40 @@ export async function GET(
     slug,
     runId: run.id,
     codeVerifier: result.codeVerifier ?? undefined,
+  });
+
+  const redirectUrl = new URL(result.url);
+  const authRequestXml =
+    appInstance.protocol === "SAML"
+      ? decodeSamlRedirectRequest(redirectUrl.searchParams.get("SAMLRequest") ?? "")
+      : null;
+
+  await createAuthRunEvent({
+    authRunId: run.id,
+    type: "AUTHORIZATION_STARTED",
+    request:
+      result.traceRequest ??
+      {
+        method: "GET",
+        endpoint: `${redirectUrl.origin}${redirectUrl.pathname}`,
+        protocol: appInstance.protocol,
+      },
+    response:
+      result.traceResponse ??
+      (appInstance.protocol === "SAML" && authRequestXml
+        ? authRequestXml
+        : JSON.stringify(
+            {
+              redirectUrl: result.url,
+              parameters: result.outboundParams ?? {},
+            },
+            null,
+            2,
+          )),
+    metadata: {
+      runtimeOverrideKeys: Object.keys(runtimeOverrides),
+      ...(result.traceMetadata ?? {}),
+    },
   });
 
   return NextResponse.redirect(result.url);

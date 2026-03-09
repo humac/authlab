@@ -129,7 +129,7 @@ export function TeamMembersPanel({
         />
 
         <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
+          <table className="responsive-table w-full text-sm">
             <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2">Member</th>
@@ -139,7 +139,7 @@ export function TeamMembersPanel({
             <tbody>
               {filteredMembers.map((member) => (
                 <tr key={member.id} className="border-t border-[var(--border)]">
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Member">
                     <div>
                       <p className="font-medium text-[var(--text)]">
                         {member.user.name}
@@ -148,7 +148,7 @@ export function TeamMembersPanel({
                       <p className="text-xs text-[var(--muted)]">{member.user.email}</p>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Role">
                     <Badge variant={roleBadgeVariant(member.role)}>{member.role}</Badge>
                   </td>
                 </tr>

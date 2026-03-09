@@ -368,7 +368,7 @@ export default function AdminUsersPage() {
         />
 
         <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
+          <table className="responsive-table w-full text-sm">
             <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2">User</th>
@@ -384,11 +384,11 @@ export default function AdminUsersPage() {
                   data-testid={`admin-user-row-${user.id}`}
                   className="border-t border-[var(--border)]"
                 >
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="User">
                     <p className="font-medium text-[var(--text)]">{user.name}</p>
                     <p className="text-xs text-[var(--muted)]">{user.email}</p>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Status">
                     <div className="flex flex-wrap gap-1.5">
                       {user.isSystemAdmin && <Badge variant="blue">SYS ADMIN</Badge>}
                       {user.mustChangePassword && <Badge variant="green">RESET</Badge>}
@@ -396,13 +396,13 @@ export default function AdminUsersPage() {
                       {user.mfaEnabled && <Badge variant="green">MFA</Badge>}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-[var(--muted)]">
+                  <td className="px-3 py-2.5 text-xs text-[var(--muted)]" data-label="Teams">
                     {user.teamMemberships
                       .filter((membership) => !membership.team.isPersonal)
                       .map((membership) => `${membership.team.name} (${membership.role})`)
                       .join(", ") || "No shared teams"}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Actions">
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="secondary" onClick={() => openEditModal(user)}>
                         Edit

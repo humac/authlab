@@ -9,22 +9,29 @@ import { SessionInfo } from "@/components/inspector/SessionInfo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
-import { listAuthRunEvents } from "@/repositories/auth-run.repo";
+import { getAuthRunById, listAuthRunEvents, listAuthRunsForApp } from "@/repositories/auth-run.repo";
 import { OIDCHandler } from "@/lib/oidc-handler";
+import { buildAuthTraceEntries } from "@/lib/auth-trace";
 import { DiscoveryMetadataView } from "@/components/inspector/DiscoveryMetadataView";
 import { LifecyclePanel } from "@/components/inspector/LifecyclePanel";
 import { OidcTokenValidationPanel } from "@/components/inspector/OidcTokenValidationPanel";
 import { SamlOverviewPanel } from "@/components/inspector/SamlOverviewPanel";
+import { TracePanel } from "@/components/inspector/TracePanel";
 import { UserInfoPanel } from "@/components/inspector/UserInfoPanel";
+import { getLatestDeviceAuthorizationSnapshot } from "@/lib/oidc-device-flow";
 import { parseSamlResponseXml } from "@/lib/saml-response-parser";
 import { getSamlLogoutProfileFromRun } from "@/lib/saml-logout";
+import { ClaimsDiffPanel } from "@/components/inspector/ClaimsDiffPanel";
 
 export default async function InspectorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ compare?: string }>;
 }) {
   const { slug } = await params;
+  const { compare } = await searchParams;
   const [run, app] = await Promise.all([
     getActiveAuthRun(slug),
     getAppInstanceBySlug(slug),
@@ -33,7 +40,21 @@ export default async function InspectorPage({
   if (!run || !app) {
     redirect(`/test/${slug}`);
   }
-  const events = await listAuthRunEvents(run.id);
+  const [events, comparableRuns] = await Promise.all([
+    listAuthRunEvents(run.id),
+    listAuthRunsForApp(run.appInstanceId, run.protocol, 12),
+  ]);
+  const compareCandidates = comparableRuns.filter((candidate) => candidate.id !== run.id);
+  const selectedCompareRun =
+    compare && compare !== run.id
+      ? await getAuthRunById(compare)
+      : null;
+  const compareRun =
+    selectedCompareRun &&
+    selectedCompareRun.appInstanceId === run.appInstanceId &&
+    selectedCompareRun.protocol === run.protocol
+      ? selectedCompareRun
+      : null;
 
   const discoveryMetadata =
     run.protocol === "OIDC"
@@ -70,6 +91,22 @@ export default async function InspectorPage({
     run.protocol === "SAML" &&
     Boolean(app.samlLogoutUrl) &&
     Boolean(getSamlLogoutProfileFromRun(run));
+  const deviceAuthorization =
+    run.protocol === "OIDC" && run.grantType === "DEVICE_AUTHORIZATION"
+      ? getLatestDeviceAuthorizationSnapshot(events)
+      : null;
+  const traceEntries = buildAuthTraceEntries({
+    run,
+    events,
+    oidcAuthorizationEndpoint:
+      discoveryMetadata &&
+      typeof discoveryMetadata === "object" &&
+      "authorization_endpoint" in discoveryMetadata &&
+      typeof discoveryMetadata.authorization_endpoint === "string"
+        ? discoveryMetadata.authorization_endpoint
+        : null,
+    samlEntryPoint: app.protocol === "SAML" ? app.entryPoint : null,
+  });
   const tabs =
     run.protocol === "OIDC"
       ? [
@@ -78,12 +115,14 @@ export default async function InspectorPage({
             content: (
               <LifecyclePanel
                 slug={slug}
+                status={run.status}
                 grantType={run.grantType}
                 claims={run.claims}
                 accessTokenExpiresAt={run.accessTokenExpiresAt?.toISOString() ?? null}
                 hasRefreshToken={Boolean(run.refreshToken)}
                 lastIntrospection={run.lastIntrospection}
                 lastRevocationAt={run.lastRevocationAt?.toISOString() ?? null}
+                deviceAuthorization={deviceAuthorization}
                 events={events.map((event) => ({
                   id: event.id,
                   type: event.type,
@@ -99,6 +138,21 @@ export default async function InspectorPage({
           {
             label: "Claims",
             content: <ClaimsTable claims={run.claims || {}} />,
+          },
+          {
+            label: "Claims Diff",
+            content: (
+              <ClaimsDiffPanel
+                slug={slug}
+                currentRun={run}
+                compareRun={compareRun}
+                candidates={compareCandidates}
+              />
+            ),
+          },
+          {
+            label: "Trace",
+            content: <TracePanel entries={traceEntries} />,
           },
         ]
       : [
@@ -116,6 +170,21 @@ export default async function InspectorPage({
           {
             label: "Claims",
             content: <ClaimsTable claims={run.claims || {}} />,
+          },
+          {
+            label: "Claims Diff",
+            content: (
+              <ClaimsDiffPanel
+                slug={slug}
+                currentRun={run}
+                compareRun={compareRun}
+                candidates={compareCandidates}
+              />
+            ),
+          },
+          {
+            label: "Trace",
+            content: <TracePanel entries={traceEntries} />,
           },
         ];
 
@@ -194,6 +263,7 @@ export default async function InspectorPage({
       <SessionInfo
         slug={slug}
         protocol={run.protocol}
+        status={run.status}
         runId={run.id}
         authenticatedAt={run.authenticatedAt?.toISOString() ?? run.createdAt.toISOString()}
         nonceStatus={run.nonceStatus}

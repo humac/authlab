@@ -40,6 +40,8 @@ function normalizeRun(record: AuthRunRecord): AuthRun {
     loginState: record.loginState,
     nonce: record.nonce,
     nonceStatus: record.nonceStatus,
+    oidcSubject: record.oidcSubject,
+    oidcSessionId: record.oidcSessionId,
     runtimeOverrides:
       parseRecordJson<Record<string, string>>(record.runtimeOverridesJson) ?? {},
     outboundAuthParams:
@@ -90,6 +92,8 @@ export async function createAuthRun(input: CreateAuthRunInput): Promise<AuthRun>
       grantType: input.grantType ?? "AUTHORIZATION_CODE",
       loginState: input.loginState ?? null,
       nonce: input.nonce ?? null,
+      oidcSubject: input.oidcSubject ?? null,
+      oidcSessionId: input.oidcSessionId ?? null,
       runtimeOverridesJson: input.runtimeOverrides
         ? JSON.stringify(input.runtimeOverrides)
         : null,
@@ -105,6 +109,24 @@ export async function getAuthRunById(id: string): Promise<AuthRun | null> {
   const prisma = await getPrisma();
   const record = await prisma.authRun.findUnique({ where: { id } });
   return record ? normalizeRun(record) : null;
+}
+
+export async function listAuthRunsForApp(
+  appInstanceId: string,
+  protocol: AuthRun["protocol"],
+  limit = 12,
+): Promise<AuthRun[]> {
+  const prisma = await getPrisma();
+  const records = await prisma.authRun.findMany({
+    where: {
+      appInstanceId,
+      protocol,
+      status: { not: "PENDING" },
+    },
+    orderBy: [{ authenticatedAt: "desc" }, { createdAt: "desc" }],
+    take: limit,
+  });
+  return records.map(normalizeRun);
 }
 
 export async function getAuthRunByLoginState(
@@ -123,6 +145,54 @@ export async function getAuthRunByLogoutState(
   return record ? normalizeRun(record) : null;
 }
 
+export async function listBackchannelLogoutCandidates(input: {
+  appInstanceId: string;
+  oidcSessionId?: string | null;
+  oidcSubject?: string | null;
+}): Promise<AuthRun[]> {
+  const prisma = await getPrisma();
+  const orFilters: Array<
+    | {
+        oidcSessionId: string;
+      }
+    | {
+        oidcSubject: string;
+      }
+  > = [];
+
+  if (input.oidcSessionId) {
+    orFilters.push({ oidcSessionId: input.oidcSessionId });
+  }
+  if (input.oidcSubject) {
+    orFilters.push({ oidcSubject: input.oidcSubject });
+  }
+
+  if (orFilters.length === 0) {
+    return [];
+  }
+
+  const records = await prisma.authRun.findMany({
+    where: {
+      appInstanceId: input.appInstanceId,
+      protocol: "OIDC",
+      status: "AUTHENTICATED",
+      OR: orFilters,
+    },
+    orderBy: [{ authenticatedAt: "desc" }, { createdAt: "desc" }],
+  });
+
+  if (input.oidcSessionId) {
+    const exactSessionMatches = records.filter(
+      (record) => record.oidcSessionId === input.oidcSessionId,
+    );
+    if (exactSessionMatches.length > 0) {
+      return exactSessionMatches.map(normalizeRun);
+    }
+  }
+
+  return records.map(normalizeRun);
+}
+
 export async function completeAuthRun(
   id: string,
   input: CompleteAuthRunInput,
@@ -132,6 +202,10 @@ export async function completeAuthRun(
     where: { id },
     data: {
       status: input.status ?? "AUTHENTICATED",
+      oidcSubject:
+        input.oidcSubject !== undefined ? input.oidcSubject : undefined,
+      oidcSessionId:
+        input.oidcSessionId !== undefined ? input.oidcSessionId : undefined,
       claimsJson:
         input.claims !== undefined ? JSON.stringify(input.claims ?? {}) : undefined,
       idToken: input.idToken,
@@ -256,6 +330,27 @@ export async function markAuthRunLoggedOut(id: string): Promise<AuthRun> {
     },
   });
   return normalizeRun(record);
+}
+
+export async function markAuthRunsLoggedOut(ids: string[]): Promise<number> {
+  if (ids.length === 0) {
+    return 0;
+  }
+
+  const prisma = await getPrisma();
+  const result = await prisma.authRun.updateMany({
+    where: {
+      id: { in: ids },
+      status: "AUTHENTICATED",
+    },
+    data: {
+      status: "LOGGED_OUT",
+      completedAt: new Date(),
+      logoutCompletedAt: new Date(),
+    },
+  });
+
+  return result.count;
 }
 
 export async function markAuthRunFailed(id: string): Promise<AuthRun> {

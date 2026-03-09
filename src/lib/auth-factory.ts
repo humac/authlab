@@ -8,6 +8,9 @@ export interface AuthorizationResult {
   codeVerifier?: string | null;
   nonce?: string;
   outboundParams?: Record<string, string>;
+  traceRequest?: Record<string, unknown>;
+  traceResponse?: string | null;
+  traceMetadata?: Record<string, unknown> | null;
 }
 
 export interface AuthResult {
@@ -20,7 +23,11 @@ export interface AuthResult {
   accessToken?: string | null;
   refreshToken?: string | null;
   accessTokenExpiresAt?: Date | null;
-  grantType?: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
+  grantType?:
+    | "AUTHORIZATION_CODE"
+    | "CLIENT_CREDENTIALS"
+    | "DEVICE_AUTHORIZATION"
+    | "TOKEN_EXCHANGE";
   nonceStatus?: string | null;
 }
 

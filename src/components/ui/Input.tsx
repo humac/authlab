@@ -24,8 +24,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const inputId = id || label.toLowerCase().replace(/\s+/g, "-");
     const sizes = {
-      sm: "h-9 px-3 text-sm",
-      md: "h-10 px-3.5 text-sm",
+      sm: "h-9 px-3 text-sm leading-[1.2]",
+      md: "h-10 px-3.5 text-sm leading-[1.25]",
     };
 
     return (
@@ -39,7 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] placeholder:text-[var(--muted)] ${sizes[uiSize]} ${
+          className={`focus-ring block w-full rounded-lg border bg-[var(--surface)] shadow-[var(--shadow-xs)] transition-[border-color,box-shadow,background-color] placeholder:text-[var(--muted)] placeholder:leading-[1.2] ${sizes[uiSize]} ${
             error
               ? "border-red-400"
               : "border-[var(--border)] hover:border-[var(--border-strong)]"

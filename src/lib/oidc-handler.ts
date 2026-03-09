@@ -1,4 +1,5 @@
 import * as client from "openid-client";
+import { decodeJwt } from "jose";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import type {
   AuthHandler,
@@ -46,6 +47,45 @@ function filterReservedParams(
 type TokenResponseLike = client.TokenEndpointResponseHelpers &
   Record<string, unknown>;
 
+export interface DeviceAuthorizationPayload {
+  deviceCode: string;
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete: string | null;
+  expiresIn: number;
+  interval: number | null;
+  rawResponse: string;
+}
+
+export interface DeviceAuthorizationPollResult {
+  status: "authorized" | "pending" | "slow_down";
+  result?: AuthResult;
+  error?: string;
+  interval?: number | null;
+  rawResponse?: string;
+}
+
+export interface TokenExchangeInput {
+  subjectToken: string;
+  subjectTokenType:
+    | "urn:ietf:params:oauth:token-type:access_token"
+    | "urn:ietf:params:oauth:token-type:id_token";
+  requestedTokenType?:
+    | "urn:ietf:params:oauth:token-type:access_token"
+    | "urn:ietf:params:oauth:token-type:refresh_token"
+    | "urn:ietf:params:oauth:token-type:id_token";
+  audience?: string;
+  scope?: string;
+}
+
+type ParRequestTrace = {
+  method: "POST";
+  endpoint: string;
+  protocol: "OIDC";
+  body: Record<string, string>;
+  clientAuthentication: "client_secret_post" | "public";
+};
+
 function buildTokenResponsePayload(tokenLike: TokenResponseLike): {
   rawTokenResponse: string;
   idToken: string | null;
@@ -85,6 +125,18 @@ function buildTokenResponsePayload(tokenLike: TokenResponseLike): {
     refreshToken,
     expiresIn,
   };
+}
+
+function getClaimsFromIdToken(idToken: string | null): Record<string, unknown> {
+  if (!idToken) {
+    return {};
+  }
+
+  try {
+    return decodeJwt(idToken) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 export class OIDCHandler implements AuthHandler {
@@ -200,6 +252,68 @@ export class OIDCHandler implements AuthHandler {
     );
   }
 
+  private async pushAuthorizationRequest(
+    config: client.Configuration,
+    parameters: Record<string, string>,
+  ): Promise<{
+    requestUri: string;
+    expiresIn: number | null;
+    traceRequest: ParRequestTrace;
+    traceResponse: string;
+  }> {
+    const metadata = config.serverMetadata();
+    if (!metadata.pushed_authorization_request_endpoint) {
+      throw new Error(
+        "Pushed Authorization Requests are enabled for this app, but the provider discovery metadata does not advertise a pushed authorization request endpoint.",
+      );
+    }
+
+    const response = await fetch(metadata.pushed_authorization_request_endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: this.buildClientAuthenticatedFormBody(parameters),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      throw new Error(
+        typeof payload.error_description === "string"
+          ? payload.error_description
+          : typeof payload.error === "string"
+            ? payload.error
+            : "Pushed authorization request failed",
+      );
+    }
+
+    const requestUri =
+      typeof payload.request_uri === "string" ? payload.request_uri : null;
+    if (!requestUri) {
+      throw new Error("Provider PAR response did not include a request_uri.");
+    }
+
+    return {
+      requestUri,
+      expiresIn: typeof payload.expires_in === "number" ? payload.expires_in : null,
+      traceRequest: {
+        method: "POST",
+        endpoint: metadata.pushed_authorization_request_endpoint,
+        protocol: "OIDC",
+        body: {
+          ...parameters,
+          client_id: this.appInstance.clientId!,
+        },
+        clientAuthentication: this.appInstance.clientSecret
+          ? "client_secret_post"
+          : "public",
+      },
+      traceResponse: JSON.stringify(payload, null, 2),
+    };
+  }
+
   async getAuthorizationUrl(
     callbackUrl: string,
     options?: AuthRequestOptions,
@@ -235,7 +349,28 @@ export class OIDCHandler implements AuthHandler {
       parameters.code_challenge_method = pkceMode;
     }
 
-    const url = client.buildAuthorizationUrl(config, parameters);
+    let url: URL;
+    let traceRequest: AuthorizationResult["traceRequest"];
+    let traceResponse: string | null = null;
+    let traceMetadata: Record<string, unknown> | null = null;
+
+    if (this.appInstance.usePar) {
+      const parResult = await this.pushAuthorizationRequest(config, parameters);
+      url = client.buildAuthorizationUrl(config, {
+        client_id: this.appInstance.clientId!,
+        request_uri: parResult.requestUri,
+      });
+      traceRequest = parResult.traceRequest;
+      traceResponse = parResult.traceResponse;
+      traceMetadata = {
+        parUsed: true,
+        requestUri: parResult.requestUri,
+        ...(parResult.expiresIn !== null ? { expiresIn: parResult.expiresIn } : {}),
+        authorizationRedirectUrl: url.toString(),
+      };
+    } else {
+      url = client.buildAuthorizationUrl(config, parameters);
+    }
 
     return {
       url: url.toString(),
@@ -243,6 +378,9 @@ export class OIDCHandler implements AuthHandler {
       nonce,
       codeVerifier,
       outboundParams: normalizeParams(url.searchParams.entries()),
+      traceRequest,
+      traceResponse,
+      traceMetadata,
     };
   }
 
@@ -356,6 +494,207 @@ export class OIDCHandler implements AuthHandler {
     };
   }
 
+  async exchangeToken(input: TokenExchangeInput): Promise<AuthResult> {
+    const config = await this.getOIDCConfiguration();
+    const metadata = config.serverMetadata();
+
+    if (!metadata.token_endpoint) {
+      throw new Error("Provider discovery metadata does not advertise a token endpoint.");
+    }
+
+    const response = await fetch(metadata.token_endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: this.buildClientAuthenticatedFormBody({
+        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+        subject_token: input.subjectToken,
+        subject_token_type: input.subjectTokenType,
+        ...(input.requestedTokenType
+          ? { requested_token_type: input.requestedTokenType }
+          : {}),
+        ...(input.audience && input.audience.trim().length > 0
+          ? { audience: input.audience.trim() }
+          : {}),
+        ...(input.scope && input.scope.trim().length > 0
+          ? { scope: input.scope.trim() }
+          : {}),
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      throw new Error(
+        typeof payload.error_description === "string"
+          ? payload.error_description
+          : typeof payload.error === "string"
+            ? payload.error
+            : "Token exchange failed",
+      );
+    }
+
+    const parsed = buildTokenResponsePayload(payload as TokenResponseLike);
+
+    return {
+      slug: this.appInstance.slug,
+      protocol: "OIDC",
+      claims: getClaimsFromIdToken(parsed.idToken),
+      rawTokenResponse: parsed.rawTokenResponse,
+      idToken: parsed.idToken,
+      accessToken: parsed.accessToken,
+      refreshToken: parsed.refreshToken,
+      accessTokenExpiresAt: parsed.expiresIn
+        ? new Date(Date.now() + parsed.expiresIn * 1000)
+        : null,
+      grantType: "TOKEN_EXCHANGE",
+    };
+  }
+
+  async initiateDeviceAuthorization(
+    scopes?: string,
+  ): Promise<DeviceAuthorizationPayload> {
+    const config = await this.getOIDCConfiguration();
+    const metadata = config.serverMetadata();
+
+    if (!metadata.device_authorization_endpoint) {
+      throw new Error(
+        "Provider discovery metadata does not advertise a device authorization endpoint.",
+      );
+    }
+
+    const response = await fetch(metadata.device_authorization_endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: this.buildClientAuthenticatedFormBody({
+        ...(scopes && scopes.trim().length > 0 ? { scope: scopes.trim() } : {}),
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      throw new Error(
+        typeof payload.error_description === "string"
+          ? payload.error_description
+          : typeof payload.error === "string"
+            ? payload.error
+            : "Device authorization request failed",
+      );
+    }
+
+    const deviceCode =
+      typeof payload.device_code === "string" ? payload.device_code : null;
+    const userCode = typeof payload.user_code === "string" ? payload.user_code : null;
+    const verificationUri =
+      typeof payload.verification_uri === "string" ? payload.verification_uri : null;
+    const expiresIn =
+      typeof payload.expires_in === "number" ? payload.expires_in : null;
+
+    if (!deviceCode || !userCode || !verificationUri || !expiresIn) {
+      throw new Error(
+        "The provider returned an incomplete device authorization response.",
+      );
+    }
+
+    return {
+      deviceCode,
+      userCode,
+      verificationUri,
+      verificationUriComplete:
+        typeof payload.verification_uri_complete === "string"
+          ? payload.verification_uri_complete
+          : null,
+      expiresIn,
+      interval: typeof payload.interval === "number" ? payload.interval : null,
+      rawResponse: JSON.stringify(payload, null, 2),
+    };
+  }
+
+  async pollDeviceAuthorization(
+    deviceAuthorization: {
+      deviceCode: string;
+      expiresIn: number;
+      interval?: number | null;
+    },
+  ): Promise<DeviceAuthorizationPollResult> {
+    const config = await this.getOIDCConfiguration();
+    const metadata = config.serverMetadata();
+
+    if (!metadata.token_endpoint) {
+      throw new Error("Provider discovery metadata does not advertise a token endpoint.");
+    }
+
+    const response = await fetch(metadata.token_endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: this.buildClientAuthenticatedFormBody({
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+        device_code: deviceAuthorization.deviceCode,
+      }),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      const errorCode =
+        typeof payload.error === "string" ? payload.error : "device_flow_failed";
+      const errorDescription =
+        typeof payload.error_description === "string"
+          ? payload.error_description
+          : errorCode;
+
+      if (errorCode === "authorization_pending") {
+        return {
+          status: "pending",
+          error: errorDescription,
+          interval: deviceAuthorization.interval ?? null,
+          rawResponse: JSON.stringify(payload, null, 2),
+        };
+      }
+      if (errorCode === "slow_down") {
+        return {
+          status: "slow_down",
+          error: errorDescription,
+          interval:
+            typeof payload.interval === "number"
+              ? payload.interval
+              : (deviceAuthorization.interval ?? 5) + 5,
+          rawResponse: JSON.stringify(payload, null, 2),
+        };
+      }
+
+      throw new Error(errorDescription);
+    }
+
+    const parsed = buildTokenResponsePayload(payload as TokenResponseLike);
+    return {
+      status: "authorized",
+      result: {
+        slug: this.appInstance.slug,
+        protocol: "OIDC",
+        claims: getClaimsFromIdToken(parsed.idToken),
+        rawTokenResponse: parsed.rawTokenResponse,
+        idToken: parsed.idToken,
+        accessToken: parsed.accessToken,
+        refreshToken: parsed.refreshToken,
+        accessTokenExpiresAt: parsed.expiresIn
+          ? new Date(Date.now() + parsed.expiresIn * 1000)
+          : null,
+        grantType: "DEVICE_AUTHORIZATION",
+      },
+      rawResponse: parsed.rawTokenResponse,
+    };
+  }
+
   async fetchUserInfo(
     accessToken: string,
     expectedSubject?: string,
@@ -387,5 +726,16 @@ export class OIDCHandler implements AuthHandler {
         state: logoutState,
       })
       .toString();
+  }
+
+  private buildClientAuthenticatedFormBody(
+    parameters: Record<string, string>,
+  ): URLSearchParams {
+    const body = new URLSearchParams(parameters);
+    body.set("client_id", this.appInstance.clientId!);
+    if (this.appInstance.clientSecret) {
+      body.set("client_secret", this.appInstance.clientSecret);
+    }
+    return body;
   }
 }

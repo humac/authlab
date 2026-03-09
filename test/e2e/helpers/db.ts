@@ -39,6 +39,7 @@ export type E2eAppRecord = {
   slug: string;
   clientSecret: string | null;
   pkceMode: "S256" | "PLAIN" | "NONE";
+  usePar: boolean;
   samlLogoutUrl: string | null;
   requestedAuthnContext: string | null;
   samlSignatureAlgorithm: "SHA1" | "SHA256";
@@ -54,7 +55,11 @@ export type E2eAuthRunRecord = {
   id: string;
   appInstanceId: string;
   protocol: "OIDC" | "SAML";
-  grantType: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
+  grantType:
+    | "AUTHORIZATION_CODE"
+    | "CLIENT_CREDENTIALS"
+    | "DEVICE_AUTHORIZATION"
+    | "TOKEN_EXCHANGE";
 };
 
 export type E2eJoinRequestRecord = {
@@ -208,6 +213,7 @@ export async function createOidcApp(data: {
   clientSecret?: string;
   scopes?: string;
   pkceMode?: "S256" | "PLAIN" | "NONE";
+  usePar?: boolean;
 }) {
   const app = {
     id: randomUUID(),
@@ -220,16 +226,17 @@ export async function createOidcApp(data: {
     clientSecret: data.clientSecret ?? "secret-123",
     scopes: data.scopes ?? "openid profile email",
     pkceMode: data.pkceMode ?? "S256",
+    usePar: data.usePar ?? false,
   };
   const timestamp = nowIso();
 
   db.prepare(
     `INSERT INTO "AppInstance" (
       id, name, slug, protocol, teamId, issuerUrl, clientId, clientSecret, scopes,
-      customAuthParamsJson, pkceMode, entryPoint, issuer, idpCert, nameIdFormat,
+      customAuthParamsJson, pkceMode, usePar, entryPoint, issuer, idpCert, nameIdFormat,
       forceAuthnDefault, isPassiveDefault, signAuthnRequests, spSigningPrivateKey,
       spSigningCert, buttonColor, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     app.id,
     app.name,
@@ -242,6 +249,7 @@ export async function createOidcApp(data: {
     app.scopes,
     null,
     app.pkceMode,
+    app.usePar ? 1 : 0,
     null,
     null,
     null,
@@ -333,10 +341,16 @@ export async function createSamlApp(data: {
 export async function createAuthRunRecord(data: {
   appInstanceId: string;
   protocol?: "OIDC" | "SAML";
-  grantType?: "AUTHORIZATION_CODE" | "CLIENT_CREDENTIALS";
+  grantType?:
+    | "AUTHORIZATION_CODE"
+    | "CLIENT_CREDENTIALS"
+    | "DEVICE_AUTHORIZATION"
+    | "TOKEN_EXCHANGE";
   status?: "PENDING" | "AUTHENTICATED" | "LOGGED_OUT" | "FAILED";
   nonce?: string | null;
   claims?: Record<string, unknown>;
+  oidcSubject?: string | null;
+  oidcSessionId?: string | null;
   idToken?: string | null;
   accessToken?: string | null;
   refreshToken?: string | null;
@@ -358,11 +372,11 @@ export async function createAuthRunRecord(data: {
   db.prepare(
     `INSERT INTO "AuthRun" (
       id, appInstanceId, protocol, grantType, status, loginState, nonce, nonceStatus,
-      runtimeOverridesJson, outboundAuthParamsJson, claimsJson, idToken, accessTokenEnc,
+      oidcSubject, oidcSessionId, runtimeOverridesJson, outboundAuthParamsJson, claimsJson, idToken, accessTokenEnc,
       refreshTokenEnc, accessTokenExpiresAt, rawTokenResponseEnc, rawSamlResponseXml,
       userinfoJson, lastIntrospectionJson, lastRevocationAt, authenticatedAt, completedAt,
       logoutState, logoutCompletedAt, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     run.id,
     run.appInstanceId,
@@ -372,6 +386,8 @@ export async function createAuthRunRecord(data: {
     null,
     data.nonce ?? null,
     data.nonce ? "valid" : null,
+    data.oidcSubject ?? null,
+    data.oidcSessionId ?? null,
     JSON.stringify({}),
     JSON.stringify(data.outboundAuthParams ?? {}),
     JSON.stringify(data.claims ?? {}),
@@ -467,12 +483,17 @@ export async function updateAuthRunRecord(
 export async function createAuthRunEventRecord(data: {
   authRunId: string;
   type:
+    | "AUTHORIZATION_STARTED"
     | "AUTHENTICATED"
     | "CLIENT_CREDENTIALS_ISSUED"
+    | "DEVICE_AUTHORIZATION_STARTED"
+    | "DEVICE_AUTHORIZATION_COMPLETED"
+    | "TOKEN_EXCHANGED"
     | "REFRESHED"
     | "INTROSPECTED"
     | "REVOKED"
     | "USERINFO_FETCHED"
+    | "BACKCHANNEL_LOGGED_OUT"
     | "FAILED";
   status?: "SUCCESS" | "FAILED";
   request?: Record<string, unknown> | null;
@@ -610,13 +631,14 @@ export async function findUserByEmail(email: string): Promise<E2eUserRecord | nu
 }
 
 export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> {
-  type AppLookupRow = {
-    id: string;
-    name: string;
-    slug: string;
-    clientSecret: string | null;
-    pkceMode: "S256" | "PLAIN" | "NONE";
-    samlLogoutUrl: string | null;
+type AppLookupRow = {
+  id: string;
+  name: string;
+  slug: string;
+  clientSecret: string | null;
+  pkceMode: "S256" | "PLAIN" | "NONE";
+  usePar: number;
+  samlLogoutUrl: string | null;
     requestedAuthnContext: string | null;
     samlSignatureAlgorithm: "SHA1" | "SHA256";
     clockSkewToleranceSeconds: number;
@@ -635,6 +657,7 @@ export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> 
          slug,
          clientSecret,
          pkceMode,
+         usePar,
          samlLogoutUrl,
          requestedAuthnContext,
          samlSignatureAlgorithm,
@@ -655,6 +678,7 @@ export async function findAppBySlug(slug: string): Promise<E2eAppRecord | null> 
 
   return {
     ...row,
+    usePar: toBool(row.usePar),
     signAuthnRequests: toBool(row.signAuthnRequests),
     hasSpSigningPrivateKey: toBool(row.hasSpSigningPrivateKey),
     hasSpSigningCert: toBool(row.hasSpSigningCert),

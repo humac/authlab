@@ -110,7 +110,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
           </div>
 
           <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-            <table className="w-full text-sm">
+            <table className="responsive-table w-full text-sm">
               <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
                 <tr>
                   <th className="px-3 py-2">Application</th>
@@ -126,7 +126,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
                     data-testid={`app-card-${app.slug}`}
                     className="border-t border-[var(--border)] bg-[var(--surface)]"
                   >
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5" data-label="Application">
                       <div className="flex items-center gap-3">
                         <span
                           className="h-3 w-3 rounded-full border border-[var(--border)]"
@@ -138,13 +138,13 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5" data-label="Protocol">
                       <Badge variant={app.protocol.toLowerCase() as "oidc" | "saml"} />
                     </td>
-                    <td className="px-3 py-2.5 text-[var(--muted)]">
+                    <td className="px-3 py-2.5 text-[var(--muted)]" data-label="Created">
                       {new Date(app.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5" data-label="Actions">
                       <div className="flex items-center gap-2">
                         <Link href={`/test/${app.slug}`}>
                           <Button size="sm">Test</Button>

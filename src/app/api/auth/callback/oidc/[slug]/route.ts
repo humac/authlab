@@ -99,6 +99,10 @@ export async function GET(
       result.idToken && authorizationCode
         ? await computeExpectedOidcHashClaim(authorizationCode, result.idToken)
         : null;
+    const oidcSubject =
+      typeof result.claims.sub === "string" ? result.claims.sub : null;
+    const oidcSessionId =
+      typeof result.claims.sid === "string" ? result.claims.sid : null;
     const completedRun = await completeAuthRun(run.id, {
       claims: result.claims,
       rawTokenResponse: result.rawTokenResponse,
@@ -107,17 +111,24 @@ export async function GET(
       refreshToken: result.refreshToken,
       accessTokenExpiresAt: result.accessTokenExpiresAt,
       nonceStatus: result.nonceStatus,
+      oidcSubject,
+      oidcSessionId,
     });
     await createAuthRunEvent({
       authRunId: completedRun.id,
       type: "AUTHENTICATED",
       request: {
+        method: "POST",
+        endpoint: "token_endpoint",
         grant_type: "authorization_code",
+        callbackQueryKeys: Array.from(url.searchParams.keys()),
       },
       response: result.rawTokenResponse ?? null,
       metadata: {
         nonceStatus: result.nonceStatus ?? null,
         expectedCHash,
+        oidcSubject,
+        oidcSessionId,
       },
     });
 
@@ -150,7 +161,10 @@ export async function GET(
         authRunId: activeRunId,
         type: "FAILED",
         status: "FAILED",
-        metadata: { message },
+        metadata: {
+          action: "oidc_callback",
+          message,
+        },
       }).catch(() => undefined);
       await markAuthRunFailed(activeRunId).catch(() => undefined);
     }

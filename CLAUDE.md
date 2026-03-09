@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security and Phase 1/2 enterprise protocol tooling plus Phase 3 enterprise SAML coverage:
+AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now with hardened account security and Phases 1 through 4 of the enterprise protocol roadmap implemented on `beta`:
 - email verification
 - password reset with one-time tokens
 - passkeys (WebAuthn)
@@ -10,12 +10,16 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - encrypted SMTP/Brevo provider settings
 - secure profile image handling via DB blob + API proxy
 - OIDC lifecycle actions: refresh, introspection, revocation, client credentials
+- OIDC advanced flows: device authorization, token exchange, PAR, and back-channel logout
 - OIDC validation diagnostics: signature, `at_hash`, `c_hash`, `acr`, `amr`
+- OIDC analyst tooling: token timeline, trace logging, and claims diff
 - per-app SAML signing material with self-signed test keypair generation
 - SAML structured assertion diagnostics
 - per-app SAML encrypted assertion support
 - SAML Single Logout (SP-initiated and IdP-initiated callback handling)
 - SAML request controls: AuthnContext, signature algorithm, clock skew, logout URL
+- SCIM mock provisioning endpoints with persisted resources and request logs
+- dense responsive management UI with stacked mobile tables and clearer team access/join-request states
 
 ## Tech Stack
 
@@ -57,12 +61,21 @@ npm run build -- --webpack
 
 - `src/app/api/auth/callback/*` — app protocol callbacks (OIDC/SAML)
 - `src/app/api/auth/token/*` — OIDC token lifecycle routes
+- `src/app/api/auth/backchannel-logout/[slug]/route.ts` — OIDC back-channel logout endpoint
+- `src/app/api/auth/device/*` — OIDC device authorization start and poll routes
+- `src/app/api/auth/token/exchange/[slug]/route.ts` — OIDC token exchange
 - `src/app/api/auth/userinfo/[slug]/route.ts` — on-demand UserInfo retrieval
 - `src/app/api/auth/logout/oidc/*` — RP-initiated OIDC logout
 - `src/app/api/auth/logout/saml/*` — SAML single logout start and callback handling
+- `src/app/api/scim/*` — app-scoped SCIM mock discovery and resource endpoints
+- `src/app/(dashboard)/teams/*`, `src/app/(dashboard)/admin/users/page.tsx`, and `src/components/apps/Dashboard.tsx` — responsive operational tables and team access workflows
 - `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
 - `src/lib/oidc-token-validation.ts` — OIDC signature and bound-hash validation helpers
+- `src/lib/oidc-backchannel-logout.ts` — logout-token validation and run correlation
+- `src/lib/oidc-device-flow.ts` — device grant orchestration helpers
+- `src/lib/auth-trace.ts` — normalized request/response trace capture
 - `src/lib/saml-logout.ts` — SAML logout profile derivation and matching helpers
+- `src/lib/scim.ts` and `src/lib/scim-resource-handler.ts` — SCIM auth, list/filter, patch, and CRUD helpers
 - `src/app/api/user/*` — account security APIs:
   - login + MFA
   - register + verify email
@@ -74,6 +87,7 @@ npm run build -- --webpack
 - `src/lib/` — security primitives (`encryption`, `password`, `webauthn`, `totp`, `profile-image`, `email-provider`)
 - `src/repositories/` — DB access layer including `auth-token`, `credential`, `profile-image`
 - `src/repositories/auth-run.repo.ts` — persisted auth runs and lifecycle events for inspector/history workflows
+- `src/repositories/scim.repo.ts` — persisted SCIM mock resources and request logs
 
 ### Key Security Patterns
 
@@ -115,6 +129,7 @@ npm run build -- --webpack
   - `Credential`, `AuthToken`, `UserProfileImage`
   - `AppInstance` protocol settings for Phase 1/2 OIDC and Phase 3 SAML controls
   - `AuthRun` and `AuthRunEvent` for persisted protocol sessions and lifecycle history
+  - `ScimResource` and `ScimRequestLog` for mock provisioning state and audit trail
 - Use local SQLite for CLI through `prisma.config.ts`
 - For Turso changes, generate SQL diff then apply via `turso db shell`
 - Current roadmap migrations include:
@@ -124,6 +139,9 @@ npm run build -- --webpack
   - `prisma/turso-migrations/20260308_phase3_saml_request_controls.sql`
   - `prisma/turso-migrations/20260308_phase3_saml_encryption_keys.sql`
   - `prisma/turso-migrations/20260308_phase3_saml_slo.sql`
+  - `prisma/turso-migrations/20260308_phase4_oidc_backchannel_logout.sql`
+  - `prisma/turso-migrations/20260308_phase4_oidc_par.sql`
+  - `prisma/turso-migrations/20260308_phase4_scim_mock.sql`
 
 ## Environment Variables
 
@@ -146,7 +164,15 @@ npm run build -- --webpack
 - Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
 - SAML signed metadata/AuthN requests are per-app, not global-env driven.
 - SAML metadata now exposes app-level decryption and SLO callbacks when configured.
-- For staged deployment, cut a `release/<yyyy-mm-dd>-<scope>` branch and deploy from that branch rather than merging early into `main`.
+- Dense management tables use a mobile stacked-row pattern rather than horizontal scrolling.
+- Team access and join-review states are intentionally labeled in copy, not left as badge-color-only semantics.
+- `npm run test:e2e` uses a built Next.js server and `localhost` origin to keep Playwright and WebAuthn stable.
+- Do not run `npm run test:e2e` and `npm run build:ci` in parallel; both can contend on the Next.js build lock.
+- Release flow is branch- and tag-based:
+  - `main` for integration
+  - `alpha` for staged alpha releases
+  - `beta` for staged beta releases
+  - immutable tags such as `v0.1.0-alpha` and `v0.2.0-beta`
 
 ## Agent Commit Rule
 

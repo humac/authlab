@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { Select } from "@/components/ui/Select";
 import { KeyValueEditor } from "./KeyValueEditor";
 import type { KeyValueParam } from "@/types/app-instance";
 
@@ -12,9 +13,15 @@ interface RuntimeLaunchPanelProps {
   protocol: "OIDC" | "SAML";
   loginUrl: string;
   clientCredentialsUrl?: string;
+  deviceAuthorizationUrl?: string;
+  tokenExchangeUrl?: string;
+  hasActiveAccessToken?: boolean;
+  hasActiveIdToken?: boolean;
   savedCustomParams?: KeyValueParam[];
   defaultScopes?: string;
   pkceMode?: "S256" | "PLAIN" | "NONE";
+  usePar?: boolean;
+  parSupported?: boolean;
   forceAuthnDefault?: boolean;
   isPassiveDefault?: boolean;
   requestedAuthnContextDefault?: string | null;
@@ -27,9 +34,15 @@ export function RuntimeLaunchPanel({
   protocol,
   loginUrl,
   clientCredentialsUrl,
+  deviceAuthorizationUrl,
+  tokenExchangeUrl,
+  hasActiveAccessToken = false,
+  hasActiveIdToken = false,
   savedCustomParams = [],
   defaultScopes = "openid profile email",
   pkceMode = "S256",
+  usePar = false,
+  parSupported = false,
   forceAuthnDefault = false,
   isPassiveDefault = false,
   requestedAuthnContextDefault = "",
@@ -49,6 +62,19 @@ export function RuntimeLaunchPanel({
   const [clientCredentialScopes, setClientCredentialScopes] = useState(defaultScopes);
   const [clientCredentialsLoading, setClientCredentialsLoading] = useState(false);
   const [clientCredentialsError, setClientCredentialsError] = useState("");
+  const [deviceAuthorizationScopes, setDeviceAuthorizationScopes] = useState(defaultScopes);
+  const [deviceAuthorizationLoading, setDeviceAuthorizationLoading] = useState(false);
+  const [deviceAuthorizationError, setDeviceAuthorizationError] = useState("");
+  const [tokenExchangeSource, setTokenExchangeSource] = useState<"access_token" | "id_token">(
+    hasActiveAccessToken ? "access_token" : "id_token",
+  );
+  const [tokenExchangeRequestedType, setTokenExchangeRequestedType] = useState(
+    "urn:ietf:params:oauth:token-type:access_token",
+  );
+  const [tokenExchangeAudience, setTokenExchangeAudience] = useState("");
+  const [tokenExchangeScopes, setTokenExchangeScopes] = useState("");
+  const [tokenExchangeLoading, setTokenExchangeLoading] = useState(false);
+  const [tokenExchangeError, setTokenExchangeError] = useState("");
 
   const runtimePayload = useMemo(() => {
     if (protocol === "OIDC") {
@@ -101,6 +127,75 @@ export function RuntimeLaunchPanel({
     }
   }
 
+  async function launchDeviceAuthorization() {
+    if (!deviceAuthorizationUrl) {
+      return;
+    }
+
+    setDeviceAuthorizationLoading(true);
+    setDeviceAuthorizationError("");
+    try {
+      const response = await fetch(deviceAuthorizationUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scopes: deviceAuthorizationScopes }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setDeviceAuthorizationError(
+          typeof data.error === "string"
+            ? data.error
+            : "Device authorization request failed",
+        );
+        return;
+      }
+      if (typeof data.redirectTo === "string") {
+        router.push(data.redirectTo);
+        router.refresh();
+      }
+    } catch {
+      setDeviceAuthorizationError("Device authorization request failed");
+    } finally {
+      setDeviceAuthorizationLoading(false);
+    }
+  }
+
+  async function launchTokenExchange() {
+    if (!tokenExchangeUrl) {
+      return;
+    }
+
+    setTokenExchangeLoading(true);
+    setTokenExchangeError("");
+    try {
+      const response = await fetch(tokenExchangeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectTokenSource: tokenExchangeSource,
+          requestedTokenType: tokenExchangeRequestedType,
+          audience: tokenExchangeAudience,
+          scope: tokenExchangeScopes,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setTokenExchangeError(
+          typeof data.error === "string" ? data.error : "Token exchange failed",
+        );
+        return;
+      }
+      if (typeof data.redirectTo === "string") {
+        router.push(data.redirectTo);
+        router.refresh();
+      }
+    } catch {
+      setTokenExchangeError("Token exchange failed");
+    } finally {
+      setTokenExchangeLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {protocol === "OIDC" ? (
@@ -117,12 +212,26 @@ export function RuntimeLaunchPanel({
                     Launch the interactive authorization code flow with the configured PKCE mode.
                   </p>
                 </div>
-                <Badge variant={pkceMode === "S256" ? "green" : "gray"}>{pkceMode}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={pkceMode === "S256" ? "green" : "gray"}>{pkceMode}</Badge>
+                  <Badge variant={usePar && parSupported ? "blue" : "gray"}>
+                    {usePar ? (parSupported ? "PAR on" : "PAR missing") : "PAR off"}
+                  </Badge>
+                </div>
               </div>
               {pkceMode !== "S256" && (
                 <div className="alert-warning rounded-lg px-3 py-2">
                   <p className="text-xs font-medium">
                     Reduced PKCE protection is enabled for compatibility testing.
+                  </p>
+                </div>
+              )}
+              {usePar && (
+                <div className={parSupported ? "rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2" : "alert-danger rounded-lg px-3 py-2"}>
+                  <p className="text-xs font-medium">
+                    {parSupported
+                      ? "Browser login will post the authorization request to the provider before redirecting with a request URI."
+                      : "PAR is enabled for this app, but the provider discovery metadata does not advertise a pushed authorization request endpoint."}
                   </p>
                 </div>
               )}
@@ -166,6 +275,132 @@ export function RuntimeLaunchPanel({
               loading={clientCredentialsLoading}
             >
               Run Client Credentials
+            </Button>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Device authorization
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Start a device flow for CLI and headless testing, then complete it from the inspector.
+                </p>
+              </div>
+              <Badge variant={deviceAuthorizationUrl ? "green" : "gray"}>
+                {deviceAuthorizationUrl ? "Supported" : "Unavailable"}
+              </Badge>
+            </div>
+            <Input
+              label="Requested scopes"
+              value={deviceAuthorizationScopes}
+              onChange={(event) => setDeviceAuthorizationScopes(event.target.value)}
+              helperText="Leave blank to use the provider default scope behavior."
+              uiSize="sm"
+            />
+            {deviceAuthorizationError && (
+              <div className="alert-danger rounded-lg p-3 text-sm">{deviceAuthorizationError}</div>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              onClick={launchDeviceAuthorization}
+              loading={deviceAuthorizationLoading}
+              disabled={!deviceAuthorizationUrl}
+            >
+              Start Device Flow
+            </Button>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                  Token exchange
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Exchange the active access token or ID token for a new delegated token.
+                </p>
+              </div>
+              <Badge
+                variant={
+                  hasActiveAccessToken || hasActiveIdToken ? "green" : "gray"
+                }
+              >
+                {hasActiveAccessToken || hasActiveIdToken ? "Ready" : "Needs active run"}
+              </Badge>
+            </div>
+            <Select
+              label="Subject token source"
+              value={tokenExchangeSource}
+              onChange={(event) =>
+                setTokenExchangeSource(event.target.value as "access_token" | "id_token")
+              }
+              options={[
+                ...(hasActiveAccessToken
+                  ? [{ value: "access_token", label: "Active access token" }]
+                  : []),
+                ...(hasActiveIdToken ? [{ value: "id_token", label: "Active ID token" }] : []),
+                ...(!hasActiveAccessToken && !hasActiveIdToken
+                  ? [{ value: "access_token", label: "No token source available" }]
+                  : []),
+              ]}
+              helperText="The current active OIDC run supplies the subject token."
+              uiSize="sm"
+              disabled={!hasActiveAccessToken && !hasActiveIdToken}
+            />
+            <Select
+              label="Requested token type"
+              value={tokenExchangeRequestedType}
+              onChange={(event) => setTokenExchangeRequestedType(event.target.value)}
+              options={[
+                {
+                  value: "urn:ietf:params:oauth:token-type:access_token",
+                  label: "Access token",
+                },
+                {
+                  value: "urn:ietf:params:oauth:token-type:refresh_token",
+                  label: "Refresh token",
+                },
+                {
+                  value: "urn:ietf:params:oauth:token-type:id_token",
+                  label: "ID token",
+                },
+              ]}
+              helperText="Most providers return an access token even when metadata does not advertise token exchange."
+              uiSize="sm"
+              disabled={!hasActiveAccessToken && !hasActiveIdToken}
+            />
+            <Input
+              label="Audience"
+              value={tokenExchangeAudience}
+              onChange={(event) => setTokenExchangeAudience(event.target.value)}
+              helperText="Optional target audience or resource hint."
+              uiSize="sm"
+              disabled={!hasActiveAccessToken && !hasActiveIdToken}
+            />
+            <Input
+              label="Requested scopes"
+              value={tokenExchangeScopes}
+              onChange={(event) => setTokenExchangeScopes(event.target.value)}
+              helperText="Optional scope override for the exchanged token."
+              uiSize="sm"
+              disabled={!hasActiveAccessToken && !hasActiveIdToken}
+            />
+            {tokenExchangeError && (
+              <div className="alert-danger rounded-lg p-3 text-sm">{tokenExchangeError}</div>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              onClick={launchTokenExchange}
+              loading={tokenExchangeLoading}
+              disabled={!tokenExchangeUrl || (!hasActiveAccessToken && !hasActiveIdToken)}
+            >
+              Run Token Exchange
             </Button>
           </div>
         </>

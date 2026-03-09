@@ -21,6 +21,7 @@ export interface AppInstanceInput {
   scopes?: string | null;
   customAuthParams?: KeyValueParam[];
   pkceMode?: PkceMode;
+  usePar?: boolean;
   // SAML
   entryPoint?: string | null;
   samlLogoutUrl?: string | null;
@@ -53,6 +54,7 @@ export interface AppInstanceRecord {
   scopes: string | null;
   customAuthParamsJson: string | null;
   pkceMode: PkceMode;
+  usePar: boolean;
   entryPoint: string | null;
   samlLogoutUrl: string | null;
   issuer: string | null;

@@ -15,6 +15,7 @@ function createSamlApp() {
     scopes: null,
     customAuthParams: [],
     pkceMode: "S256" as const,
+    usePar: false,
     entryPoint: "https://idp.example.com/sso/saml",
     samlLogoutUrl: "https://idp.example.com/logout/saml",
     issuer: "https://authlab.example.com/sp",

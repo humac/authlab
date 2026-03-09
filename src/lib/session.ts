@@ -48,7 +48,8 @@ export async function getActiveAuthRun(slug: string): Promise<AuthRun | null> {
   }
 
   const run = await getAuthRunById(session.runId);
-  if (!run) {
+  if (!run || run.status === "LOGGED_OUT") {
+    session.destroy();
     return null;
   }
 

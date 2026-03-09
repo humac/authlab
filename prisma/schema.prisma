@@ -148,6 +148,7 @@ model AppInstance {
   scopes       String? @default("openid profile email")
   customAuthParamsJson String?
   pkceMode     PkceMode @default(S256)
+  usePar       Boolean @default(false)
 
   // SAML Specific Fields
   entryPoint   String? // Identity Provider Single Sign-On URL
@@ -173,6 +174,8 @@ model AppInstance {
   updatedAt    DateTime @updatedAt
 
   authRuns     AuthRun[]
+  scimResources ScimResource[]
+  scimRequestLogs ScimRequestLog[]
 }
 
 model AuthRun {
@@ -185,6 +188,8 @@ model AuthRun {
   loginState           String?       @unique
   nonce                String?
   nonceStatus          String?
+  oidcSubject          String?
+  oidcSessionId        String?
   runtimeOverridesJson String?
   outboundAuthParamsJson String?
   claimsJson           String?
@@ -207,6 +212,8 @@ model AuthRun {
   events               AuthRunEvent[]
 
   @@index([appInstanceId, createdAt])
+  @@index([appInstanceId, status, oidcSessionId])
+  @@index([appInstanceId, status, oidcSubject])
 }
 
 model AuthRunEvent {
@@ -222,6 +229,38 @@ model AuthRunEvent {
   createdAt    DateTime           @default(now())
 
   @@index([authRunId, occurredAt])
+}
+
+model ScimResource {
+  id           String           @id @default(cuid())
+  appInstanceId String
+  appInstance  AppInstance      @relation(fields: [appInstanceId], references: [id], onDelete: Cascade)
+  resourceType ScimResourceType
+  resourceId   String
+  externalId   String?
+  displayName  String?
+  payloadJson  String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([appInstanceId, resourceType, resourceId])
+  @@index([appInstanceId, resourceType, displayName])
+}
+
+model ScimRequestLog {
+  id           String           @id @default(cuid())
+  appInstanceId String
+  appInstance  AppInstance      @relation(fields: [appInstanceId], references: [id], onDelete: Cascade)
+  resourceType ScimResourceType?
+  resourceId   String?
+  method       String
+  path         String
+  statusCode   Int
+  requestJson  String?
+  responseJson String?
+  createdAt    DateTime         @default(now())
+
+  @@index([appInstanceId, createdAt])
 }
 
 enum Protocol {
@@ -267,19 +306,31 @@ enum AuthRunStatus {
 enum AuthRunGrantType {
   AUTHORIZATION_CODE
   CLIENT_CREDENTIALS
+  DEVICE_AUTHORIZATION
+  TOKEN_EXCHANGE
 }
 
 enum AuthRunEventType {
+  AUTHORIZATION_STARTED
   AUTHENTICATED
   CLIENT_CREDENTIALS_ISSUED
+  DEVICE_AUTHORIZATION_STARTED
+  DEVICE_AUTHORIZATION_COMPLETED
+  TOKEN_EXCHANGED
   REFRESHED
   INTROSPECTED
   REVOKED
   USERINFO_FETCHED
+  BACKCHANNEL_LOGGED_OUT
   FAILED
 }
 
 enum AuthRunEventStatus {
   SUCCESS
   FAILED
+}
+
+enum ScimResourceType {
+  USER
+  GROUP
 }

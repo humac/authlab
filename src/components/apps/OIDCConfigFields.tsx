@@ -12,8 +12,9 @@ interface OIDCConfigFieldsProps {
     scopes: string;
     customAuthParams: KeyValueParam[];
     pkceMode: "S256" | "PLAIN" | "NONE";
+    usePar: boolean;
   };
-  onChange: (field: string, value: string) => void;
+  onChange: (field: string, value: string | boolean) => void;
   onCustomParamsChange: (params: KeyValueParam[]) => void;
   errors?: Record<string, string>;
 }
@@ -92,6 +93,20 @@ export function OIDCConfigFields({
           Advanced OIDC defaults
         </summary>
         <div className="mt-3">
+          <label className="mb-3 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]">
+            <div className="space-y-0.5">
+              <span className="font-medium">Use Pushed Authorization Requests (PAR)</span>
+              <p className="text-xs text-[var(--muted)]">
+                Post the authorization payload to the provider first, then redirect with a
+                `request_uri`.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={values.usePar}
+              onChange={(event) => onChange("usePar", event.target.checked)}
+            />
+          </label>
           <KeyValueEditor
             label="Saved authorization parameters"
             values={values.customAuthParams}

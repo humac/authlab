@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
 type JoinRequestRole = "ADMIN" | "MEMBER";
+type TeamBadgeVariant = "blue" | "green" | "gray";
 
 interface TeamDirectoryMember {
   id: string;
@@ -47,10 +48,53 @@ interface TeamDirectoryTeam {
   pendingJoinRequests: TeamJoinRequest[];
 }
 
-function roleBadge(role: TeamRole | JoinRequestRole | null) {
+function roleBadge(role: TeamRole | JoinRequestRole | null): TeamBadgeVariant {
   if (role === "OWNER") return "blue";
   if (role === "ADMIN") return "green";
   return "gray";
+}
+
+function getAccessSummary(team: TeamDirectoryTeam) {
+  if (team.myPendingRequest) {
+    return {
+      label: "Request pending",
+      helper: "Waiting for an owner or admin review",
+      variant: "gray" as const,
+    };
+  }
+
+  if (team.myRole) {
+    return {
+      label: team.myRole,
+      helper: "Current access level",
+      variant: roleBadge(team.myRole),
+    };
+  }
+
+  return {
+    label: "No access",
+    helper: "Send a request to join this workspace",
+    variant: "gray" as const,
+  };
+}
+
+function getJoinQueueSummary(team: TeamDirectoryTeam) {
+  if (team.pendingJoinRequests.length === 0) {
+    return {
+      label: "No requests",
+      helper: "Nothing waiting for review",
+      variant: "gray" as const,
+    };
+  }
+
+  const count = team.pendingJoinRequests.length;
+  return {
+    label: `${count} awaiting review`,
+    helper: team.canManage
+      ? "You can review these requests"
+      : "Team admins review these requests",
+    variant: "green" as const,
+  };
 }
 
 function toSlug(value: string) {
@@ -73,6 +117,7 @@ export default function TeamsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamSlug, setNewTeamSlug] = useState("");
+  const [createSlugTouched, setCreateSlugTouched] = useState(false);
   const [creatingTeam, setCreatingTeam] = useState(false);
 
   const [editTarget, setEditTarget] = useState<TeamDirectoryTeam | null>(null);
@@ -141,6 +186,7 @@ export default function TeamsPage() {
       setCreateOpen(false);
       setNewTeamName("");
       setNewTeamSlug("");
+      setCreateSlugTouched(false);
       setSuccess("Team created");
       await loadDirectory();
       router.refresh();
@@ -250,6 +296,13 @@ export default function TeamsPage() {
     return <div className="py-12 text-center text-[var(--muted)]">Loading teams...</div>;
   }
 
+  function closeCreateModal() {
+    setCreateOpen(false);
+    setNewTeamName("");
+    setNewTeamSlug("");
+    setCreateSlugTouched(false);
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 animate-enter">
       <PageHeader
@@ -267,6 +320,37 @@ export default function TeamsPage() {
       {error && <div className="alert-danger rounded-lg p-3 text-sm">{error}</div>}
       {success && <div className="alert-success rounded-lg p-3 text-sm">{success}</div>}
 
+      <Card className="bg-[var(--surface-2)]">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Access state
+            </p>
+            <p className="mt-1 text-sm text-[var(--text)]">
+              Each row shows whether you already have access, still need to request access, or
+              have a request waiting for review.
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Join queue
+            </p>
+            <p className="mt-1 text-sm text-[var(--text)]">
+              This is the number of incoming join requests waiting for a team owner or admin.
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Review flow
+            </p>
+            <p className="mt-1 text-sm text-[var(--text)]">
+              If you can manage a team, use <span className="font-medium">Review requests</span>{" "}
+              to approve or reject pending access requests.
+            </p>
+          </div>
+        </div>
+      </Card>
+
       <Card className="space-y-3">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <Input
@@ -276,49 +360,53 @@ export default function TeamsPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by team name, slug, or your role"
           />
-          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <Badge variant="blue">OWNER</Badge>
-            <Badge variant="green">ADMIN</Badge>
-            <Badge variant="gray">MEMBER</Badge>
-          </div>
+          <p className="text-sm text-[var(--muted)]">
+            Access and review states are labeled directly in the table.
+          </p>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
+          <table className="responsive-table w-full text-sm">
             <thead className="bg-[var(--surface-2)] text-left text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
               <tr>
                 <th className="px-3 py-2">Team</th>
-                <th className="px-3 py-2">Your role</th>
+                <th className="px-3 py-2">Access</th>
                 <th className="px-3 py-2">Members</th>
-                <th className="px-3 py-2">Pending</th>
+                <th className="px-3 py-2">Join queue</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredTeams.map((team) => (
+              {filteredTeams.map((team) => {
+                const accessSummary = getAccessSummary(team);
+                const joinQueueSummary = getJoinQueueSummary(team);
+
+                return (
                 <tr
                   key={team.id}
                   data-testid={`team-card-${team.slug}`}
                   className="border-t border-[var(--border)]"
                 >
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Team">
                     <div>
                       <p className="font-medium text-[var(--text)]">{team.name}</p>
                       <p className="font-mono text-xs text-[var(--muted)]">/{team.slug}</p>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
-                    <Badge variant={roleBadge(team.myRole)}>
-                      {team.myRole || "none"}
-                    </Badge>
+                  <td className="px-3 py-2.5" data-label="Access">
+                    <div>
+                      <Badge variant={accessSummary.variant}>{accessSummary.label}</Badge>
+                      <p className="mt-1 text-xs text-[var(--muted)]">{accessSummary.helper}</p>
+                    </div>
                   </td>
-                  <td className="px-3 py-2.5 text-[var(--muted)]">{team.members.length}</td>
-                  <td className="px-3 py-2.5">
-                    <Badge variant={team.pendingJoinRequests.length > 0 ? "green" : "gray"}>
-                      {team.pendingJoinRequests.length}
-                    </Badge>
+                  <td className="px-3 py-2.5 text-[var(--muted)]" data-label="Members">{team.members.length}</td>
+                  <td className="px-3 py-2.5" data-label="Join queue">
+                    <div>
+                      <Badge variant={joinQueueSummary.variant}>{joinQueueSummary.label}</Badge>
+                      <p className="mt-1 text-xs text-[var(--muted)]">{joinQueueSummary.helper}</p>
+                    </div>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" data-label="Actions">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link href={`/teams/${team.id}`}>
                         <Button size="sm" variant="secondary">
@@ -327,7 +415,7 @@ export default function TeamsPage() {
                       </Link>
                       {team.canManage && team.pendingJoinRequests.length > 0 && (
                         <Button size="sm" onClick={() => setReviewTarget(team)}>
-                          Review
+                          Review requests
                         </Button>
                       )}
                       {!team.myRole && !team.myPendingRequest && (
@@ -340,7 +428,9 @@ export default function TeamsPage() {
                         </Button>
                       )}
                       {team.myPendingRequest && (
-                        <Badge variant="gray">Pending</Badge>
+                        <Button size="sm" variant="subtle" disabled>
+                          Request pending
+                        </Button>
                       )}
                       {team.canManage && (
                         <>
@@ -369,7 +459,8 @@ export default function TeamsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {filteredTeams.length === 0 && (
@@ -380,15 +471,16 @@ export default function TeamsPage() {
         </div>
       </Card>
 
-      <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} title="Create team">
+      <Modal isOpen={createOpen} onClose={closeCreateModal} title="Create team">
         <form onSubmit={handleCreateTeam} className="space-y-4">
           <Input
             label="Name"
             value={newTeamName}
             onChange={(event) => {
-              setNewTeamName(event.target.value);
-              if (!newTeamSlug) {
-                setNewTeamSlug(toSlug(event.target.value));
+              const nextName = event.target.value;
+              setNewTeamName(nextName);
+              if (!createSlugTouched || !newTeamSlug.trim()) {
+                setNewTeamSlug(toSlug(nextName));
               }
             }}
             required
@@ -396,11 +488,15 @@ export default function TeamsPage() {
           <Input
             label="Slug"
             value={newTeamSlug}
-            onChange={(event) => setNewTeamSlug(event.target.value)}
+            onChange={(event) => {
+              const nextSlug = toSlug(event.target.value);
+              setNewTeamSlug(nextSlug);
+              setCreateSlugTouched(nextSlug.length > 0);
+            }}
             required
           />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setCreateOpen(false)}>
+            <Button type="button" variant="secondary" size="sm" onClick={closeCreateModal}>
               Cancel
             </Button>
             <Button type="submit" size="sm" loading={creatingTeam}>
@@ -432,6 +528,10 @@ export default function TeamsPage() {
         placement="right"
       >
         <div className="space-y-3">
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--muted)]">
+            Approving a request adds the person to the team immediately. Rejecting keeps the team
+            private and removes the pending request.
+          </div>
           {(reviewTarget?.pendingJoinRequests || []).map((request) => (
             <div key={request.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
               <div className="flex items-start justify-between gap-3">
