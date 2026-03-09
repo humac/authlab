@@ -232,7 +232,7 @@ Even if these values are already visible as generic claims, the product still ne
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
 | RP-initiated logout | Phase 1 | High | Table-stakes for browser SSO validation |
-| Front-channel logout | Missing | Medium | Needed for coordinated browser logout scenarios |
+| Front-channel logout | Post-Phase-4 follow-up | Medium | Needed for coordinated browser logout scenarios |
 | Back-channel logout | Phase 4 | High | Important for enterprise logout propagation |
 | Session Management iframe | Missing | Low | Lower-value legacy mechanism |
 
@@ -248,7 +248,7 @@ Implemented in Phase 4. AuthLab now accepts a provider-signed logout token, vali
 
 #### Front-Channel Logout
 
-Add a visible signal when the IdP triggers the registered front-channel logout URI. This matters because front-channel implementations often break due to browser or CSP assumptions.
+Implemented as a post-Phase-4 follow-up. AuthLab now exposes an app-specific front-channel logout URI, accepts the callback, invalidates matching local runs, logs a front-channel logout event, and shows the resulting posture in the inspector and compliance report.
 
 ## SAML Feature Gaps
 
@@ -299,14 +299,14 @@ This remains one of the most important missing SAML capabilities. It should supp
 | Feature | Current Status | Priority | Why It Matters |
 | --- | --- | --- | --- |
 | Structured SAML assertion viewer | Phase 3 | High | Makes XML understandable at analyst speed |
-| SAML signature verification detail panel | Missing | High | Needed for trust troubleshooting |
+| SAML signature verification detail panel | Post-Phase-4 follow-up | High | Needed for trust troubleshooting |
 | SAML Conditions and SubjectConfirmation display | Phase 3 | High | Critical validity diagnostics |
 | OIDC discovery metadata viewer | Phase 1 | High | Helps configure and explain provider behavior |
 | Request and response trace logging | Phase 4 | High | Needed for end-to-end debugging |
 | Token timeline | Phase 2 | Medium | Useful for lifecycle analysis |
 | Claims diff | Phase 4 | Medium | Useful when comparing two runs |
-| IdP certificate expiry checker | Missing | Medium | Helps identify impending breakage |
-| Protocol compliance report | Missing | Low | Nice-to-have summary layer |
+| IdP certificate expiry checker | Post-Phase-4 follow-up | Medium | Helps identify impending breakage |
+| Protocol compliance report | Post-Phase-4 follow-up | Low | Nice-to-have summary layer |
 
 ### Recommendations
 
@@ -577,18 +577,15 @@ This phase should be treated as the advanced capability layer after the core bro
 
 The major roadmap work that still remains beyond Phases 1 through 4 is:
 
-- front-channel logout
 - session management iframe support
 - artifact binding
 - SAML Conditions / AudienceRestriction diagnostics
-- certificate expiry checker
-- compliance summary reporting
+- protocol compliance report expansion
 
 ### Deferred OIDC Session Items
 
 The following OIDC items are intentionally deferred for a later dedicated session/logout phase rather than being folded into Phase 2:
 
-- front-channel logout
 - session management iframe support
 
 Reasoning:
@@ -601,19 +598,14 @@ Reasoning:
 
 The cleanest next implementation target is a post-Phase-4 polish and expansion pass rather than a new foundational phase.
 
-If narrowed further, the highest-value immediate bundle is:
+The immediate post-Phase-4 polish bundle is now implemented:
 
 1. front-channel logout
 2. SAML signature verification detail panel
 3. certificate expiry checker
 4. protocol compliance report
 
-Reasoning:
-
-- logout/session propagation is the clearest remaining standards gap after back-channel logout
-- signature and certificate diagnostics improve day-two troubleshooting substantially
-- compliance summaries become more useful now that the core protocol workbench is implemented
-- these items extend the existing inspection and validation surfaces without forcing a new storage model
+These additions complete the next-step bundle originally recommended after Phase 4 and extend the existing inspection and logout surfaces without requiring another storage-model change.
 
 ## Product Positioning Outcome
 

@@ -11,10 +11,12 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - secure profile image handling via DB blob + API proxy
 - OIDC lifecycle actions: refresh, introspection, revocation, client credentials
 - OIDC advanced flows: device authorization, token exchange, PAR, and back-channel logout
+- OIDC logout diagnostics: front-channel logout callback support and logout/compliance visibility
 - OIDC validation diagnostics: signature, `at_hash`, `c_hash`, `acr`, `amr`
 - OIDC analyst tooling: token timeline, trace logging, and claims diff
 - per-app SAML signing material with self-signed test keypair generation
 - SAML structured assertion diagnostics
+- SAML trust diagnostics: signature detail inspection, certificate health/expiry, and compliance summaries
 - per-app SAML encrypted assertion support
 - SAML Single Logout (SP-initiated and IdP-initiated callback handling)
 - SAML request controls: AuthnContext, signature algorithm, clock skew, logout URL
@@ -62,6 +64,7 @@ npm run build -- --webpack
 - `src/app/api/auth/callback/*` — app protocol callbacks (OIDC/SAML)
 - `src/app/api/auth/token/*` — OIDC token lifecycle routes
 - `src/app/api/auth/backchannel-logout/[slug]/route.ts` — OIDC back-channel logout endpoint
+- `src/app/api/auth/frontchannel-logout/[slug]/route.ts` — OIDC front-channel logout callback endpoint
 - `src/app/api/auth/device/*` — OIDC device authorization start and poll routes
 - `src/app/api/auth/token/exchange/[slug]/route.ts` — OIDC token exchange
 - `src/app/api/auth/userinfo/[slug]/route.ts` — on-demand UserInfo retrieval
@@ -74,6 +77,9 @@ npm run build -- --webpack
 - `src/lib/oidc-backchannel-logout.ts` — logout-token validation and run correlation
 - `src/lib/oidc-device-flow.ts` — device grant orchestration helpers
 - `src/lib/auth-trace.ts` — normalized request/response trace capture
+- `src/lib/certificate-diagnostics.ts` — X.509 parsing, expiry, and fingerprint analysis
+- `src/lib/saml-signature-diagnostics.ts` — captured SAML signature structure analysis
+- `src/lib/protocol-compliance.ts` — protocol-specific compliance summary generation
 - `src/lib/saml-logout.ts` — SAML logout profile derivation and matching helpers
 - `src/lib/scim.ts` and `src/lib/scim-resource-handler.ts` — SCIM auth, list/filter, patch, and CRUD helpers
 - `src/app/api/user/*` — account security APIs:
@@ -164,10 +170,12 @@ npm run build -- --webpack
 - Production pending-auth state cookie uses `SameSite=None` to support cross-site IdP POST callbacks.
 - SAML signed metadata/AuthN requests are per-app, not global-env driven.
 - SAML metadata now exposes app-level decryption and SLO callbacks when configured.
+- OIDC test pages now expose front-channel and back-channel logout callback URLs directly.
 - Dense management tables use a mobile stacked-row pattern rather than horizontal scrolling.
 - Team access and join-review states are intentionally labeled in copy, not left as badge-color-only semantics.
 - `npm run test:e2e` uses a built Next.js server and `localhost` origin to keep Playwright and WebAuthn stable.
 - Do not run `npm run test:e2e` and `npm run build:ci` in parallel; both can contend on the Next.js build lock.
+- The inspector now includes protocol compliance reporting and dedicated SAML signature/certificate tabs.
 - Release flow is branch- and tag-based:
   - `main` for integration
   - `alpha` for staged alpha releases
