@@ -22,6 +22,7 @@ export interface UserContextType {
   isVerified: boolean;
   mfaEnabled: boolean;
   activeTeamId: string;
+  defaultTeamId: string | null;
   teams: TeamInfo[];
 }
 

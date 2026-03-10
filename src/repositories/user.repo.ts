@@ -37,6 +37,7 @@ export async function updateUser(
     mfaEnabled: boolean;
     totpSecretEnc: string | null;
     totpEnabledAt: Date | null;
+    defaultTeamId: string | null;
   }>,
 ) {
   const prisma = await getPrisma();

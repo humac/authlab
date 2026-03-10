@@ -27,6 +27,7 @@ export async function GET() {
     isVerified: user.isVerified,
     mfaEnabled: user.mfaEnabled,
     activeTeamId: sessionUser.activeTeamId,
+    defaultTeamId: user.defaultTeamId,
     teams: teams.map((t) => ({
       id: t.id,
       name: t.name,

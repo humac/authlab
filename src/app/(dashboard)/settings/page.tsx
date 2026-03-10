@@ -32,6 +32,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [leavingTeamId, setLeavingTeamId] = useState<string | null>(null);
+  const [defaultTeamId, setDefaultTeamId] = useState<string | null>(user.defaultTeamId);
+  const [settingDefaultTeamId, setSettingDefaultTeamId] = useState<string | null>(null);
 
   const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
   const [loadingPasskeys, setLoadingPasskeys] = useState(false);
@@ -174,6 +176,32 @@ export default function SettingsPage() {
       setError("An unexpected error occurred");
     } finally {
       setLeavingTeamId(null);
+    }
+  }
+
+  async function handleSetDefaultTeam(teamId: string | null) {
+    setError("");
+    setSuccess("");
+    setSettingDefaultTeamId(teamId ?? "clearing");
+
+    try {
+      const res = await fetch("/api/user/default-team", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to update default team");
+        return;
+      }
+
+      setDefaultTeamId(teamId);
+      setSuccess(teamId ? "Default team updated" : "Default team cleared");
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setSettingDefaultTeamId(null);
     }
   }
 
@@ -582,6 +610,27 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {team.id === user.activeTeamId && <Badge variant="blue">Active</Badge>}
+                    {team.id === defaultTeamId && <Badge variant="green">Default</Badge>}
+                    {team.id !== defaultTeamId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefaultTeam(team.id)}
+                        loading={settingDefaultTeamId === team.id}
+                      >
+                        Set as Default
+                      </Button>
+                    )}
+                    {team.id === defaultTeamId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefaultTeam(null)}
+                        loading={settingDefaultTeamId === "clearing"}
+                      >
+                        Clear Default
+                      </Button>
+                    )}
                     {!team.isPersonal && (
                       <Button
                         variant="ghost"

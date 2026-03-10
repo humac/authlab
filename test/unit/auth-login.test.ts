@@ -1,37 +1,78 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, type TestContext } from "node:test";
 import { importFresh } from "./test-helpers.ts";
 
-describe("active team resolution", () => {
-  it("prefers the personal team when one exists", async (t) => {
-    const getTeamsByUserId = t.mock.fn(async () => [
-      { id: "team-1", isPersonal: false },
-      { id: "team-2", isPersonal: true },
-    ]);
+function mockModules(
+  t: TestContext,
+  teams: { id: string; isPersonal: boolean }[],
+  user: { defaultTeamId: string | null } | null = { defaultTeamId: null },
+) {
+  t.mock.module("@/repositories/team.repo", {
+    namedExports: {
+      getTeamsByUserId: t.mock.fn(async () => teams),
+    },
+  });
+  t.mock.module("@/repositories/user.repo", {
+    namedExports: {
+      getUserById: t.mock.fn(async () => user),
+    },
+  });
+}
 
-    t.mock.module("@/repositories/team.repo", {
-      namedExports: { getTeamsByUserId },
-    });
+describe("active team resolution", () => {
+  it("prefers the user's default team when set and user is a member", async (t) => {
+    mockModules(
+      t,
+      [
+        { id: "team-1", isPersonal: false },
+        { id: "team-2", isPersonal: true },
+        { id: "team-3", isPersonal: false },
+      ],
+      { defaultTeamId: "team-3" },
+    );
 
     const { resolveUserActiveTeamId } = await importFresh<
       typeof import("../../src/lib/auth-login.ts")
     >("../../src/lib/auth-login.ts");
 
-    const teamId = await resolveUserActiveTeamId("user-1");
+    assert.equal(await resolveUserActiveTeamId("user-1"), "team-3");
+  });
 
-    assert.equal(teamId, "team-2");
-    assert.deepEqual(getTeamsByUserId.mock.calls.at(0)?.arguments, ["user-1"]);
+  it("ignores default team when user is no longer a member", async (t) => {
+    mockModules(
+      t,
+      [
+        { id: "team-1", isPersonal: false },
+        { id: "team-2", isPersonal: true },
+      ],
+      { defaultTeamId: "team-deleted" },
+    );
+
+    const { resolveUserActiveTeamId } = await importFresh<
+      typeof import("../../src/lib/auth-login.ts")
+    >("../../src/lib/auth-login.ts");
+
+    assert.equal(await resolveUserActiveTeamId("user-1"), "team-2");
+  });
+
+  it("prefers the personal team when no default is set", async (t) => {
+    mockModules(t, [
+      { id: "team-1", isPersonal: false },
+      { id: "team-2", isPersonal: true },
+    ]);
+
+    const { resolveUserActiveTeamId } = await importFresh<
+      typeof import("../../src/lib/auth-login.ts")
+    >("../../src/lib/auth-login.ts");
+
+    assert.equal(await resolveUserActiveTeamId("user-1"), "team-2");
   });
 
   it("falls back to the first team when no personal team exists", async (t) => {
-    t.mock.module("@/repositories/team.repo", {
-      namedExports: {
-        getTeamsByUserId: t.mock.fn(async () => [
-          { id: "team-1", isPersonal: false },
-          { id: "team-2", isPersonal: false },
-        ]),
-      },
-    });
+    mockModules(t, [
+      { id: "team-1", isPersonal: false },
+      { id: "team-2", isPersonal: false },
+    ]);
 
     const { resolveUserActiveTeamId } = await importFresh<
       typeof import("../../src/lib/auth-login.ts")
@@ -41,11 +82,7 @@ describe("active team resolution", () => {
   });
 
   it("returns null when the user has no teams", async (t) => {
-    t.mock.module("@/repositories/team.repo", {
-      namedExports: {
-        getTeamsByUserId: t.mock.fn(async () => []),
-      },
-    });
+    mockModules(t, []);
 
     const { resolveUserActiveTeamId } = await importFresh<
       typeof import("../../src/lib/auth-login.ts")

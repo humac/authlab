@@ -37,10 +37,10 @@ export default async function InspectorPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ compare?: string }>;
+  searchParams: Promise<{ compare?: string; tab?: string }>;
 }) {
   const { slug } = await params;
-  const { compare } = await searchParams;
+  const { compare, tab } = await searchParams;
   const [run, app] = await Promise.all([
     getActiveAuthRun(slug),
     getAppInstanceBySlug(slug),
@@ -328,7 +328,7 @@ export default async function InspectorPage({
         hasSamlLogout={hasSamlLogout}
       />
 
-      <Tabs tabs={tabs} appearance="pill" compact />
+      <Tabs tabs={tabs} appearance="pill" compact defaultIndex={tab ? Math.max(0, tabs.findIndex((t) => t.label === tab)) : 0} />
     </div>
   );
 }
