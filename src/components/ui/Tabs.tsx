@@ -11,10 +11,11 @@ interface TabsProps {
   tabs: Tab[];
   appearance?: "line" | "pill";
   compact?: boolean;
+  defaultIndex?: number;
 }
 
-export function Tabs({ tabs, appearance = "line", compact = false }: TabsProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function Tabs({ tabs, appearance = "line", compact = false, defaultIndex = 0 }: TabsProps) {
+  const [activeIndex, setActiveIndex] = useState(defaultIndex);
 
   return (
     <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] ${compact ? "p-3" : "p-4"}`}>

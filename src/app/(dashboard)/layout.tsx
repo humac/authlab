@@ -3,6 +3,7 @@ import { UserProvider, type UserContextType } from "@/components/providers/UserP
 import { requireUser } from "@/lib/user-session";
 import { hasProfileImageByUserId } from "@/repositories/profile-image.repo";
 import { getTeamsByUserId } from "@/repositories/team.repo";
+import { getUserById } from "@/repositories/user.repo";
 
 export default async function DashboardLayout({
   children,
@@ -10,9 +11,10 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const sessionUser = await requireUser();
-  const [teams, hasProfileImage] = await Promise.all([
+  const [teams, hasProfileImage, dbUser] = await Promise.all([
     getTeamsByUserId(sessionUser.userId),
     hasProfileImageByUserId(sessionUser.userId),
+    getUserById(sessionUser.userId),
   ]);
 
   const userData: UserContextType = {
@@ -25,6 +27,7 @@ export default async function DashboardLayout({
     isVerified: sessionUser.isVerified,
     mfaEnabled: sessionUser.mfaEnabled,
     activeTeamId: sessionUser.activeTeamId,
+    defaultTeamId: dbUser?.defaultTeamId ?? null,
     teams: teams.map((t: (typeof teams)[number]) => ({
       id: t.id,
       name: t.name,
