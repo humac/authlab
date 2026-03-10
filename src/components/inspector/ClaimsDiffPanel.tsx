@@ -64,6 +64,7 @@ export function ClaimsDiffPanel({
         </div>
 
         <form method="GET" action={`/test/${slug}/inspector`} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <input type="hidden" name="tab" value="Claims Diff" />
           <div className="min-w-0 flex-1 space-y-1">
             <label
               htmlFor="compare-run"
@@ -93,7 +94,7 @@ export function ClaimsDiffPanel({
           </button>
           {compareRun && (
             <Link
-              href={`/test/${slug}/inspector`}
+              href={`/test/${slug}/inspector?tab=Claims+Diff`}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-medium text-[var(--text)] transition-[background-color] hover:bg-[var(--surface-2)]"
             >
               Clear
