@@ -30,6 +30,7 @@ if (!globalThis.__authlabIntegrationSetup) {
     "20260308_phase4_oidc_backchannel_logout.sql",
     "20260308_phase4_oidc_par.sql",
     "20260308_phase4_scim_mock.sql",
+    "20260310_user_default_team.sql",
   ];
   const migrationSql = migrationFiles
     .map((name) => fs.readFileSync(path.join(migrationDir, name), "utf8"))
