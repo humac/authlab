@@ -20,6 +20,7 @@ A developer tool for dynamically creating, saving, and launching isolated OIDC o
 - **Team-Centric Dashboard** — Team switcher updates apps and shows live team membership/actions in the dashboard sidebar
 - **Cross-Team App Transfer** — Team admins/owners can move or copy app configurations across teams
 - **Dense SaaS UI** — Compact management tables, runtime launch controls, analyst-focused inspector tabs, mobile-friendly stacked table layouts, and explicit team access / join-queue states
+- **App Organization** — Lightweight tags (up to 10 per app), auto-detected IDP grouping by hostname with SSO and cross-protocol badges, known-provider labeling (Okta, Microsoft Entra ID, Auth0, Google Workspace, OneLogin, Ping Identity, Keycloak), and Flat / By IDP / By Tag dashboard view toggle
 
 ## Tech Stack
 
@@ -139,7 +140,10 @@ npm run test:perf
    - **SAML**: SSO Entry Point URL, Issuer/Entity ID, IdP Certificate
    - **SAML Shortcut**: Use **Import IdP Metadata** to parse XML or fetch metadata from URL and apply values
 4. Set a name and slug (auto-generated from name)
-5. Review and create
+5. Optionally add tags (e.g. `production`, `staging`, `okta`) to organize apps
+6. Review and create
+
+Apps sharing the same identity provider are automatically grouped in the dashboard's **By IDP** view. When multiple apps point to the same provider hostname, SSO and cross-protocol badges highlight the relationship.
 
 ### 8. Register callback URLs with your IdP
 
