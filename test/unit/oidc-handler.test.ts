@@ -37,6 +37,7 @@ function createOidcApp(
     spSigningCert: null,
     spEncryptionPrivateKey: null,
     spEncryptionCert: null,
+    tags: [],
     buttonColor: "#3B71CA",
     createdAt: new Date("2026-03-07T00:00:00.000Z"),
     updatedAt: new Date("2026-03-07T00:00:00.000Z"),
