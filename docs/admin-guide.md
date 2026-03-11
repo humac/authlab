@@ -34,6 +34,9 @@
   - [Session Security](#session-security)
   - [Content Security Policy](#content-security-policy)
   - [Encryption at Rest](#encryption-at-rest)
+- [App Organization](#app-organization)
+  - [IDP Detection and Grouping](#idp-detection-and-grouping)
+  - [App Tags](#app-tags)
 - [Platform Settings](#platform-settings)
   - [Admin Settings Overview](#admin-settings-overview)
   - [System Policies](#system-policies)
@@ -320,6 +323,33 @@ Sensitive fields are encrypted using AES-256-GCM with the `MASTER_ENCRYPTION_KEY
 
 ---
 
+## App Organization
+
+### IDP Detection and Grouping
+
+The dashboard provides automatic identity provider detection. When users switch to the **By IDP** view, AuthLab extracts the hostname from each app's issuer URL (OIDC) or entry point URL (SAML) and groups apps accordingly.
+
+Well-known providers (Microsoft Entra ID, Okta, Auth0, Google Workspace, OneLogin, Ping Identity, Keycloak, Duende IdentityServer) are recognized and display friendly names. The dashboard also highlights:
+
+- **SSO scenarios** — Multiple apps pointing to the same IDP
+- **Cross-protocol scenarios** — Both OIDC and SAML apps using the same IDP
+
+The **IDP Providers** summary card on the dashboard shows the count of unique identity providers detected across the team's apps.
+
+### App Tags
+
+Apps support up to 10 free-form tags stored as a JSON array in the database. Tags are:
+
+- Lowercase normalized and deduplicated on save
+- Searchable from the dashboard search bar
+- Used for the **By Tag** grouping view on the dashboard
+- Validated via Zod (1–50 characters per tag, max 10 tags)
+- Persisted in the `tags` column on `AppInstance` (added via `20260310_app_tags.sql` migration)
+
+Tags are set by users during app creation or editing. No admin configuration is required.
+
+---
+
 ## Platform Settings
 
 ### Admin Settings Overview
@@ -359,7 +389,11 @@ Apply SQL migration files from `prisma/turso-migrations/` using the Turso CLI:
 turso db shell your-database < prisma/turso-migrations/MIGRATION_FILE.sql
 ```
 
-Migration files are numbered by date and describe the changes being applied.
+Migration files are numbered by date and describe the changes being applied. The latest migration adds app tagging support:
+
+| Migration | Description |
+|-----------|-------------|
+| `20260310_app_tags.sql` | Adds `tags` column to `AppInstance` for app organization |
 
 ### Backup and Recovery
 

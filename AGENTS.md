@@ -94,6 +94,11 @@
   - responsive stacked-table behavior across dashboard, teams, admin users, and inspector tables
   - explicit access-state copy for team join/request workflows instead of color-only signaling
   - compact control alignment for search inputs and adjacent action buttons
+- App organization and grouping:
+  - dashboard Flat/By IDP/By Tag view toggle in `src/components/apps/Dashboard.tsx`
+  - IDP detection and provider labeling in `src/lib/idp-detection.ts`
+  - `TagInput` component in `src/components/ui/TagInput.tsx` (used in creation stepper and edit form)
+  - tags stored as JSON array in `AppInstance.tags`, parsed/serialized in `src/repositories/app-instance.repo.ts`
 
 **Design System**:
 - Primary color: `#3B71CA` via CSS custom properties in `globals.css`
@@ -116,6 +121,8 @@
   - `AuthRunEvent`
   - `ScimResource`
   - `ScimRequestLog`
+- `AppInstance` extensions:
+  - `tags` (JSON array column) for user-defined app organization labels
 - Extended `User` fields:
   - `isVerified`, `mfaEnabled`, `totpSecretEnc`, `totpEnabledAt`
 - Turso migration scripts in `prisma/turso-migrations/`

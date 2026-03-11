@@ -1,10 +1,10 @@
 # AuthLab — Functional Discovery (Internal)
 
-> **Generated:** 2026-03-09 | **Branch:** beta
+> **Generated:** 2026-03-10 | **Branch:** feat/app-grouping-tags-idp-detection
 
 ## Application Overview
 
-AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows. It enables identity teams to dynamically create isolated test instances, authenticate against any IdP, inspect tokens/assertions, exercise token lifecycle actions, test logout flows, and mock SCIM provisioning — all from a single enterprise-style UI.
+AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows. It enables identity teams to dynamically create isolated test instances, authenticate against any IdP, inspect tokens/assertions, exercise token lifecycle actions, test logout flows, and mock SCIM provisioning — all from a single enterprise-style UI. The dashboard supports app organization through automatic IDP detection, tag-based grouping, and SSO/cross-protocol scenario highlighting.
 
 ## User Roles
 
@@ -40,7 +40,7 @@ First user to register becomes System Admin automatically.
 ### Dashboard Pages (authenticated)
 | Route | Page | Purpose |
 |-------|------|---------|
-| `/` | Dashboard | App inventory, team overview, search |
+| `/` | Dashboard | App inventory with Flat/IDP/Tag grouping, IDP provider count, team overview, search |
 | `/apps/new` | Create App | OIDC or SAML app creation form |
 | `/apps/[id]` | Edit App | App settings and configuration |
 | `/settings` | User Settings | Profile, password, MFA, passkeys, team memberships |
@@ -87,7 +87,7 @@ First user to register becomes System Admin automatically.
 | User | Platform accounts | email, name, passwordHash, isSystemAdmin, isVerified, mfaEnabled |
 | Team | Multi-tenant workspaces | name, slug, isPersonal |
 | TeamMember | User-team associations | role (OWNER/ADMIN/MEMBER) |
-| AppInstance | Auth test configurations | protocol (OIDC/SAML), slug, OIDC/SAML-specific fields |
+| AppInstance | Auth test configurations | protocol (OIDC/SAML), slug, tags (JSON array), OIDC/SAML-specific fields |
 | AuthRun | Persisted auth sessions | protocol, grantType, status, tokens, claims |
 | AuthRunEvent | Session lifecycle log | type, status, request, response, metadata |
 
@@ -118,10 +118,11 @@ First user to register becomes System Admin automatically.
 2. **Profile** — name, email, profile image (upload/remove)
 3. **Security Settings** — change password, enable/disable TOTP, manage passkeys
 4. **Team Participation** — view memberships, leave teams, switch active team, request access
-5. **App Testing (OIDC)** — create app, configure provider, browser login, client credentials, device auth, token exchange, token lifecycle (refresh/introspect/revoke), UserInfo, 3 logout modes
-6. **App Testing (SAML)** — create app, configure provider, import metadata, SP signing/encryption, browser login (SP/IdP-initiated), SLO, assertion inspection
-7. **App Testing (SCIM)** — view SCIM base URL and bearer token, view resources and request logs
-8. **Inspector** — lifecycle panel, token validation, UserInfo, claims diff, trace, compliance, signature, certificate health, raw payload, JWT decoder
+5. **App Organization** — tag apps (up to 10 tags), group by IDP or tag, automatic IDP detection with well-known provider names, SSO and cross-protocol scenario badges, search by tag
+6. **App Testing (OIDC)** — create app, configure provider, browser login, client credentials, device auth, token exchange, token lifecycle (refresh/introspect/revoke), UserInfo, 3 logout modes
+7. **App Testing (SAML)** — create app, configure provider, import metadata, SP signing/encryption, browser login (SP/IdP-initiated), SLO, assertion inspection
+8. **App Testing (SCIM)** — view SCIM base URL and bearer token, view resources and request logs
+9. **Inspector** — lifecycle panel, token validation, UserInfo, claims diff, trace, compliance, signature, certificate health, raw payload, JWT decoder
 
 ### Admin Features
 1. **User Management** — create/edit/delete users, assign teams/roles, toggle security flags

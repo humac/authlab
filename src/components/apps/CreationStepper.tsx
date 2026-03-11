@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { TagInput } from "@/components/ui/TagInput";
 import { OIDCConfigFields } from "./OIDCConfigFields";
 import { SAMLConfigFields } from "./SAMLConfigFields";
 import type { KeyValueParam } from "@/types/app-instance";
@@ -22,6 +23,7 @@ interface FormData {
   protocol: "OIDC" | "SAML" | "";
   name: string;
   slug: string;
+  tags: string[];
   buttonColor: string;
   issuerUrl: string;
   clientId: string;
@@ -51,6 +53,7 @@ const initialFormData: FormData = {
   protocol: "",
   name: "",
   slug: "",
+  tags: [],
   buttonColor: "#3B71CA",
   issuerUrl: "",
   clientId: "",
@@ -161,6 +164,7 @@ export function CreationStepper() {
         slug: formData.slug,
         protocol: formData.protocol,
         buttonColor: formData.buttonColor,
+        tags: formData.tags.length > 0 ? formData.tags : undefined,
       };
 
       if (formData.protocol === "OIDC") {
@@ -270,6 +274,11 @@ export function CreationStepper() {
                 error={errors.slug}
                 helperText={`Test URL: ${testUrl}`}
               />
+              <TagInput
+                value={formData.tags}
+                onChange={(tags) => setFormData((prev) => ({ ...prev, tags }))}
+              />
+
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-[var(--text)]">Button Color</label>
                 <div className="flex items-center gap-3">
@@ -424,6 +433,16 @@ export function CreationStepper() {
                 <dt className="text-sm text-[var(--muted)]">Slug</dt>
                 <dd className="font-mono text-sm text-[var(--text)]">/{formData.slug}</dd>
               </div>
+              {formData.tags.length > 0 && (
+                <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                  <dt className="text-sm text-[var(--muted)]">Tags</dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {formData.tags.map((tag) => (
+                      <Badge key={tag} variant="gray">{tag}</Badge>
+                    ))}
+                  </dd>
+                </div>
+              )}
               <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Button color</dt>
                 <dd className="flex items-center gap-2">

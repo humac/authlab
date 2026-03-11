@@ -205,6 +205,7 @@ async function seed() {
       clientSecret: encrypt("mock-client-secret-okta-dev"),
       scopes: "openid profile email offline_access",
       pkceMode: "S256",
+      tags: JSON.stringify(["development", "okta"]),
     },
     {
       name: "Entra ID - Production",
@@ -217,6 +218,7 @@ async function seed() {
       scopes: "openid profile email",
       pkceMode: "S256",
       usePar: false,
+      tags: JSON.stringify(["production", "entra-id"]),
     },
     {
       name: "Auth0 - Staging",
@@ -228,6 +230,7 @@ async function seed() {
       clientSecret: encrypt("mock-client-secret-auth0-staging"),
       scopes: "openid profile email offline_access",
       pkceMode: "S256",
+      tags: JSON.stringify(["staging", "auth0"]),
       customAuthParamsJson: JSON.stringify([
         { key: "organization", value: "org_acme_staging" },
         { key: "prompt", value: "login" },
@@ -243,6 +246,7 @@ async function seed() {
       clientSecret: encrypt("mock-client-secret-keycloak-dev"),
       scopes: "openid profile email",
       pkceMode: "NONE",
+      tags: JSON.stringify(["development", "keycloak"]),
     },
     {
       name: "Entra ID - SAML",
@@ -259,6 +263,7 @@ async function seed() {
       samlSignatureAlgorithm: "SHA256",
       clockSkewToleranceSeconds: 60,
       samlLogoutUrl: "https://login.microsoftonline.com/a1b2c3d4/saml2/logout",
+      tags: JSON.stringify(["production", "entra-id"]),
     },
     {
       name: "Okta - SAML",
@@ -273,6 +278,7 @@ async function seed() {
       isPassiveDefault: false,
       signAuthnRequests: false,
       samlSignatureAlgorithm: "SHA256",
+      tags: JSON.stringify(["development", "okta"]),
     },
     {
       name: "PingFederate - QA",
@@ -288,6 +294,7 @@ async function seed() {
       signAuthnRequests: true,
       samlSignatureAlgorithm: "SHA256",
       clockSkewToleranceSeconds: 120,
+      tags: JSON.stringify(["qa", "ping"]),
     },
     {
       name: "Client Creds - API",
@@ -299,6 +306,7 @@ async function seed() {
       clientSecret: encrypt("mock-m2m-secret"),
       scopes: "read:users write:users",
       pkceMode: "NONE",
+      tags: JSON.stringify(["production", "m2m"]),
     },
   ];
 
