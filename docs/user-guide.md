@@ -21,8 +21,13 @@
   - [Accepting a Team Invitation](#accepting-a-team-invitation)
   - [Switching Your Active Team](#switching-your-active-team)
   - [Leaving a Team](#leaving-a-team)
+- [App Organization](#app-organization)
+  - [Grouping by Identity Provider](#grouping-by-identity-provider)
+  - [Grouping by Tag](#grouping-by-tag)
+  - [SSO and Cross-Protocol Detection](#sso-and-cross-protocol-detection)
 - [Testing Applications](#testing-applications)
   - [Creating an App](#creating-an-app)
+  - [Tagging Apps](#tagging-apps)
   - [Configuring an OIDC App](#configuring-an-oidc-app)
   - [Configuring a SAML App](#configuring-a-saml-app)
   - [Running an Authentication Test](#running-an-authentication-test)
@@ -81,9 +86,12 @@ After signing in, you land on the **Dashboard**. This is your home base for mana
 
 The dashboard shows:
 
-- **Summary cards** at the top — your current team's application count, member count, and your role
-- **App Inventory** — a searchable table of all test applications in your active team
+- **Summary cards** at the top — your current team's application count, detected IDP providers, member count, and your role
+- **App Inventory** — a searchable, groupable table of all test applications in your active team
+- **Group mode toggle** — switch between **Flat**, **By IDP**, and **By Tag** views
 - **Team Members** panel — a quick view of who belongs to your current team
+
+The search bar filters apps by name, slug, protocol, or tag.
 
 Use the **sidebar** on the left to navigate:
 
@@ -185,6 +193,45 @@ Use the **team switcher** dropdown at the top of the sidebar to switch between t
 
 ---
 
+## App Organization
+
+The dashboard offers three view modes for your app inventory, accessible via the group-mode toggle above the app table.
+
+### Grouping by Identity Provider
+
+Select **By IDP** to organize apps by the identity provider they connect to. AuthLab automatically detects the IDP from each app's issuer URL (OIDC) or entry point URL (SAML) and groups them under collapsible sections.
+
+Well-known providers are recognized with friendly names:
+
+| Provider | Detected From |
+|----------|---------------|
+| Microsoft Entra ID | `login.microsoftonline.com`, `login.microsoft.com`, `sts.windows.net` |
+| Okta | `*.okta.com`, `*.oktapreview.com` |
+| Auth0 | `*.auth0.com` |
+| Google Workspace | `accounts.google.com` |
+| OneLogin | `*.onelogin.com` |
+| Ping Identity | `*.pingone.com`, `*.pingidentity.com` |
+| Keycloak | `*.keycloak.org` |
+
+Apps without a configured URL appear in an **Unconfigured** group at the bottom.
+
+### Grouping by Tag
+
+Select **By Tag** to organize apps by their assigned tags. Each tag becomes a collapsible section. Apps with multiple tags appear in each matching group. Untagged apps appear in an **Untagged** section at the bottom.
+
+Tags are sorted by the number of apps they contain (most first), then alphabetically.
+
+### SSO and Cross-Protocol Detection
+
+When grouping by IDP, AuthLab highlights scenarios that are useful for enterprise testing:
+
+- **SSO** badge — Appears when multiple apps share the same identity provider, indicating a single sign-on scenario
+- **Cross-protocol** badge — Appears when the same IDP hosts both OIDC and SAML apps, useful for verifying consistent behavior across protocols
+
+> **Tip:** Use IDP grouping to quickly identify which apps share a provider and verify SSO behavior between them.
+
+---
+
 ## Testing Applications
 
 ### Creating an App
@@ -193,12 +240,32 @@ Use the **team switcher** dropdown at the top of the sidebar to switch between t
 
    ![Create new app](./screenshots/user-app-create.png)
 
-2. Enter a **Name** for your test application.
-3. Select the **Protocol**: OIDC or SAML.
-4. Fill in the required provider configuration fields (see protocol-specific sections below).
-5. Click **Create Application**.
+2. **Step 1 — Protocol**: Choose OIDC or SAML.
+3. **Step 2 — Customize**: Enter a **Name**, **URL Slug**, and optionally add **Tags** to organize your app (e.g., `production`, `okta`, `staging`). Pick a **Button Color** for the test launch button.
+4. **Step 3 — Configure**: Fill in the required provider configuration fields (see protocol-specific sections below).
+5. **Step 4 — Review**: Confirm your settings and click **Create App Instance**.
 
-Your new app appears in the dashboard's app inventory.
+Your new app appears in the dashboard's app inventory with any tags displayed as small pills beneath the app name.
+
+### Tagging Apps
+
+Tags help you organize and filter apps across your team. You can assign up to 10 tags per app.
+
+**Adding tags during creation:**
+
+1. In Step 2 of the creation wizard, use the **Tags** input field.
+2. Type a tag name and press **Enter** or **comma** to add it.
+3. Click the **×** button on a tag pill to remove it.
+
+**Adding tags to existing apps:**
+
+1. Navigate to the app's settings page (click **Edit** in the app inventory).
+2. Use the **Tags** field to add or remove tags.
+3. Click **Save Changes**.
+
+Tags appear as small pills on the app row in the dashboard. You can also search for apps by tag name using the search bar.
+
+> **Tip:** Use consistent tag conventions across your team — for example, environment tags (`production`, `staging`, `development`) and provider tags (`okta`, `entra-id`, `auth0`).
 
 ### Configuring an OIDC App
 
@@ -209,7 +276,8 @@ After creating an OIDC app, navigate to its settings to configure:
 - **Scopes** — Space-separated list (default: `openid profile email`)
 - **PKCE Mode** — S256 (recommended), Plain, or None
 - **PAR** — Enable Pushed Authorization Requests if your IdP supports it
-- **Custom Auth Params** — Additional parameters as JSON (e.g., `{"prompt": "consent"}`)
+- **Custom Auth Params** — Additional key-value parameters (e.g., `prompt=consent`)
+- **Tags** — Organizational labels for grouping and filtering (e.g., `production`, `okta`)
 - **Button Color** — Customize the test launch button appearance
 
 > **Tip:** AuthLab auto-discovers endpoints from your issuer URL using OpenID Connect Discovery. You typically only need the issuer URL, client ID, and client secret.
@@ -227,6 +295,7 @@ After creating a SAML app, configure:
 - **SP Encryption** — Generate or import an encryption keypair for encrypted assertions
 - **AuthnContext** — Request specific authentication context classes
 - **Logout URL** — The IdP's Single Logout endpoint
+- **Tags** — Organizational labels for grouping and filtering
 
 > **Tip:** Use the **Import Metadata** feature to auto-fill settings from an IdP metadata XML URL.
 
