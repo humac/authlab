@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { TagInput } from "@/components/ui/TagInput";
 import { OIDCConfigFields } from "./OIDCConfigFields";
 import { SAMLConfigFields } from "./SAMLConfigFields";
 import type { RedactedAppInstance } from "@/types/app-instance";
@@ -19,6 +20,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
   const [formData, setFormData] = useState({
     name: app.name,
     slug: app.slug,
+    tags: app.tags || [],
     buttonColor: app.buttonColor || "#3B71CA",
     issuerUrl: app.issuerUrl || "",
     clientId: app.clientId || "",
@@ -59,6 +61,7 @@ export function EditAppForm({ app }: EditAppFormProps) {
       name: formData.name,
       slug: formData.slug,
       buttonColor: formData.buttonColor,
+      tags: formData.tags,
     };
 
     if (app.protocol === "OIDC") {
@@ -132,6 +135,11 @@ export function EditAppForm({ app }: EditAppFormProps) {
           value={formData.slug}
           onChange={(e) => updateField("slug", e.target.value)}
           helperText={`Test URL: /test/${formData.slug}`}
+        />
+
+        <TagInput
+          value={formData.tags}
+          onChange={(tags) => setFormData((prev) => ({ ...prev, tags }))}
         />
 
         {app.protocol === "OIDC" && (

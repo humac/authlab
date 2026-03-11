@@ -170,6 +170,7 @@ model AppInstance {
 
   // UI Customization
   buttonColor  String? @default("#3B71CA")
+  tags         String? // JSON array of tag strings
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
