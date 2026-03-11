@@ -37,6 +37,33 @@ function parseCustomAuthParams(value: string | null): KeyValueParam[] {
   }
 }
 
+function parseTags(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .map((t) => t.trim().toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+function serializeTags(
+  tags: string[] | undefined,
+): string | null | undefined {
+  if (tags === undefined) return undefined;
+  const normalized = [
+    ...new Set(
+      tags
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t.length > 0),
+    ),
+  ];
+  return normalized.length > 0 ? JSON.stringify(normalized) : null;
+}
+
 function serializeCustomAuthParams(
   params: KeyValueParam[] | undefined,
 ): string | null | undefined {
@@ -66,6 +93,7 @@ function decryptRecord(record: AppInstanceRecord): DecryptedAppInstance {
       ? decrypt(record.spEncryptionPrivateKey)
       : null,
     customAuthParams: parseCustomAuthParams(record.customAuthParamsJson),
+    tags: parseTags(record.tags),
   };
 }
 
@@ -76,6 +104,7 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     spSigningPrivateKey,
     spEncryptionPrivateKey,
     customAuthParamsJson,
+    tags,
     ...rest
   } = record;
   return {
@@ -87,6 +116,7 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     hasSpEncryptionPrivateKey: !!spEncryptionPrivateKey,
     hasSpEncryptionCert: !!record.spEncryptionCert,
     customAuthParams: parseCustomAuthParams(customAuthParamsJson),
+    tags: parseTags(tags),
   };
 }
 
@@ -98,6 +128,7 @@ export async function createAppInstance(
     customAuthParams,
     spSigningPrivateKey,
     spEncryptionPrivateKey,
+    tags,
     ...rest
   } = data;
   const record = await prisma.appInstance.create({
@@ -106,6 +137,7 @@ export async function createAppInstance(
       clientSecret: data.clientSecret ? encrypt(data.clientSecret) : null,
       idpCert: data.idpCert ? encrypt(data.idpCert) : null,
       customAuthParamsJson: serializeCustomAuthParams(customAuthParams),
+      tags: serializeTags(tags),
       pkceMode: data.pkceMode ?? "S256",
       spSigningPrivateKey: spSigningPrivateKey
         ? encrypt(spSigningPrivateKey)
@@ -189,6 +221,9 @@ export async function updateAppInstance(
     updateData.spEncryptionPrivateKey = data.spEncryptionPrivateKey
       ? encrypt(data.spEncryptionPrivateKey)
       : null;
+  }
+  if (data.tags !== undefined) {
+    updateData.tags = serializeTags(data.tags);
   }
   const record = await prisma.appInstance.update({
     where: { id },
@@ -299,6 +334,7 @@ export async function copyAppInstanceToTeam(
     spEncryptionPrivateKey: source.spEncryptionPrivateKey,
     spEncryptionCert: source.spEncryptionCert,
     buttonColor: source.buttonColor,
+    tags: source.tags,
   });
 }
 

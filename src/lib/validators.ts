@@ -2,6 +2,8 @@ import { z } from "zod/v4";
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+const tagSchema = z.string().min(1).max(50);
+
 const baseSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   slug: z
@@ -11,6 +13,7 @@ const baseSchema = z.object({
     .regex(slugRegex, "Slug must be lowercase alphanumeric with hyphens"),
   protocol: z.enum(["OIDC", "SAML"]),
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  tags: z.array(tagSchema).max(10).optional(),
 });
 
 const KeyValueParamSchema = z.object({
@@ -110,6 +113,7 @@ export const UpdateAppInstanceSchema = z.object({
   spEncryptionPrivateKey: z.string().optional().nullable(),
   spEncryptionCert: z.string().optional().nullable(),
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  tags: z.array(tagSchema).max(10).optional(),
 });
 
 export const TransferAppSchema = z.object({

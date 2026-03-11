@@ -40,6 +40,7 @@ export interface AppInstanceInput {
   spEncryptionCert?: string | null;
   // UI
   buttonColor?: string | null;
+  tags?: string[];
 }
 
 export interface AppInstanceRecord {
@@ -71,6 +72,7 @@ export interface AppInstanceRecord {
   spEncryptionPrivateKey: string | null;
   spEncryptionCert: string | null;
   buttonColor: string | null;
+  tags: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,12 +85,14 @@ export interface DecryptedAppInstance
     | "spSigningPrivateKey"
     | "spEncryptionPrivateKey"
     | "customAuthParamsJson"
+    | "tags"
   > {
   clientSecret: string | null;
   idpCert: string | null;
   spSigningPrivateKey: string | null;
   spEncryptionPrivateKey: string | null;
   customAuthParams: KeyValueParam[];
+  tags: string[];
 }
 
 export interface RedactedAppInstance
@@ -99,6 +103,7 @@ export interface RedactedAppInstance
     | "spSigningPrivateKey"
     | "spEncryptionPrivateKey"
     | "customAuthParamsJson"
+    | "tags"
   > {
   hasClientSecret: boolean;
   hasIdpCert: boolean;
@@ -107,4 +112,5 @@ export interface RedactedAppInstance
   hasSpEncryptionPrivateKey: boolean;
   hasSpEncryptionCert: boolean;
   customAuthParams: KeyValueParam[];
+  tags: string[];
 }

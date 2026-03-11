@@ -22,6 +22,7 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - SAML request controls: AuthnContext, signature algorithm, clock skew, logout URL
 - SCIM mock provisioning endpoints with persisted resources and request logs
 - dense responsive management UI with stacked mobile tables and clearer team access/join-request states
+- app organization: lightweight tags and auto-detected IDP grouping with SSO/cross-protocol detection
 
 ## Tech Stack
 
@@ -71,7 +72,9 @@ npm run build -- --webpack
 - `src/app/api/auth/logout/oidc/*` — RP-initiated OIDC logout
 - `src/app/api/auth/logout/saml/*` — SAML single logout start and callback handling
 - `src/app/api/scim/*` — app-scoped SCIM mock discovery and resource endpoints
-- `src/app/(dashboard)/teams/*`, `src/app/(dashboard)/admin/users/page.tsx`, and `src/components/apps/Dashboard.tsx` — responsive operational tables and team access workflows
+- `src/app/(dashboard)/teams/*`, `src/app/(dashboard)/admin/users/page.tsx`, and `src/components/apps/Dashboard.tsx` — responsive operational tables, team access workflows, and app grouping views
+- `src/lib/idp-detection.ts` — IDP hostname extraction, known-provider labeling, SSO/cross-protocol group detection, and tag-based grouping
+- `src/components/ui/TagInput.tsx` — reusable tag editor with autocomplete and max-10 enforcement
 - `src/lib/state-store.ts` — pending OIDC state / SAML RelayState storage in session cookie (10-minute TTL, one-time use)
 - `src/lib/oidc-token-validation.ts` — OIDC signature and bound-hash validation helpers
 - `src/lib/oidc-backchannel-logout.ts` — logout-token validation and run correlation
@@ -133,7 +136,7 @@ npm run build -- --webpack
 - `prisma/schema.prisma` now includes:
   - extended `User` security fields
   - `Credential`, `AuthToken`, `UserProfileImage`
-  - `AppInstance` protocol settings for Phase 1/2 OIDC and Phase 3 SAML controls
+  - `AppInstance` protocol settings for Phase 1/2 OIDC and Phase 3 SAML controls, plus `tags` JSON column for app organization
   - `AuthRun` and `AuthRunEvent` for persisted protocol sessions and lifecycle history
   - `ScimResource` and `ScimRequestLog` for mock provisioning state and audit trail
 - Use local SQLite for CLI through `prisma.config.ts`
@@ -148,6 +151,7 @@ npm run build -- --webpack
   - `prisma/turso-migrations/20260308_phase4_oidc_backchannel_logout.sql`
   - `prisma/turso-migrations/20260308_phase4_oidc_par.sql`
   - `prisma/turso-migrations/20260308_phase4_scim_mock.sql`
+  - `prisma/turso-migrations/20260310_app_tags.sql`
 
 ## Environment Variables
 
@@ -176,6 +180,9 @@ npm run build -- --webpack
 - `npm run test:e2e` uses a built Next.js server and `localhost` origin to keep Playwright and WebAuthn stable.
 - Do not run `npm run test:e2e` and `npm run build:ci` in parallel; both can contend on the Next.js build lock.
 - The inspector now includes protocol compliance reporting and dedicated SAML signature/certificate tabs.
+- Dashboard supports Flat/By IDP/By Tag view modes; IDP grouping auto-detects shared providers across OIDC and SAML apps.
+- Known IDP providers (Okta, Microsoft Entra ID, Auth0, Google Workspace, OneLogin, Ping Identity, Keycloak) are labeled automatically by hostname matching in `src/lib/idp-detection.ts`.
+- App tags are stored as a JSON array in `AppInstance.tags`; serialization follows the same pattern as `customAuthParamsJson`.
 - Release flow is branch- and tag-based:
   - `main` for integration
   - `alpha` for staged alpha releases
