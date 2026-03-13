@@ -143,6 +143,7 @@ export default async function TestPage({
             samlSignatureAlgorithm={app.protocol === "SAML" ? app.samlSignatureAlgorithm : undefined}
             clockSkewToleranceSeconds={app.protocol === "SAML" ? app.clockSkewToleranceSeconds : undefined}
             samlLogoutUrl={app.protocol === "SAML" ? app.samlLogoutUrl : undefined}
+            isPublicClient={app.protocol === "OIDC" && !app.clientSecret}
           />
         </Card>
 

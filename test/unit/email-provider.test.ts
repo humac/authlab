@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { importFresh } from "./test-helpers.ts";
+import { importFresh, probeModule } from "./test-helpers.ts";
 
-describe("email provider helpers", () => {
+const skip = await probeModule("nodemailer");
+
+describe("email provider helpers", { skip: skip || undefined }, () => {
   it("returns masked provider settings without exposing secrets", async (t) => {
     const settings = new Map<string, string>([
       ["email.activeProvider", "SMTP"],

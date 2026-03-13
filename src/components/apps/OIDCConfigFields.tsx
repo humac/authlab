@@ -56,11 +56,26 @@ export function OIDCConfigFields({
       <Input
         label="Client Secret"
         type="password"
-        placeholder="your-client-secret"
+        placeholder="Leave blank for public clients (SPAs, native apps)"
         value={values.clientSecret}
         onChange={(e) => onChange("clientSecret", e.target.value)}
         error={errors.clientSecret}
+        helperText="Optional — leave blank for public clients. PKCE secures the authorization code exchange."
       />
+      {!values.clientSecret && values.pkceMode !== "NONE" && (
+        <div className="rounded-lg border border-[var(--border)] bg-[color-mix(in_oklab,var(--primary)_8%,transparent)] px-3 py-2">
+          <p className="text-xs font-medium text-[var(--text)]">
+            Public client mode — PKCE ({values.pkceMode}) will secure the authorization code exchange.
+          </p>
+        </div>
+      )}
+      {!values.clientSecret && values.pkceMode === "NONE" && (
+        <div className="alert-warning rounded-lg px-3 py-2">
+          <p className="text-xs font-medium">
+            No client secret and no PKCE — this configuration is insecure. Enable PKCE or add a client secret.
+          </p>
+        </div>
+      )}
       <Input
         label="Scopes"
         placeholder="openid profile email"
