@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { TeamMembersPanel } from "./TeamMembersPanel";
+import { AppNotesPanel } from "./AppNotesPanel";
+import { AppNotesEditor } from "./AppNotesEditor";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { detectIdpGroups, groupByTags } from "@/lib/idp-detection";
 import type { RedactedAppInstance } from "@/types/app-instance";
+import type { AppNotes } from "@/types/app-instance";
 
 type GroupMode = "none" | "idp" | "tags";
 
@@ -52,9 +55,11 @@ function TagPills({ tags }: { tags: string[] }) {
 function AppRow({
   app,
   onDelete,
+  onNotes,
 }: {
   app: RedactedAppInstance;
   onDelete: (app: RedactedAppInstance) => void;
+  onNotes: (app: RedactedAppInstance) => void;
 }) {
   return (
     <tr
@@ -85,6 +90,19 @@ function AppRow({
           <Link href={`/test/${app.slug}`}>
             <Button size="sm">Test</Button>
           </Link>
+          <Button
+            size="sm"
+            variant={app.hasNotes ? "subtle" : "ghost"}
+            onClick={() => onNotes(app)}
+            title="Notes"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </Button>
           <Link href={`/apps/${app.id}`}>
             <Button size="sm" variant="secondary">
               Edit
@@ -107,10 +125,12 @@ function AppRow({
 function AppTable({
   apps,
   onDelete,
+  onNotes,
   showHeader,
 }: {
   apps: RedactedAppInstance[];
   onDelete: (app: RedactedAppInstance) => void;
+  onNotes: (app: RedactedAppInstance) => void;
   showHeader?: boolean;
 }) {
   return (
@@ -127,7 +147,7 @@ function AppTable({
       )}
       <tbody>
         {apps.map((app) => (
-          <AppRow key={app.id} app={app} onDelete={onDelete} />
+          <AppRow key={app.id} app={app} onDelete={onDelete} onNotes={onNotes} />
         ))}
       </tbody>
     </table>
@@ -173,6 +193,34 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
   const [groupMode, setGroupMode] = useState<GroupMode>("none");
   const [deleteTarget, setDeleteTarget] = useState<RedactedAppInstance | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Notes panel state
+  const [notesTarget, setNotesTarget] = useState<RedactedAppInstance | null>(null);
+  const [notesData, setNotesData] = useState<AppNotes | null>(null);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesEditing, setNotesEditing] = useState(false);
+
+  const openNotes = useCallback(async (app: RedactedAppInstance) => {
+    setNotesTarget(app);
+    setNotesEditing(false);
+    setNotesLoading(true);
+    setNotesData(null);
+    try {
+      const res = await fetch(`/api/apps/${app.id}/notes`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotesData(data.notes ?? null);
+      }
+    } finally {
+      setNotesLoading(false);
+    }
+  }, []);
+
+  const closeNotes = useCallback(() => {
+    setNotesTarget(null);
+    setNotesData(null);
+    setNotesEditing(false);
+  }, []);
 
   const filteredApps = useMemo(
     () =>
@@ -294,6 +342,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
                 <AppTable
                   apps={filteredApps}
                   onDelete={setDeleteTarget}
+                  onNotes={openNotes}
                   showHeader
                 />
                 {filteredApps.length === 0 && (
@@ -332,7 +381,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
                       </span>
                     }
                   >
-                    <AppTable apps={group.apps} onDelete={setDeleteTarget} />
+                    <AppTable apps={group.apps} onDelete={setDeleteTarget} onNotes={openNotes} />
                   </GroupSection>
                 ))}
                 {idpGroups.length === 0 && (
@@ -355,7 +404,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
                       </span>
                     }
                   >
-                    <AppTable apps={group.apps} onDelete={setDeleteTarget} />
+                    <AppTable apps={group.apps} onDelete={setDeleteTarget} onNotes={openNotes} />
                   </GroupSection>
                 ))}
                 {tagGroups.length === 0 && (
@@ -395,6 +444,44 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
             Delete
           </Button>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(notesTarget)}
+        onClose={closeNotes}
+        title={notesTarget ? `Notes — ${notesTarget.name}` : "Notes"}
+        placement="right"
+      >
+        {notesLoading && (
+          <div className="flex items-center justify-center py-12">
+            <svg className="h-5 w-5 animate-spin text-[var(--muted)]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V1C5.925 1 1 5.925 1 12h3Z" />
+            </svg>
+          </div>
+        )}
+        {!notesLoading && notesTarget && !notesEditing && (
+          <AppNotesPanel
+            notes={notesData}
+            onEdit={() => setNotesEditing(true)}
+          />
+        )}
+        {!notesLoading && notesTarget && notesEditing && (
+          <AppNotesEditor
+            appId={notesTarget.id}
+            initial={notesData}
+            onSaved={(saved) => {
+              setNotesData(saved);
+              setNotesEditing(false);
+              setApps((prev) =>
+                prev.map((a) =>
+                  a.id === notesTarget.id ? { ...a, hasNotes: true } : a,
+                ),
+              );
+            }}
+            onCancel={() => setNotesEditing(false)}
+          />
+        )}
       </Modal>
     </div>
   );

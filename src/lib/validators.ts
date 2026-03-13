@@ -82,6 +82,21 @@ export const CreateAppInstanceSchema = z.discriminatedUnion("protocol", [
     }),
 ]);
 
+const AppCredentialSchema = z.object({
+  label: z.string().min(1).max(100),
+  username: z.string().max(200),
+  password: z.string().max(200),
+  url: z.string().url().optional().nullable(),
+  note: z.string().max(500).optional().nullable(),
+});
+
+const AppNotesSchema = z.object({
+  markdown: z.string().max(5000).default(""),
+  credentials: z.array(AppCredentialSchema).max(10).default([]),
+  updatedAt: z.string(),
+  updatedBy: z.string(),
+});
+
 export const UpdateAppInstanceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   slug: z
@@ -114,6 +129,7 @@ export const UpdateAppInstanceSchema = z.object({
   spEncryptionCert: z.string().optional().nullable(),
   buttonColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
   tags: z.array(tagSchema).max(10).optional(),
+  notes: AppNotesSchema.optional().nullable(),
 });
 
 export const TransferAppSchema = z.object({

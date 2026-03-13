@@ -65,6 +65,13 @@ export async function PUT(
 
   try {
     const payload = { ...parsed.data };
+    if (payload.notes) {
+      payload.notes = {
+        ...payload.notes,
+        updatedAt: new Date().toISOString(),
+        updatedBy: result.user.name || result.user.email || "Unknown",
+      };
+    }
     if (payload.spSigningCert) {
       payload.spSigningCert = validatePemCertificate(payload.spSigningCert);
     }
