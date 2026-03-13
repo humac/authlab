@@ -32,6 +32,7 @@ if (!globalThis.__authlabIntegrationSetup) {
     "20260308_phase4_scim_mock.sql",
     "20260310_user_default_team.sql",
     "20260310_app_tags.sql",
+    "20260313_app_notes.sql",
   ];
   const migrationSql = migrationFiles
     .map((name) => fs.readFileSync(path.join(migrationDir, name), "utf8"))

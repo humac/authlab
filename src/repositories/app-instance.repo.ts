@@ -2,6 +2,7 @@ import { getPrisma } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/encryption";
 import type {
   AppInstanceInput,
+  AppNotes,
   DecryptedAppInstance,
   KeyValueParam,
   RedactedAppInstance,
@@ -81,6 +82,27 @@ function serializeCustomAuthParams(
   return normalized.length > 0 ? JSON.stringify(normalized) : null;
 }
 
+function parseNotes(encryptedValue: string | null): AppNotes | null {
+  if (!encryptedValue) return null;
+  try {
+    const json = decrypt(encryptedValue);
+    const parsed = JSON.parse(json) as AppNotes;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      markdown: typeof parsed.markdown === "string" ? parsed.markdown : "",
+      credentials: Array.isArray(parsed.credentials) ? parsed.credentials : [],
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+      updatedBy: typeof parsed.updatedBy === "string" ? parsed.updatedBy : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function serializeNotes(notes: AppNotes): string {
+  return encrypt(JSON.stringify(notes));
+}
+
 function decryptRecord(record: AppInstanceRecord): DecryptedAppInstance {
   return {
     ...record,
@@ -94,6 +116,7 @@ function decryptRecord(record: AppInstanceRecord): DecryptedAppInstance {
       : null,
     customAuthParams: parseCustomAuthParams(record.customAuthParamsJson),
     tags: parseTags(record.tags),
+    notes: parseNotes(record.notesEnc),
   };
 }
 
@@ -105,6 +128,7 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     spEncryptionPrivateKey,
     customAuthParamsJson,
     tags,
+    notesEnc,
     ...rest
   } = record;
   return {
@@ -115,6 +139,7 @@ function redactRecord(record: AppInstanceRecord): RedactedAppInstance {
     hasSpSigningCert: !!record.spSigningCert,
     hasSpEncryptionPrivateKey: !!spEncryptionPrivateKey,
     hasSpEncryptionCert: !!record.spEncryptionCert,
+    hasNotes: !!notesEnc,
     customAuthParams: parseCustomAuthParams(customAuthParamsJson),
     tags: parseTags(tags),
   };
@@ -224,6 +249,10 @@ export async function updateAppInstance(
   }
   if (data.tags !== undefined) {
     updateData.tags = serializeTags(data.tags);
+  }
+  if (data.notes !== undefined) {
+    updateData.notesEnc = data.notes ? serializeNotes(data.notes) : null;
+    delete updateData.notes;
   }
   const record = await prisma.appInstance.update({
     where: { id },
@@ -336,6 +365,18 @@ export async function copyAppInstanceToTeam(
     buttonColor: source.buttonColor,
     tags: source.tags,
   });
+}
+
+export async function getAppInstanceNotesById(
+  id: string,
+): Promise<{ teamId: string; notes: AppNotes | null } | null> {
+  const prisma = await getPrisma();
+  const record = await prisma.appInstance.findUnique({
+    where: { id },
+    select: { teamId: true, notesEnc: true },
+  });
+  if (!record) return null;
+  return { teamId: record.teamId, notes: parseNotes(record.notesEnc) };
 }
 
 export async function getRedactedAppInstanceById(
