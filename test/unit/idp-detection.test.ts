@@ -39,6 +39,7 @@ function makeApp(
     hasSpSigningCert: false,
     hasSpEncryptionPrivateKey: false,
     hasSpEncryptionCert: false,
+    hasNotes: false,
     customAuthParams: [],
   };
 }

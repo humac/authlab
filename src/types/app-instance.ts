@@ -9,6 +9,21 @@ export interface KeyValueParam {
   value: string;
 }
 
+export interface AppCredential {
+  label: string;
+  username: string;
+  password: string;
+  url?: string | null;
+  note?: string | null;
+}
+
+export interface AppNotes {
+  markdown: string;
+  credentials: AppCredential[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
 export interface AppInstanceInput {
   name: string;
   slug: string;
@@ -41,6 +56,8 @@ export interface AppInstanceInput {
   // UI
   buttonColor?: string | null;
   tags?: string[];
+  // Notes
+  notes?: AppNotes | null;
 }
 
 export interface AppInstanceRecord {
@@ -73,6 +90,7 @@ export interface AppInstanceRecord {
   spEncryptionCert: string | null;
   buttonColor: string | null;
   tags: string | null;
+  notesEnc: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,6 +104,7 @@ export interface DecryptedAppInstance
     | "spEncryptionPrivateKey"
     | "customAuthParamsJson"
     | "tags"
+    | "notesEnc"
   > {
   clientSecret: string | null;
   idpCert: string | null;
@@ -93,6 +112,7 @@ export interface DecryptedAppInstance
   spEncryptionPrivateKey: string | null;
   customAuthParams: KeyValueParam[];
   tags: string[];
+  notes: AppNotes | null;
 }
 
 export interface RedactedAppInstance
@@ -104,6 +124,7 @@ export interface RedactedAppInstance
     | "spEncryptionPrivateKey"
     | "customAuthParamsJson"
     | "tags"
+    | "notesEnc"
   > {
   hasClientSecret: boolean;
   hasIdpCert: boolean;
@@ -111,6 +132,7 @@ export interface RedactedAppInstance
   hasSpSigningCert: boolean;
   hasSpEncryptionPrivateKey: boolean;
   hasSpEncryptionCert: boolean;
+  hasNotes: boolean;
   customAuthParams: KeyValueParam[];
   tags: string[];
 }
