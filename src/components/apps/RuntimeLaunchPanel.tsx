@@ -28,6 +28,7 @@ interface RuntimeLaunchPanelProps {
   samlSignatureAlgorithm?: "SHA1" | "SHA256";
   clockSkewToleranceSeconds?: number;
   samlLogoutUrl?: string | null;
+  isPublicClient?: boolean;
 }
 
 export function RuntimeLaunchPanel({
@@ -49,6 +50,7 @@ export function RuntimeLaunchPanel({
   samlSignatureAlgorithm = "SHA256",
   clockSkewToleranceSeconds = 0,
   samlLogoutUrl = null,
+  isPublicClient = false,
 }: RuntimeLaunchPanelProps) {
   const router = useRouter();
   const [params, setParams] = useState<KeyValueParam[]>(
@@ -267,12 +269,18 @@ export function RuntimeLaunchPanel({
             {clientCredentialsError && (
               <div className="alert-danger rounded-lg p-3 text-sm">{clientCredentialsError}</div>
             )}
+            {isPublicClient && (
+              <p className="text-xs text-[var(--muted)]">
+                Client credentials requires a client secret.
+              </p>
+            )}
             <Button
               type="button"
               size="sm"
               className="w-full"
               onClick={launchClientCredentials}
               loading={clientCredentialsLoading}
+              disabled={isPublicClient}
             >
               Run Client Credentials
             </Button>

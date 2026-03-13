@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import Database from "better-sqlite3";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -37,13 +37,16 @@ if (!globalThis.__authlabIntegrationSetup) {
     .map((name) => fs.readFileSync(path.join(migrationDir, name), "utf8"))
     .join("\n\n");
 
-  execFileSync("/usr/bin/sqlite3", [dbPath], {
-    input: migrationSql,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const db = new Database(dbPath);
+  db.exec(migrationSql);
+  db.close();
 
   process.on("exit", () => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // On Windows the DB file may still be locked by better-sqlite3; ignore cleanup errors
+    }
   });
 
   globalThis.__authlabIntegrationSetup = true;

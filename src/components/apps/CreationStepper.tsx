@@ -138,7 +138,6 @@ export function CreationStepper() {
       if (formData.protocol === "OIDC") {
         if (!formData.issuerUrl) newErrors.issuerUrl = "Required";
         if (!formData.clientId) newErrors.clientId = "Required";
-        if (!formData.clientSecret) newErrors.clientSecret = "Required";
       } else {
         if (!formData.entryPoint) newErrors.entryPoint = "Required";
         if (!formData.issuer) newErrors.issuer = "Required";
@@ -170,7 +169,7 @@ export function CreationStepper() {
       if (formData.protocol === "OIDC") {
         body.issuerUrl = formData.issuerUrl;
         body.clientId = formData.clientId;
-        body.clientSecret = formData.clientSecret;
+        if (formData.clientSecret) body.clientSecret = formData.clientSecret;
         body.scopes = formData.scopes || "openid profile email";
         body.customAuthParams = formData.customAuthParams.filter((entry) => entry.key.trim());
         body.pkceMode = formData.pkceMode;
@@ -420,10 +419,18 @@ export function CreationStepper() {
                 </dd>
               </div>
               {formData.protocol === "OIDC" && (
-                <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-                  <dt className="text-sm text-[var(--muted)]">PKCE mode</dt>
-                  <dd className="text-sm font-medium text-[var(--text)]">{formData.pkceMode}</dd>
-                </div>
+                <>
+                  <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                    <dt className="text-sm text-[var(--muted)]">Client type</dt>
+                    <dd className="text-sm font-medium text-[var(--text)]">
+                      {formData.clientSecret ? "Confidential" : "Public"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                    <dt className="text-sm text-[var(--muted)]">PKCE mode</dt>
+                    <dd className="text-sm font-medium text-[var(--text)]">{formData.pkceMode}</dd>
+                  </div>
+                </>
               )}
               <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
                 <dt className="text-sm text-[var(--muted)]">Name</dt>

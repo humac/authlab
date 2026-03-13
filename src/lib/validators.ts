@@ -24,7 +24,7 @@ const KeyValueParamSchema = z.object({
 const oidcFields = z.object({
   issuerUrl: z.url("Invalid issuer URL"),
   clientId: z.string().min(1, "Client ID is required"),
-  clientSecret: z.string().min(1, "Client Secret is required"),
+  clientSecret: z.string().optional().nullable(),
   scopes: z.string().optional().nullable(),
   customAuthParams: z.array(KeyValueParamSchema).optional(),
   pkceMode: z.enum(["S256", "PLAIN", "NONE"]).optional(),

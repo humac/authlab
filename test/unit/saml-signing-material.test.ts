@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { X509Certificate } from "node:crypto";
 import { describe, it } from "node:test";
-import { validatePemCertificate, validatePemPrivateKey } from "../../src/lib/pem.ts";
-import { generateSelfSignedSamlSigningMaterial } from "../../src/lib/saml-signing-material.ts";
+import { probeModule } from "./test-helpers.ts";
 
-describe("SAML signing material generation", () => {
+const skip = await probeModule("@peculiar/x509");
+
+describe("SAML signing material generation", { skip: skip || undefined }, () => {
   it("generates a self-signed keypair that can be persisted for testing", async () => {
+    const { validatePemCertificate, validatePemPrivateKey } = await import("../../src/lib/pem.ts");
+    const { generateSelfSignedSamlSigningMaterial } = await import("../../src/lib/saml-signing-material.ts");
+
     const material = await generateSelfSignedSamlSigningMaterial({
       name: "Finance SSO",
       slug: "finance-sso",
@@ -26,6 +30,8 @@ describe("SAML signing material generation", () => {
   });
 
   it("supports encryption usage for encrypted-assertion testing", async () => {
+    const { generateSelfSignedSamlSigningMaterial } = await import("../../src/lib/saml-signing-material.ts");
+
     const material = await generateSelfSignedSamlSigningMaterial({
       name: "Encrypted Assertion SP",
       slug: "encrypted-assertion-sp",
