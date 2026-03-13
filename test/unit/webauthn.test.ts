@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { importFresh } from "./test-helpers.ts";
+import { importFresh, probeModule } from "./test-helpers.ts";
 
-describe("webauthn helpers", () => {
+const skip = await probeModule("@simplewebauthn/server");
+
+describe("webauthn helpers", { skip: skip || undefined }, () => {
   it("builds registration options from the configured app URL", async (t) => {
     process.env.NEXT_PUBLIC_APP_URL = "https://authlab.example.com:8443";
     const generateRegistrationOptions = t.mock.fn((options) => options);

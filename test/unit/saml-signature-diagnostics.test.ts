@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { generateSelfSignedSamlSigningMaterial } from "../../src/lib/saml-signing-material.ts";
-import { analyzeSamlSignatureDiagnostics } from "../../src/lib/saml-signature-diagnostics.ts";
+import { probeModule } from "./test-helpers.ts";
+
+const skip = await probeModule("@peculiar/x509");
 
 function extractCertificateBody(pem: string): string {
   return pem
@@ -10,8 +11,11 @@ function extractCertificateBody(pem: string): string {
     .replace(/\s+/g, "");
 }
 
-describe("SAML signature diagnostics", () => {
+describe("SAML signature diagnostics", { skip: skip || undefined }, () => {
   it("extracts response and assertion signature details from captured XML", async () => {
+    const { generateSelfSignedSamlSigningMaterial } = await import("../../src/lib/saml-signing-material.ts");
+    const { analyzeSamlSignatureDiagnostics } = await import("../../src/lib/saml-signature-diagnostics.ts");
+
     const material = await generateSelfSignedSamlSigningMaterial({
       name: "SAML Signature Test",
       slug: "saml-signature-test",
@@ -60,6 +64,8 @@ describe("SAML signature diagnostics", () => {
   });
 
   it("reports missing signature structure", async () => {
+    const { analyzeSamlSignatureDiagnostics } = await import("../../src/lib/saml-signature-diagnostics.ts");
+
     const diagnostics = await analyzeSamlSignatureDiagnostics({
       xml: "<Response></Response>",
       configuredIdpCert: null,

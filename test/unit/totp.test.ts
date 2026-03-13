@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { authenticator } from "otplib";
-import { createTotpSetup, verifyTotpToken } from "../../src/lib/totp.ts";
+import { probeModule } from "./test-helpers.ts";
 
-describe("totp helpers", () => {
+const skip = await probeModule("otplib");
+
+describe("totp helpers", { skip: skip || undefined }, () => {
   it("creates a secret, otpauth URL, and QR code payload", async () => {
+    const { createTotpSetup } = await import("../../src/lib/totp.ts");
+
     const result = await createTotpSetup({
       accountName: "user@example.com",
       issuer: "AuthLab",
@@ -17,6 +20,9 @@ describe("totp helpers", () => {
   });
 
   it("accepts valid tokens even when users paste whitespace", async () => {
+    const { authenticator } = await import("otplib");
+    const { createTotpSetup, verifyTotpToken } = await import("../../src/lib/totp.ts");
+
     const { secret } = await createTotpSetup({
       accountName: "user@example.com",
       issuer: "AuthLab",
@@ -28,6 +34,8 @@ describe("totp helpers", () => {
   });
 
   it("rejects invalid tokens", async () => {
+    const { createTotpSetup, verifyTotpToken } = await import("../../src/lib/totp.ts");
+
     const { secret } = await createTotpSetup({
       accountName: "user@example.com",
       issuer: "AuthLab",
