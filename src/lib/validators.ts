@@ -93,8 +93,8 @@ const AppCredentialSchema = z.object({
 const AppNotesSchema = z.object({
   markdown: z.string().max(5000).default(""),
   credentials: z.array(AppCredentialSchema).max(10).default([]),
-  updatedAt: z.string(),
-  updatedBy: z.string(),
+  updatedAt: z.string().optional().default(""),
+  updatedBy: z.string().optional().default(""),
 });
 
 export const UpdateAppInstanceSchema = z.object({
