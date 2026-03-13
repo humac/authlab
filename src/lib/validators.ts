@@ -86,7 +86,7 @@ const AppCredentialSchema = z.object({
   label: z.string().min(1).max(100),
   username: z.string().max(200),
   password: z.string().max(200),
-  url: z.string().url().optional().nullable(),
+  url: z.string().max(500).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
 });
 

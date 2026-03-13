@@ -38,7 +38,7 @@ export function AppNotesEditor({ appId, initial, onSaved, onCancel }: AppNotesEd
       const body = {
         notes: {
           markdown,
-          credentials: credentials.filter((c) => c.label.trim() || c.username.trim()),
+          credentials: credentials.filter((c) => c.label.trim() && c.username.trim()),
         },
       };
       const res = await fetch(`/api/apps/${appId}`, {
