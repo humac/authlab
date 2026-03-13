@@ -51,7 +51,7 @@ export function AppNotesEditor({ appId, initial, onSaved, onCancel }: AppNotesEd
         throw new Error(data?.error || `Save failed (${res.status})`);
       }
       // Re-fetch decrypted notes (PUT returns redacted instance without notes content)
-      const notesRes = await fetch(`/api/apps/${appId}/notes`);
+      const notesRes = await fetch(`/api/apps/${appId}/notes`, { cache: "no-store" });
       if (notesRes.ok) {
         const notesData = await notesRes.json();
         onSaved(notesData.notes ?? body.notes);

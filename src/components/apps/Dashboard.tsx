@@ -206,7 +206,7 @@ export function Dashboard({ initialApps, team, currentUserId }: DashboardProps) 
     setNotesLoading(true);
     setNotesData(null);
     try {
-      const res = await fetch(`/api/apps/${app.id}/notes`);
+      const res = await fetch(`/api/apps/${app.id}/notes`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setNotesData(data.notes ?? null);
