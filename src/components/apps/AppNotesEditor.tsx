@@ -35,10 +35,18 @@ export function AppNotesEditor({ appId, initial, onSaved, onCancel }: AppNotesEd
     setSaving(true);
     setError(null);
     try {
+      // Separate fully-empty rows (discard) from partially-filled rows (validate)
+      const nonEmpty = credentials.filter(
+        (c) => c.label.trim() || c.username.trim() || c.password.trim(),
+      );
+      const incomplete = nonEmpty.filter((c) => !c.label.trim() || !c.username.trim());
+      if (incomplete.length > 0) {
+        throw new Error("Each credential needs at least a label and username.");
+      }
       const body = {
         notes: {
           markdown,
-          credentials: credentials.filter((c) => c.label.trim() && c.username.trim()),
+          credentials: nonEmpty,
         },
       };
       const res = await fetch(`/api/apps/${appId}`, {
