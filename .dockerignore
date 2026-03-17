@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.db
+.env
+.env.local
+.env.*.local
+test/
+prisma/turso-migrations/
+.github/
+.vercel/
+coverage/

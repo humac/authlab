@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - MASTER_ENCRYPTION_KEY=${MASTER_ENCRYPTION_KEY}
+      - SESSION_PASSWORD=${SESSION_PASSWORD}
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    volumes:
+      - authlab-data:/app/data
+
+volumes:
+  authlab-data:
