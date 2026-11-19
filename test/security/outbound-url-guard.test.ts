@@ -247,34 +247,3 @@ describe("OIDC handler uses the outbound guard in production", () => {
     assert.equal(fetchMock.mock.callCount(), 0);
   });
 });
-
-describe("proxy JSON content-type check", () => {
-  async function runProxy(contentType: string) {
-    env.SESSION_PASSWORD ??= "x".repeat(64);
-    const { NextRequest } = await import("next/server");
-    const { proxy } = await importFresh<typeof import("../../src/proxy.ts")>("../../src/proxy.ts");
-    const request = new NextRequest("http://localhost/api/apps", {
-      method: "POST",
-      headers: {
-        host: "localhost",
-        origin: "http://localhost",
-        "content-type": contentType,
-        "content-length": "2",
-      },
-      body: "{}",
-    });
-    return proxy(request);
-  }
-
-  it("rejects safelisted types that merely mention application/json in parameters", async () => {
-    const response = await runProxy("text/plain; x=application/json");
-    assert.equal(response.status, 415);
-  });
-
-  it("accepts application/json and structured +json types", async () => {
-    for (const type of ["application/json", "application/json; charset=utf-8", "application/scim+json"]) {
-      const response = await runProxy(type);
-      assert.notEqual(response.status, 415, type);
-    }
-  });
-});

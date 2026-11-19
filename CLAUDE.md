@@ -86,6 +86,7 @@ npm run build -- --webpack
 - `src/lib/protocol-compliance.ts` — protocol-specific compliance summary generation
 - `src/lib/saml-logout.ts` — SAML logout profile derivation and matching helpers
 - `src/lib/scim.ts` and `src/lib/scim-resource-handler.ts` — SCIM auth, list/filter, patch, and CRUD helpers
+- `/api/scim/*` is a public prefix in `src/proxy.ts` (IdPs call it with a per-app bearer token, no session); every SCIM route must authenticate through `getScimApp()` in `src/lib/scim-route.ts`, and unknown slugs return the same 401 as a bad token
 - `src/app/api/user/*` — account security APIs:
   - login + MFA
   - register + verify email

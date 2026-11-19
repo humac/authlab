@@ -25,6 +25,10 @@ const PUBLIC_API_PREFIXES = [
   "/api/user/password-reset/complete",
   "/api/user/passkeys/login/options",
   "/api/user/passkeys/login/verify",
+  // SCIM is called server-to-server by IdPs with a per-app bearer token and no
+  // session cookie. Every /api/scim route authenticates itself through
+  // getScimApp() -> assertScimAuthorized() (HMAC token, constant-time compare).
+  "/api/scim/",
 ];
 
 const ADMIN_PATH_PREFIXES = ["/admin"];

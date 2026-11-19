@@ -352,6 +352,22 @@ export function buildScimSchemas(slug: string) {
   });
 }
 
+export function scimUnauthorizedResponse(): Response {
+  return Response.json(
+    {
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "401",
+      detail: "Invalid or missing SCIM bearer token",
+    },
+    {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": 'Bearer realm="AuthLab SCIM"',
+      },
+    },
+  );
+}
+
 export function assertScimAuthorized(
   app: DecryptedAppInstance,
   request: Request,
@@ -360,20 +376,5 @@ export function assertScimAuthorized(
     return { ok: true };
   }
 
-  return {
-    ok: false,
-    response: Response.json(
-      {
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-        status: "401",
-        detail: "Invalid or missing SCIM bearer token",
-      },
-      {
-        status: 401,
-        headers: {
-          "WWW-Authenticate": 'Bearer realm="AuthLab SCIM"',
-        },
-      },
-    ),
-  };
+  return { ok: false, response: scimUnauthorizedResponse() };
 }

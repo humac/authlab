@@ -2794,6 +2794,41 @@ describe("integration: repositories and api routes", () => {
       assert.equal(payload.patch?.supported, true);
     });
 
+    it("returns the same 401 for unknown SCIM slugs and bad tokens (no slug enumeration)", async () => {
+      const prisma = await getPrisma();
+      const team = await createTeam();
+      await prisma.appInstance.create({
+        data: {
+          name: "SCIM Enum App",
+          slug: "scim-enum-app",
+          protocol: "OIDC",
+          teamId: team.id,
+          issuerUrl: "https://issuer.example.com",
+          clientId: "client-123",
+        },
+      });
+
+      const usersRoute = await importFresh<
+        typeof import("../../src/app/api/scim/[slug]/Users/route.ts")
+      >("../../src/app/api/scim/[slug]/Users/route.ts");
+
+      const call = (slug: string) =>
+        usersRoute.GET(
+          new Request(`http://localhost/api/scim/${slug}/Users`, {
+            headers: { authorization: "Bearer not-a-valid-token" },
+          }),
+          { params: Promise.resolve({ slug }) },
+        );
+
+      const existing = await call("scim-enum-app");
+      const missing = await call("scim-does-not-exist");
+
+      assert.equal(existing.status, 401);
+      assert.equal(missing.status, 401);
+      assert.deepEqual(await getJson(missing), await getJson(existing));
+      assert.equal(missing.headers.get("www-authenticate"), 'Bearer realm="AuthLab SCIM"');
+    });
+
     it("creates, filters, patches, and deletes SCIM users while logging requests", async () => {
       const prisma = await getPrisma();
       const team = await createTeam();
