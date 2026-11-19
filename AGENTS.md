@@ -16,6 +16,8 @@
 - Check profile image hardening in `src/lib/profile-image.ts` (magic bytes, type allowlist, size, EXIF stripping)
 - Confirm write-only secret handling for SMTP/Brevo in `src/lib/email-provider.ts`
 - Validate CSP + CSRF controls in `src/proxy.ts` and nonce usage in `src/app/layout.tsx`
+- Keep server-side outbound requests to user- or IdP-supplied URLs behind `src/lib/outbound-url-guard.ts` (`guardedFetch`); never add a raw `fetch()` to such URLs; tests that stub `globalThis.fetch` keep working because `guardedFetch` calls global fetch with a `dispatcher`
+- Run `npm audit` when changing dependencies and patch runtime advisories before merging
 - Ensure invite acceptance is email-scoped in `src/app/api/invites/accept/route.ts`
 
 **Critical Files**:
@@ -28,6 +30,7 @@
 - `src/lib/user-session.ts`
 - `src/lib/state-store.ts`
 - `src/proxy.ts`
+- `src/lib/outbound-url-guard.ts`
 - `src/repositories/auth-token.repo.ts`
 
 ### Auth Protocol Specialist
@@ -193,6 +196,7 @@
 - Nightly auth latency baselines live in `.github/workflows/nightly-performance.yml` and publish `test-results/performance/auth-latency-baseline.{md,json}` as artifacts
 - `Release Readiness` validates Vercel credentials, pulls production env vars, validates required env keys, and runs `vercel build --prod`
 - Production deploys in `.github/workflows/deploy-production.yml` rebuild artifacts in the deploy job before `vercel deploy --prebuilt`
+- `vercel.json` turns off Vercel Git-integration deploys for `main`; do not re-enable them, or production can go live before Turso migrations run
 
 ## Environment Variables
 - `MASTER_ENCRYPTION_KEY` (required) — 64-char hex AES key

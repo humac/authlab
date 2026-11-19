@@ -143,15 +143,23 @@ jobs:
             exit 1
           fi
 
+          # Validate the token against the project this workflow deploys.
+          # (/v2/user can return 404 for tokens without user scope, e.g. team-scoped tokens.)
+          scope_query=""
+          case "$VERCEL_ORG_ID" in
+            team_*) scope_query="?teamId=$VERCEL_ORG_ID" ;;
+          esac
+
           status_code="$(
-            curl -sS -o /tmp/vercel-user.json -w "%{http_code}" \
+            curl -sS -o /tmp/vercel-project.json -w "%{http_code}" \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
-              https://api.vercel.com/v2/user
+              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID$scope_query"
           )"
 
           if [ "$status_code" != "200" ]; then
-            echo "VERCEL_TOKEN is invalid or no longer accepted by Vercel (HTTP $status_code)."
-            echo "Update the VERCEL_TOKEN repository secret with a fresh token from Vercel Settings > Tokens."
+            error_code="$(jq -r ".error.code // \"unknown\"" /tmp/vercel-project.json 2>/dev/null || echo unknown)"
+            echo "Vercel rejected access to VERCEL_PROJECT_ID with this VERCEL_TOKEN (HTTP $status_code, error: $error_code)."
+            echo "Check that VERCEL_TOKEN is current and scoped to the team in VERCEL_ORG_ID, and that VERCEL_PROJECT_ID belongs to that team."
             exit 1
           fi
 

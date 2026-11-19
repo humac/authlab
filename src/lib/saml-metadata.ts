@@ -1,7 +1,6 @@
-import { lookup } from "node:dns/promises";
-import net from "node:net";
 import { parseStringPromise, processors } from "xml2js";
 import { sanitizeXml } from "./xxe-sanitizer";
+import { OutboundUrlBlockedError, guardedFetch } from "./outbound-url-guard";
 
 const HTTP_REDIRECT_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect";
 const HTTP_POST_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
@@ -313,91 +312,9 @@ export async function parseIdpMetadata(xml: string): Promise<ParsedIdpMetadata> 
   );
 }
 
-function isBlockedIpv4(ip: string): boolean {
-  const parts = ip.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return true;
-  }
-
-  const [a, b] = parts;
-  if (a === 0 || a === 10 || a === 127) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 192 && b === 0) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  if (a === 198 && b === 51) return true;
-  if (a === 203 && b === 0) return true;
-  if (a >= 224) return true;
-  return false;
-}
-
-function isBlockedIpv6(ip: string): boolean {
-  const normalized = ip.toLowerCase().split("%")[0];
-  if (normalized === "::" || normalized === "::1") return true;
-  if (normalized.startsWith("::ffff:")) {
-    const mapped = normalized.slice(7);
-    return net.isIP(mapped) === 4 ? isBlockedIpv4(mapped) : true;
-  }
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb")
-  ) {
-    return true;
-  }
-  if (normalized.startsWith("ff")) return true;
-  if (normalized.startsWith("2001:db8")) return true;
-  return false;
-}
-
-function isBlockedIp(address: string): boolean {
-  const family = net.isIP(address);
-  if (family === 4) return isBlockedIpv4(address);
-  if (family === 6) return isBlockedIpv6(address);
-  return true;
-}
-
-async function assertAllowedUrlTarget(url: URL): Promise<void> {
-  if (url.protocol !== "https:") {
-    throw new MetadataUrlBlockedError("Only HTTPS metadata URLs are allowed.");
-  }
-  if (url.username || url.password) {
-    throw new MetadataUrlBlockedError("Metadata URL must not contain credentials.");
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
-    throw new MetadataUrlBlockedError("Localhost metadata URLs are blocked.");
-  }
-
-  const ipFamily = net.isIP(hostname);
-  if (ipFamily !== 0) {
-    if (isBlockedIp(hostname)) {
-      throw new MetadataUrlBlockedError("Private/internal metadata URLs are blocked.");
-    }
-    return;
-  }
-
-  const addresses = await lookup(hostname, { all: true, verbatim: true }).catch(() => {
-    throw new MetadataFetchError("Could not resolve metadata URL hostname.");
-  });
-
-  if (addresses.length === 0) {
-    throw new MetadataFetchError("Metadata URL hostname resolved to no addresses.");
-  }
-
-  for (const address of addresses) {
-    if (isBlockedIp(address.address)) {
-      throw new MetadataUrlBlockedError(
-        "Metadata URL resolved to a blocked private/internal address.",
-      );
-    }
-  }
-}
+// Metadata URLs are always HTTPS-only and private-network targets are
+// blocked in every environment (not just production).
+const METADATA_OUTBOUND_POLICY = { httpsOnly: true, alwaysEnforce: true } as const;
 
 async function readResponseBodyWithLimit(response: Response): Promise<string> {
   if (!response.body) return "";
@@ -443,16 +360,20 @@ async function fetchMetadataXmlFromUrl(rawUrl: string): Promise<{ xml: string; w
   const warnings: string[] = [];
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    await assertAllowedUrlTarget(current);
-
-    const response = await fetch(current, {
-      method: "GET",
-      redirect: "manual",
-      headers: {
-        Accept: "application/samlmetadata+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+    const response = await guardedFetch(
+      current,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/samlmetadata+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    }).catch((error: unknown) => {
+      METADATA_OUTBOUND_POLICY,
+    ).catch((error: unknown) => {
+      if (error instanceof OutboundUrlBlockedError) {
+        throw new MetadataUrlBlockedError(error.message);
+      }
       if (error instanceof Error && error.name === "TimeoutError") {
         throw new MetadataFetchError("Metadata URL request timed out.");
       }

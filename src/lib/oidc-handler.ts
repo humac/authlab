@@ -1,5 +1,6 @@
 import * as client from "openid-client";
 import { decodeJwt } from "jose";
+import { guardedFetch, isPrivateOutboundAllowed } from "./outbound-url-guard";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import type {
   AuthHandler,
@@ -18,6 +19,11 @@ type OIDCIssuerComparisonError = {
   code?: string;
   cause?: OIDCIssuerComparisonCause;
 };
+
+// Every request openid-client makes (discovery, JWKS, token, userinfo, ...)
+// goes through the SSRF guard.
+const oidcGuardedFetch: client.CustomFetch = (url, options) =>
+  guardedFetch(url, options as RequestInit);
 
 const RESERVED_AUTH_PARAMS = new Set([
   "client_id",
@@ -188,12 +194,23 @@ export class OIDCHandler implements AuthHandler {
   }
 
   private async runDiscovery(issuerUrl: URL): Promise<client.Configuration> {
+    // Plain-HTTP issuers would send client secrets and tokens in cleartext.
+    // They are only allowed where private targets are (local dev, tests, or
+    // AUTHLAB_ALLOW_PRIVATE_OUTBOUND=true).
+    if (issuerUrl.protocol === "http:" && !isPrivateOutboundAllowed()) {
+      throw new Error(
+        "OIDC issuer URL must use HTTPS in production. Plain-HTTP issuers are only allowed in local development.",
+      );
+    }
+
     const config = await client.discovery(
       issuerUrl,
       this.appInstance.clientId!,
       undefined,
       client.ClientSecretPost(this.appInstance.clientSecret || undefined),
+      { [client.customFetch]: oidcGuardedFetch },
     );
+    config[client.customFetch] = oidcGuardedFetch;
 
     if (issuerUrl.protocol === "http:") {
       client.allowInsecureRequests(config);
@@ -268,7 +285,7 @@ export class OIDCHandler implements AuthHandler {
       );
     }
 
-    const response = await fetch(metadata.pushed_authorization_request_endpoint, {
+    const response = await guardedFetch(metadata.pushed_authorization_request_endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -502,7 +519,7 @@ export class OIDCHandler implements AuthHandler {
       throw new Error("Provider discovery metadata does not advertise a token endpoint.");
     }
 
-    const response = await fetch(metadata.token_endpoint, {
+    const response = await guardedFetch(metadata.token_endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -565,7 +582,7 @@ export class OIDCHandler implements AuthHandler {
       );
     }
 
-    const response = await fetch(metadata.device_authorization_endpoint, {
+    const response = await guardedFetch(metadata.device_authorization_endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -630,7 +647,7 @@ export class OIDCHandler implements AuthHandler {
       throw new Error("Provider discovery metadata does not advertise a token endpoint.");
     }
 
-    const response = await fetch(metadata.token_endpoint, {
+    const response = await guardedFetch(metadata.token_endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",
