@@ -196,6 +196,7 @@
 - Nightly auth latency baselines live in `.github/workflows/nightly-performance.yml` and publish `test-results/performance/auth-latency-baseline.{md,json}` as artifacts
 - `Release Readiness` validates Vercel credentials, pulls production env vars, validates required env keys, and runs `vercel build --prod`
 - Production deploys in `.github/workflows/deploy-production.yml` rebuild artifacts in the deploy job before `vercel deploy --prebuilt`
+- `vercel.json` turns off Vercel Git-integration deploys for `main`; do not re-enable them, or production can go live before Turso migrations run
 
 ## Environment Variables
 - `MASTER_ENCRYPTION_KEY` (required) — 64-char hex AES key

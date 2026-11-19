@@ -219,3 +219,5 @@ npm run build -- --webpack
 - `.github/workflows/deploy-production.yml` contains:
   - `verify-release`: re-validates quality, Vercel credentials, production env vars, and production artifact build
   - `deploy`: rebuilds Vercel artifacts, applies Turso migrations, then deploys with `vercel deploy --prebuilt --prod`
+- `vercel.json` disables Vercel Git-integration deployments for `main`, so the Actions workflow is the only production deploy path (migrations always run before the deploy). Preview deployments for other branches still come from the Git integration.
+- `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` repository secrets are required; if the token expires, `Release Readiness` fails and production does not deploy.

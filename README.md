@@ -313,6 +313,8 @@ The deploy workflow now:
 4. Applies pending SQL files from `prisma/turso-migrations/` to Turso
 5. Deploys the verified prebuilt artifact with `--prebuilt`
 
+`vercel.json` disables Vercel Git-integration deployments for `main`, so this workflow is the only production deploy path and migrations always land before the new code. Preview deployments for other branches and PRs still come from the Vercel Git integration.
+
 Required repository secrets:
 
 - `TURSO_API_TOKEN`
