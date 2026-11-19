@@ -7,6 +7,7 @@ import {
 } from "jose";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import { OIDCHandler } from "@/lib/oidc-handler";
+import { guardedFetch } from "./outbound-url-guard";
 
 const BACKCHANNEL_LOGOUT_EVENT =
   "http://schemas.openid.net/event/backchannel-logout";
@@ -24,7 +25,7 @@ export interface OidcBackchannelLogoutPayload {
 }
 
 async function fetchJwks(jwksUri: string): Promise<JSONWebKeySet> {
-  const response = await fetch(jwksUri, {
+  const response = await guardedFetch(jwksUri, {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });

@@ -86,7 +86,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     pathname.startsWith("/api/") &&
-    ["POST", "PUT", "DELETE"].includes(request.method)
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method)
   ) {
     const isSamlCallback = pathname.startsWith("/api/auth/callback/saml");
     const isProfileImageUpload = pathname === "/api/user/profile-image";
@@ -124,7 +124,7 @@ export async function proxy(request: NextRequest) {
         !pathname.includes("/logout") &&
         !isProfileImageUpload &&
         hasRequestBody &&
-        !contentType.includes("application/json")
+        !/application\/([a-z0-9.+-]+\+)?json/i.test(contentType)
       ) {
         return NextResponse.json(
           { error: "Content-Type must be application/json" },

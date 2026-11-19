@@ -2,6 +2,7 @@ import { lookup } from "node:dns/promises";
 import net from "node:net";
 import { parseStringPromise, processors } from "xml2js";
 import { sanitizeXml } from "./xxe-sanitizer";
+import { isBlockedIp } from "./outbound-url-guard";
 
 const HTTP_REDIRECT_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect";
 const HTTP_POST_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
@@ -311,54 +312,6 @@ export async function parseIdpMetadata(xml: string): Promise<ParsedIdpMetadata> 
   throw new MetadataValidationError(
     "No usable IDPSSODescriptor found with both SSO endpoint and certificate.",
   );
-}
-
-function isBlockedIpv4(ip: string): boolean {
-  const parts = ip.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
-    return true;
-  }
-
-  const [a, b] = parts;
-  if (a === 0 || a === 10 || a === 127) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 192 && b === 0) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  if (a === 198 && b === 51) return true;
-  if (a === 203 && b === 0) return true;
-  if (a >= 224) return true;
-  return false;
-}
-
-function isBlockedIpv6(ip: string): boolean {
-  const normalized = ip.toLowerCase().split("%")[0];
-  if (normalized === "::" || normalized === "::1") return true;
-  if (normalized.startsWith("::ffff:")) {
-    const mapped = normalized.slice(7);
-    return net.isIP(mapped) === 4 ? isBlockedIpv4(mapped) : true;
-  }
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb")
-  ) {
-    return true;
-  }
-  if (normalized.startsWith("ff")) return true;
-  if (normalized.startsWith("2001:db8")) return true;
-  return false;
-}
-
-function isBlockedIp(address: string): boolean {
-  const family = net.isIP(address);
-  if (family === 4) return isBlockedIpv4(address);
-  if (family === 6) return isBlockedIpv6(address);
-  return true;
 }
 
 async function assertAllowedUrlTarget(url: URL): Promise<void> {

@@ -44,6 +44,20 @@ describe("profile image hardening", { skip: skip || undefined }, () => {
     );
   });
 
+  it("rejects corrupt images with a generic error instead of libvips details", async () => {
+    const { sanitizeProfileImage } = await import("../../src/lib/profile-image.ts");
+    // Valid PNG signature/IHDR but truncated IDAT stream.
+    const corrupt = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mP8z8AARAAA//8DAF0BB6nN0dgAAAAASUVORK5CYII=",
+      "base64",
+    );
+
+    await assert.rejects(() => sanitizeProfileImage(corrupt), (error: Error) => {
+      assert.equal(error.message, "Image could not be processed");
+      return true;
+    });
+  });
+
   it("normalizes valid images and returns deterministic metadata", async () => {
     const { sanitizeProfileImage } = await import("../../src/lib/profile-image.ts");
 

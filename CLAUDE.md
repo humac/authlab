@@ -129,7 +129,13 @@ npm run build -- --webpack
 7. **CSP + session protections**
    - CSP set in proxy with nonce
    - nonce applied to inline theme script in root layout
-   - CSRF origin/content-type checks on mutating API calls
+   - CSRF origin/content-type checks on mutating API calls (POST/PUT/PATCH/DELETE; `application/json` and `application/*+json` accepted)
+
+8. **Outbound SSRF guard**
+   - `src/lib/outbound-url-guard.ts` blocks loopback/private/link-local/metadata targets for OIDC discovery, JWKS, token, PAR, device, and openid-client requests (via `customFetch`) and disables automatic redirects
+   - Enforced when `NODE_ENV=production`; local dev and tests may target localhost IdPs
+   - Self-hosted deployments that must test internal IdPs can set `AUTHLAB_ALLOW_PRIVATE_OUTBOUND=true`
+   - SAML metadata URL import shares the same IP blocklist and is always HTTPS + public-only
 
 ## Prisma Notes
 
@@ -164,10 +170,15 @@ npm run build -- --webpack
 - Local: `DATABASE_URL=file:./dev.db`
 - Production: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, and `DATABASE_URL` placeholder
 
+### Optional
+- `AUTHLAB_ALLOW_PRIVATE_OUTBOUND=true` — allow OIDC outbound requests to private/internal addresses in production (off by default; SSRF risk)
+
 ## Operational Notes
 
 - If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
 - Next.js 16 uses the `proxy` convention for request interception; the app now follows that convention.
+- Run `npm audit` when bumping dependencies; security patch PRs should leave it at 0 runtime advisories.
+- `react-hooks/set-state-in-effect` is downgraded to a warning in `eslint.config.mjs` after the eslint-config-next 16.4 upgrade; refactor flagged effects rather than adding new ones.
 - If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
 - Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.

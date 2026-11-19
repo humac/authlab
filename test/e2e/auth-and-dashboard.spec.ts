@@ -123,7 +123,7 @@ async function logoutViaApi(page: Page) {
 async function createAvatarFile(testInfo: TestInfo) {
   const filePath = testInfo.outputPath("avatar.png");
   const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mP8z8AARAAA//8DAF0BB6nN0dgAAAAASUVORK5CYII=",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWMwTjsDAAI1AWbfj2mEAAAAAElFTkSuQmCC",
     "base64",
   );
   await fs.mkdir(path.dirname(filePath), { recursive: true });

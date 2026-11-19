@@ -5,6 +5,7 @@ import {
   decodeProtectedHeader,
   type JSONWebKeySet,
 } from "jose";
+import { guardedFetch } from "./outbound-url-guard";
 
 export type OidcValidationStatus = "valid" | "invalid" | "missing" | "unavailable";
 
@@ -62,7 +63,7 @@ async function computeOidcHashValue(value: string, alg: string): Promise<string 
 }
 
 async function fetchJwks(jwksUri: string): Promise<JSONWebKeySet> {
-  const response = await fetch(jwksUri, {
+  const response = await guardedFetch(jwksUri, {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });

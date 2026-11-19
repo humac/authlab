@@ -8,6 +8,7 @@ import {
   fetchAndParseIdpMetadata,
   parseIdpMetadata,
 } from "@/lib/saml-metadata";
+import { getCurrentUser } from "@/lib/user-session";
 
 const ImportMetadataSchema = z.discriminatedUnion("source", [
   z.object({
@@ -21,6 +22,13 @@ const ImportMetadataSchema = z.discriminatedUnion("source", [
 ]);
 
 export async function POST(request: Request) {
+  // Defense in depth: do not rely solely on the proxy for auth on a route
+  // that makes outbound requests to caller-supplied URLs.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json(

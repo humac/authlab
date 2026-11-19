@@ -32,10 +32,14 @@ export async function sanitizeProfileImage(buffer: Buffer) {
   const format = mimeToSharpFormat(detected.mime);
 
   // Re-encode to strip EXIF metadata and normalize output.
+  // Never surface raw libvips errors to the client.
   const normalized = await sharp(buffer)
     .rotate()
     .toFormat(format)
-    .toBuffer();
+    .toBuffer()
+    .catch(() => {
+      throw new Error("Image could not be processed");
+    });
 
   if (normalized.length > MAX_IMAGE_BYTES) {
     throw new Error("Processed image exceeds 2MB limit");
