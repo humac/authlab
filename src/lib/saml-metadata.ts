@@ -1,8 +1,6 @@
-import { lookup } from "node:dns/promises";
-import net from "node:net";
 import { parseStringPromise, processors } from "xml2js";
 import { sanitizeXml } from "./xxe-sanitizer";
-import { isBlockedIp } from "./outbound-url-guard";
+import { OutboundUrlBlockedError, guardedFetch } from "./outbound-url-guard";
 
 const HTTP_REDIRECT_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect";
 const HTTP_POST_BINDING = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
@@ -314,43 +312,9 @@ export async function parseIdpMetadata(xml: string): Promise<ParsedIdpMetadata> 
   );
 }
 
-async function assertAllowedUrlTarget(url: URL): Promise<void> {
-  if (url.protocol !== "https:") {
-    throw new MetadataUrlBlockedError("Only HTTPS metadata URLs are allowed.");
-  }
-  if (url.username || url.password) {
-    throw new MetadataUrlBlockedError("Metadata URL must not contain credentials.");
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
-    throw new MetadataUrlBlockedError("Localhost metadata URLs are blocked.");
-  }
-
-  const ipFamily = net.isIP(hostname);
-  if (ipFamily !== 0) {
-    if (isBlockedIp(hostname)) {
-      throw new MetadataUrlBlockedError("Private/internal metadata URLs are blocked.");
-    }
-    return;
-  }
-
-  const addresses = await lookup(hostname, { all: true, verbatim: true }).catch(() => {
-    throw new MetadataFetchError("Could not resolve metadata URL hostname.");
-  });
-
-  if (addresses.length === 0) {
-    throw new MetadataFetchError("Metadata URL hostname resolved to no addresses.");
-  }
-
-  for (const address of addresses) {
-    if (isBlockedIp(address.address)) {
-      throw new MetadataUrlBlockedError(
-        "Metadata URL resolved to a blocked private/internal address.",
-      );
-    }
-  }
-}
+// Metadata URLs are always HTTPS-only and private-network targets are
+// blocked in every environment (not just production).
+const METADATA_OUTBOUND_POLICY = { httpsOnly: true, alwaysEnforce: true } as const;
 
 async function readResponseBodyWithLimit(response: Response): Promise<string> {
   if (!response.body) return "";
@@ -396,16 +360,20 @@ async function fetchMetadataXmlFromUrl(rawUrl: string): Promise<{ xml: string; w
   const warnings: string[] = [];
 
   for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-    await assertAllowedUrlTarget(current);
-
-    const response = await fetch(current, {
-      method: "GET",
-      redirect: "manual",
-      headers: {
-        Accept: "application/samlmetadata+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+    const response = await guardedFetch(
+      current,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/samlmetadata+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+        },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    }).catch((error: unknown) => {
+      METADATA_OUTBOUND_POLICY,
+    ).catch((error: unknown) => {
+      if (error instanceof OutboundUrlBlockedError) {
+        throw new MetadataUrlBlockedError(error.message);
+      }
       if (error instanceof Error && error.name === "TimeoutError") {
         throw new MetadataFetchError("Metadata URL request timed out.");
       }

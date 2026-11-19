@@ -35,6 +35,7 @@ AuthLab is a multi-tenant auth testing workbench for OIDC/SAML app flows, now wi
 - **MFA**: `otplib`, `qrcode`
 - **Email**: SMTP (`nodemailer`) and Brevo API v3
 - **Image hardening**: `file-type`, `sharp`
+- **Outbound SSRF guard**: `undici` (`Agent` dispatcher with connect-time IP checks)
 - **Password hashing**: Argon2id with legacy bcrypt verification/migration
 - **Sessions**: `iron-session`
 - **Validation**: Zod v4
@@ -132,10 +133,13 @@ npm run build -- --webpack
    - CSRF origin/content-type checks on mutating API calls (POST/PUT/PATCH/DELETE; `application/json` and `application/*+json` accepted)
 
 8. **Outbound SSRF guard**
-   - `src/lib/outbound-url-guard.ts` blocks loopback/private/link-local/metadata targets for OIDC discovery, JWKS, token, PAR, device, and openid-client requests (via `customFetch`) and disables automatic redirects
-   - Enforced when `NODE_ENV=production`; local dev and tests may target localhost IdPs
+   - `src/lib/outbound-url-guard.ts` `guardedFetch` covers OIDC discovery, JWKS, token, PAR, device, openid-client requests (via `customFetch`), and SAML metadata URL import; it disables automatic redirects
+   - IP literals are checked synchronously; hostnames are resolved and checked at socket-connect time by a shared `undici` `Agent` dispatcher (no DNS-rebinding window, one lookup per connection)
+   - The blocklist covers private/loopback/link-local/CGNAT/doc/multicast IPv4 and IPv6, including IPv6 forms that embed IPv4 (IPv4-compatible, mapped, NAT64, 6to4, Teredo)
+   - Blocked, private, and unresolvable targets all return one generic error to callers (no internal-DNS oracle); the detail is logged server-side
+   - OIDC enforcement applies when `NODE_ENV=production` (plain-HTTP issuers are also rejected there); local dev and tests may target localhost IdPs
    - Self-hosted deployments that must test internal IdPs can set `AUTHLAB_ALLOW_PRIVATE_OUTBOUND=true`
-   - SAML metadata URL import shares the same IP blocklist and is always HTTPS + public-only
+   - SAML metadata URL import is always HTTPS-only and always enforced (`{ httpsOnly: true, alwaysEnforce: true }`)
 
 ## Prisma Notes
 

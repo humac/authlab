@@ -37,7 +37,9 @@ export async function sanitizeProfileImage(buffer: Buffer) {
     .rotate()
     .toFormat(format)
     .toBuffer()
-    .catch(() => {
+    .catch((error: unknown) => {
+      // Keep the real cause (e.g. a broken libvips install) in server logs.
+      console.error("sanitizeProfileImage: sharp re-encode failed:", error);
       throw new Error("Image could not be processed");
     });
 

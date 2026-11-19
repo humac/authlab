@@ -16,7 +16,7 @@
 - Check profile image hardening in `src/lib/profile-image.ts` (magic bytes, type allowlist, size, EXIF stripping)
 - Confirm write-only secret handling for SMTP/Brevo in `src/lib/email-provider.ts`
 - Validate CSP + CSRF controls in `src/proxy.ts` and nonce usage in `src/app/layout.tsx`
-- Keep server-side outbound requests to user- or IdP-supplied URLs behind `src/lib/outbound-url-guard.ts` (`guardedFetch`); never add a raw `fetch()` to such URLs
+- Keep server-side outbound requests to user- or IdP-supplied URLs behind `src/lib/outbound-url-guard.ts` (`guardedFetch`); never add a raw `fetch()` to such URLs; tests that stub `globalThis.fetch` keep working because `guardedFetch` calls global fetch with a `dispatcher`
 - Run `npm audit` when changing dependencies and patch runtime advisories before merging
 - Ensure invite acceptance is email-scoped in `src/app/api/invites/accept/route.ts`
 

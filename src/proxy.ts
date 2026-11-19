@@ -44,6 +44,14 @@ function isAdminRoute(pathname: string): boolean {
   );
 }
 
+// Match on the MIME essence only, so parameters such as
+// "text/plain; x=application/json" (a CORS-safelisted type that skips
+// preflight) cannot satisfy the check.
+function isJsonContentType(contentType: string): boolean {
+  const essence = contentType.split(";")[0].trim().toLowerCase();
+  return /^application\/([a-z0-9!#function isAuthPage(pathname: string): boolean {^_.-]+\+)?json$/.test(essence);
+}
+
 function isAuthPage(pathname: string): boolean {
   return pathname === "/login" || pathname === "/register";
 }
@@ -124,7 +132,7 @@ export async function proxy(request: NextRequest) {
         !pathname.includes("/logout") &&
         !isProfileImageUpload &&
         hasRequestBody &&
-        !/application\/([a-z0-9.+-]+\+)?json/i.test(contentType)
+        !isJsonContentType(contentType)
       ) {
         return NextResponse.json(
           { error: "Content-Type must be application/json" },

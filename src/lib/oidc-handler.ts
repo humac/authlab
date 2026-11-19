@@ -1,6 +1,6 @@
 import * as client from "openid-client";
 import { decodeJwt } from "jose";
-import { guardedFetch } from "./outbound-url-guard";
+import { guardedFetch, isPrivateOutboundAllowed } from "./outbound-url-guard";
 import type { DecryptedAppInstance } from "@/types/app-instance";
 import type {
   AuthHandler,
@@ -194,6 +194,15 @@ export class OIDCHandler implements AuthHandler {
   }
 
   private async runDiscovery(issuerUrl: URL): Promise<client.Configuration> {
+    // Plain-HTTP issuers would send client secrets and tokens in cleartext.
+    // They are only allowed where private targets are (local dev, tests, or
+    // AUTHLAB_ALLOW_PRIVATE_OUTBOUND=true).
+    if (issuerUrl.protocol === "http:" && !isPrivateOutboundAllowed()) {
+      throw new Error(
+        "OIDC issuer URL must use HTTPS in production. Plain-HTTP issuers are only allowed in local development.",
+      );
+    }
+
     const config = await client.discovery(
       issuerUrl,
       this.appInstance.clientId!,
