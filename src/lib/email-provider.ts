@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import { decrypt, encrypt } from "@/lib/encryption";
 import { getSetting, setSetting } from "@/repositories/system-setting.repo";
+import { guardedFetch } from "@/lib/outbound-url-guard";
+
+const BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email";
 
 export type EmailProviderType = "SMTP" | "BREVO";
 
@@ -195,23 +198,29 @@ async function sendWithBrevo(config: Required<BrevoConfigInput>, email: SendEmai
     throw new Error("Brevo API key is required");
   }
 
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": apiKey,
-    },
-    body: JSON.stringify({
-      sender: {
-        name: config.fromName,
-        email: config.fromEmail,
+  // Fixed first-party API host; still routed through the guard so server code
+  // has no unguarded outbound requests (enforced by authlab/no-unguarded-outbound).
+  const res = await guardedFetch(
+    BREVO_SEND_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
       },
-      to: [{ email: email.to }],
-      subject: email.subject,
-      textContent: email.text,
-      htmlContent: email.html,
-    }),
-  });
+      body: JSON.stringify({
+        sender: {
+          name: config.fromName,
+          email: config.fromEmail,
+        },
+        to: [{ email: email.to }],
+        subject: email.subject,
+        textContent: email.text,
+        htmlContent: email.html,
+      }),
+    },
+    { httpsOnly: true },
+  );
 
   if (!res.ok) {
     const bodyText = await res.text();
