@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertScimAuthorized } from "@/lib/scim";
+import { assertScimAuthorized, scimUnauthorizedResponse } from "@/lib/scim";
 import { getAppInstanceBySlug } from "@/repositories/app-instance.repo";
 import { createScimRequestLog } from "@/repositories/scim.repo";
 import type { ScimResourceType } from "@/generated/prisma/client/enums";
@@ -18,21 +18,17 @@ export async function getScimApp(
   slug: string,
   request: Request,
 ): Promise<ScimAppResult> {
+  // SCIM routes are reachable without a session, so an unknown slug gets the
+  // same 401 as a bad token; a 404 would let anyone enumerate app slugs.
   const app = await getAppInstanceBySlug(slug);
-  if (!app) {
+  const auth = app ? assertScimAuthorized(app, request) : null;
+  if (!app || !auth?.ok) {
+    const denied = auth && !auth.ok ? auth.response : scimUnauthorizedResponse();
     return {
       ok: false,
-      response: NextResponse.json({ detail: "SCIM app not found" }, { status: 404 }),
-    };
-  }
-
-  const auth = assertScimAuthorized(app, request);
-  if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(await auth.response.json(), {
-        status: auth.response.status,
-        headers: auth.response.headers,
+      response: NextResponse.json(await denied.json(), {
+        status: denied.status,
+        headers: denied.headers,
       }),
     };
   }
