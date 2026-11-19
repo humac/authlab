@@ -134,7 +134,9 @@ npm run build -- --webpack
    - CSRF origin/content-type checks on mutating API calls (POST/PUT/PATCH/DELETE; `application/json` and `application/*+json` accepted)
 
 8. **Outbound SSRF guard**
-   - `src/lib/outbound-url-guard.ts` `guardedFetch` covers OIDC discovery, JWKS, token, PAR, device, openid-client requests (via `customFetch`), and SAML metadata URL import; it disables automatic redirects
+   - `src/lib/outbound-url-guard.ts` `guardedFetch` covers OIDC discovery, JWKS, token, PAR, device, openid-client requests (via `customFetch`), SAML metadata URL import, and the Brevo email API; it disables automatic redirects
+   - Enforced automatically by the `authlab/no-unguarded-outbound` lint rule (`eslint-rules/no-unguarded-outbound.mjs`, run in CI): in any non-`"use client"` file under `src`, it rejects `fetch()` / `globalThis.fetch()`, imports of `http`/`https`/`undici`/`axios`/`node-fetch`/`got`, and `openid-client` `discovery()` / `new Configuration()` outside `src/lib/oidc-handler.ts`. Only the guard module itself is exempt
+   - `test/security/outbound-enforcement.test.ts` proves the rule fires and fails if the rule is disabled in `src` (named or blanket `eslint-disable`)
    - IP literals are checked synchronously; hostnames are resolved and checked at socket-connect time by a shared `undici` `Agent` dispatcher (no DNS-rebinding window, one lookup per connection)
    - The blocklist covers private/loopback/link-local/CGNAT/doc/multicast IPv4 and IPv6, including IPv6 forms that embed IPv4 (IPv4-compatible, mapped, NAT64, 6to4, Teredo)
    - Blocked, private, and unresolvable targets all return one generic error to callers (no internal-DNS oracle); the detail is logged server-side

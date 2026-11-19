@@ -17,7 +17,7 @@
 - Confirm write-only secret handling for SMTP/Brevo in `src/lib/email-provider.ts`
 - Validate CSP + CSRF controls in `src/proxy.ts` and nonce usage in `src/app/layout.tsx`
 - Any new `/api/scim/*` route must call `getScimApp()` (bearer auth); the proxy treats that prefix as public
-- Keep server-side outbound requests to user- or IdP-supplied URLs behind `src/lib/outbound-url-guard.ts` (`guardedFetch`); never add a raw `fetch()` to such URLs; tests that stub `globalThis.fetch` keep working because `guardedFetch` calls global fetch with a `dispatcher`
+- Make every server-side outbound HTTP request with `guardedFetch` from `src/lib/outbound-url-guard.ts`; the `authlab/no-unguarded-outbound` lint rule fails CI on raw `fetch()`, raw HTTP client imports, or `openid-client` discovery outside `oidc-handler.ts`, and it must not be disabled; tests that stub `globalThis.fetch` keep working because `guardedFetch` calls global fetch with a `dispatcher`
 - Run `npm audit` when changing dependencies and patch runtime advisories before merging
 - Ensure invite acceptance is email-scoped in `src/app/api/invites/accept/route.ts`
 
