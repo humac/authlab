@@ -183,7 +183,7 @@ npm run build -- --webpack
 - If no active email provider is configured, verification/reset endpoints keep generic responses and suppress sensitive failures.
 - Next.js 16 uses the `proxy` convention for request interception; the app now follows that convention.
 - Run `npm audit` when bumping dependencies; security patch PRs should leave it at 0 runtime advisories.
-- `react-hooks/set-state-in-effect` is downgraded to a warning in `eslint.config.mjs` after the eslint-config-next 16.4 upgrade; refactor flagged effects rather than adding new ones.
+- `react-hooks/set-state-in-effect` is enforced as an error. For client-only values (window origin, "mounted"), use `useClientValue` / `useHydrated` from `src/lib/use-hydrated.ts`; for data loading, fetch in a module-level helper and set state only in the effect's `.then` with a cancellation guard.
 - If Turbopack build panics, use webpack build path (`npm run build -- --webpack`).
 - Auth flow state is persisted in `iron-session` cookies (not in-memory), enabling reliable callback routing across serverless/runtime boundaries.
 - SAML callback endpoints return `303` after POST and rely on RelayState/state-store roundtrip.

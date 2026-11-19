@@ -18,6 +18,12 @@ interface PasskeyItem {
   lastUsedAt: string | null;
 }
 
+async function fetchPasskeyList(): Promise<PasskeyItem[] | null> {
+  const res = await fetch("/api/user/passkeys");
+  const data = await res.json();
+  return res.ok ? data.credentials || [] : null;
+}
+
 export default function SettingsPage() {
   const user = useUser();
   const router = useRouter();
@@ -36,7 +42,10 @@ export default function SettingsPage() {
   const [settingDefaultTeamId, setSettingDefaultTeamId] = useState<string | null>(null);
 
   const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
-  const [loadingPasskeys, setLoadingPasskeys] = useState(false);
+  // Passkeys load on mount unless a forced password change hides the section.
+  const [loadingPasskeys, setLoadingPasskeys] = useState(
+    () => !(user.mustChangePassword || searchParams.get("forcePasswordChange") === "1"),
+  );
   const [mfaEnabled, setMfaEnabled] = useState(user.mfaEnabled);
   const [totpQr, setTotpQr] = useState("");
   const [totpManualKey, setTotpManualKey] = useState("");
@@ -44,7 +53,8 @@ export default function SettingsPage() {
   const [totpDisableCode, setTotpDisableCode] = useState("");
   const [totpDisablePassword, setTotpDisablePassword] = useState("");
   const [avatarVersion, setAvatarVersion] = useState(0);
-  const [avatarHasError, setAvatarHasError] = useState(false);
+  // Remember which URL failed so a new avatarVersion clears the error without an effect.
+  const [avatarErrorUrl, setAvatarErrorUrl] = useState<string | null>(null);
 
   const forcePasswordChange =
     user.mustChangePassword || searchParams.get("forcePasswordChange") === "1";
@@ -53,30 +63,33 @@ export default function SettingsPage() {
     () => `/api/user/profile-image?v=${avatarVersion}`,
     [avatarVersion],
   );
+  const avatarHasError = avatarErrorUrl === avatarUrl;
   const avatarFallback =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23dfe7f6'/%3E%3Ctext x='50%25' y='53%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='20' fill='%233B71CA'%3E%3F%3C/text%3E%3C/svg%3E";
 
   async function loadPasskeys() {
     setLoadingPasskeys(true);
     try {
-      const res = await fetch("/api/user/passkeys");
-      const data = await res.json();
-      if (res.ok) {
-        setPasskeys(data.credentials || []);
-      }
+      const list = await fetchPasskeyList();
+      if (list) setPasskeys(list);
     } finally {
       setLoadingPasskeys(false);
     }
   }
 
   useEffect(() => {
-    setAvatarHasError(false);
-  }, [avatarUrl]);
-
-  useEffect(() => {
-    if (!forcePasswordChange) {
-      void loadPasskeys();
-    }
+    if (forcePasswordChange) return;
+    let cancelled = false;
+    fetchPasskeyList()
+      .then((list) => {
+        if (!cancelled && list) setPasskeys(list);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPasskeys(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [forcePasswordChange]);
 
   async function handleProfile(e: React.FormEvent) {
@@ -368,7 +381,6 @@ export default function SettingsPage() {
       }
 
       setAvatarVersion((v) => v + 1);
-      setAvatarHasError(false);
       setSuccess("Profile image updated");
       router.refresh();
     } catch {
@@ -392,7 +404,6 @@ export default function SettingsPage() {
         return;
       }
       setAvatarVersion((v) => v + 1);
-      setAvatarHasError(false);
       setSuccess("Profile image removed");
       router.refresh();
     } catch {
@@ -444,7 +455,7 @@ export default function SettingsPage() {
               height={64}
               unoptimized
               className="h-16 w-16 rounded-full border border-[var(--border)] bg-[var(--surface)] object-cover"
-              onError={() => setAvatarHasError(true)}
+              onError={() => setAvatarErrorUrl(avatarUrl)}
             />
             <div className="min-w-0 flex-1 space-y-2">
               <div>

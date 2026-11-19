@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ClaimsTable } from "./ClaimsTable";
@@ -451,7 +452,7 @@ export function LifecyclePanel({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const refreshDiagnostics = getRefreshDiagnostics(grantType, status, hasRefreshToken, events);
   const authContext = getAuthContextDiagnostics(grantType, claims);
   const posture = getPosture(
@@ -471,10 +472,6 @@ export function LifecyclePanel({
     events,
     mounted,
   );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function runAction(
     action: string,

@@ -33,6 +33,16 @@ interface TeamData {
   members: Member[];
 }
 
+async function fetchTeamData(id: string): Promise<TeamData | null> {
+  const res = await fetch(`/api/teams/${id}`);
+  return res.ok ? ((await res.json()) as TeamData) : null;
+}
+
+async function fetchInviteList(id: string): Promise<Invite[] | null> {
+  const res = await fetch(`/api/teams/${id}/invites`);
+  return res.ok ? ((await res.json()) as Invite[]) : null;
+}
+
 export default function TeamDetailPage() {
   const user = useUser();
   const { id } = useParams<{ id: string }>();
@@ -57,26 +67,36 @@ export default function TeamDetailPage() {
     : false;
 
   const fetchTeam = useCallback(async () => {
-    const res = await fetch(`/api/teams/${id}`);
-    if (res.ok) {
-      setTeam(await res.json());
-    }
+    const data = await fetchTeamData(id);
+    if (data) setTeam(data);
   }, [id]);
 
   const fetchInvites = useCallback(async () => {
-    const res = await fetch(`/api/teams/${id}/invites`);
-    if (res.ok) {
-      setInvites(await res.json());
-    }
+    const data = await fetchInviteList(id);
+    if (data) setInvites(data);
   }, [id]);
 
   useEffect(() => {
-    const requests = [fetchTeam()];
+    let cancelled = false;
+    const requests: Promise<void>[] = [
+      fetchTeamData(id).then((data) => {
+        if (!cancelled && data) setTeam(data);
+      }),
+    ];
     if (canManage) {
-      requests.push(fetchInvites());
+      requests.push(
+        fetchInviteList(id).then((data) => {
+          if (!cancelled && data) setInvites(data);
+        }),
+      );
     }
-    Promise.all(requests).finally(() => setLoading(false));
-  }, [canManage, fetchInvites, fetchTeam]);
+    Promise.all(requests).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManage, id]);
 
   const filteredMembers = useMemo(
     () =>

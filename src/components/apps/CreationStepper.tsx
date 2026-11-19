@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useClientValue } from "@/lib/use-hydrated";
 import { useRouter } from "next/navigation";
 import { Stepper } from "@/components/ui/Stepper";
 import { Button } from "@/components/ui/Button";
@@ -85,7 +86,8 @@ export function CreationStepper() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [appUrl, setAppUrl] = useState(
+  const appUrl = useClientValue(
+    () => window.location.origin.replace(/\/+$/, ""),
     (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, ""),
   );
 
@@ -104,12 +106,6 @@ export function CreationStepper() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
   };
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAppUrl(window.location.origin.replace(/\/+$/, ""));
-    }
-  }, []);
 
   const displaySlug = formData.slug || "your-slug";
   const testUrl = `${appUrl}/test/${displaySlug}`;

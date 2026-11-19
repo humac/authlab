@@ -104,6 +104,21 @@ function toSlug(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+type DirectoryResult = { teams: TeamDirectoryTeam[] } | { error: string };
+
+async function fetchDirectory(): Promise<DirectoryResult> {
+  try {
+    const res = await fetch("/api/teams/directory");
+    const data = await res.json();
+    if (!res.ok) {
+      return { error: data.error || "Failed to load teams" };
+    }
+    return { teams: data.teams || [] };
+  } catch {
+    return { error: "An unexpected error occurred while loading teams" };
+  }
+}
+
 export default function TeamsPage() {
   const user = useUser();
   const router = useRouter();
@@ -128,26 +143,38 @@ export default function TeamsPage() {
   const [reviewTarget, setReviewTarget] = useState<TeamDirectoryTeam | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
+  function applyDirectoryResult(result: DirectoryResult) {
+    if ("error" in result) {
+      setError(result.error);
+    } else {
+      setTeams(result.teams);
+    }
+  }
+
   async function loadDirectory() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/teams/directory");
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to load teams");
-        return;
-      }
-      setTeams(data.teams || []);
-    } catch {
-      setError("An unexpected error occurred while loading teams");
+      applyDirectoryResult(await fetchDirectory());
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadDirectory();
+    let cancelled = false;
+    fetchDirectory().then((result) => {
+      if (cancelled) return;
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setTeams(result.teams);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredTeams = useMemo(
